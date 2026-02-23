@@ -39,7 +39,6 @@ Deploy Reflector on a single server with everything running in Docker. Transcrip
   - **Any S3-compatible provider** (Backblaze B2, Cloudflare R2, DigitalOcean Spaces, etc.): same fields + custom endpoint URL
 
 **Optional add-ons (configure after initial setup):**
-- **Daily.co** (live meeting rooms): Requires a Daily.co account (https://www.daily.co/), API key, subdomain, and an AWS S3 bucket + IAM Role for recording storage. See [Enabling Daily.co Live Rooms](#enabling-dailyco-live-rooms) below.
 - **Authentik** (user authentication): Requires an Authentik instance with an OAuth2/OIDC application configured for Reflector. See [Enabling Authentication](#enabling-authentication-authentik) below.
 
 ## Quick Start
@@ -339,23 +338,6 @@ By default, authentication is disabled (`AUTH_BACKEND=none`, `FEATURE_REQUIRE_LO
    ```
 5. Restart: `docker compose -f docker-compose.selfhosted.yml down && ./scripts/setup-selfhosted.sh <same-flags>`
 
-## Enabling Daily.co Live Rooms
-
-Daily.co enables real-time meeting rooms with automatic recording and transcription.
-
-1. Create a [Daily.co](https://www.daily.co/) account
-2. Add to `server/.env`:
-   ```env
-   DEFAULT_VIDEO_PLATFORM=daily
-   DAILY_API_KEY=your-daily-api-key
-   DAILY_SUBDOMAIN=your-subdomain
-   DAILY_WEBHOOK_SECRET=your-webhook-secret
-   DAILYCO_STORAGE_AWS_BUCKET_NAME=reflector-dailyco
-   DAILYCO_STORAGE_AWS_REGION=us-east-1
-   DAILYCO_STORAGE_AWS_ROLE_ARN=arn:aws:iam::role/DailyCoAccess
-   ```
-3. Restart the server: `docker compose -f docker-compose.selfhosted.yml restart server worker`
-
 ## Enabling Real Domain with Let's Encrypt
 
 By default, Caddy uses self-signed certificates. For a real domain:
@@ -517,3 +499,9 @@ The setup script is idempotent — it won't overwrite existing secrets or env va
 ```
 
 All services communicate over Docker's internal network. Only Caddy (if enabled) exposes ports to the internet.
+
+## Future Plans for the Self-Hosted Script
+
+The following features are supported by Reflector but are **not yet integrated into the self-hosted setup script** and require manual configuration:
+
+- **Daily.co live rooms with multitrack processing**: Daily.co enables real-time meeting rooms with automatic recording and per-participant audio tracks for improved diarization. Requires a Daily.co account, API key, and an AWS S3 bucket for recording storage. Currently not automated in the script because the worker orchestration (hatchet) is not yet supported in the selfhosted compose setup.
