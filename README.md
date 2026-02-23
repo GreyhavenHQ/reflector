@@ -44,22 +44,100 @@ Reflector is a web application that utilizes local models to process audio conte
 - **Topic Detection & Summarization**: Extract key topics and generate concise summaries using LLMs
 - **Meeting Recording**: Create permanent records of meetings with searchable transcripts
 
-Currently we provide [modal.com](https://modal.com/) gpu template to deploy.
+## Architecture
 
-## Background
+The project consists of three primary components:
 
-The project architecture consists of three primary components:
+- **Back-End**: Python FastAPI server with async database operations and background processing, found in `server/`.
+- **Front-End**: Next.js 14 React application with Chakra UI, located in `www/`.
+- **GPU Models**: Specialized ML models for transcription, diarization, translation, and summarization.
 
-- **Back-End**: Python server that offers an API and data persistence, found in `server/`.
-- **Front-End**: NextJS React project hosted on Vercel, located in `www/`.
-- **GPU implementation**: Providing services such as speech-to-text transcription, topic generation, automated summaries, and translations.
+Currently, Reflector supports two input methods:
+- **Screenshare capture**: Real-time audio capture from your browser via WebRTC
+- **Audio file upload**: Upload pre-recorded audio files for processing
 
-It also uses authentik for authentication if activated.
+## Installation
 
-## Contribution Guidelines
+For full deployment instructions, see the [Self-Hosted Production Guide](docsv2/selfhosted-production.md) and the [Architecture Reference](docsv2/selfhosted-architecture.md).
 
-All new contributions should be made in a separate branch, and goes through a Pull Request.
-[Conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) must be used for the PR title and commits.
+### Self-Hosted Deployment
+
+The self-hosted setup script configures and launches everything on a single server:
+
+```bash
+# GPU with local Ollama LLM, local S3 storage, and Caddy reverse proxy
+./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy
+
+# With a custom domain (enables Let's Encrypt auto-HTTPS)
+./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --domain reflector.example.com
+
+# CPU-only mode (slower, no NVIDIA GPU required)
+./scripts/setup-selfhosted.sh --cpu --ollama-cpu --garage --caddy
+
+# With password authentication
+./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --password mysecretpass
+```
+
+The script is idempotent and safe to re-run. See `./scripts/setup-selfhosted.sh --help` for all options.
+
+### Authentication
+
+Reflector supports three authentication modes:
+
+- **Password authentication (recommended for self-hosted / single-user)**: Use the `--password` flag in the setup script. This creates an `admin@localhost` user with the provided password. Users must log in to create, edit, or delete transcripts.
+
+  ```bash
+  ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --password mysecretpass
+  ```
+
+- **Authentik OIDC**: For multi-user or enterprise deployments, Reflector supports [Authentik](https://goauthentik.io/) as an OAuth/OIDC provider. This enables SSO, LDAP/AD integration, and centralized user management. Requires configuring `AUTH_BACKEND=jwt` on the backend and `AUTH_PROVIDER=authentik` on the frontend. See the [Self-Hosted Production Guide](docsv2/selfhosted-production.md) for details.
+
+- **Public mode (default when no auth is configured)**: If neither password nor Authentik is set up, Reflector runs in public mode. In this mode, no login is required — anyone with access to the URL can use the application. Transcripts are created anonymously (not tied to any user account), which means they **cannot be edited or deleted** through the UI or API. Anonymous transcripts are automatically cleaned up after 7 days. This mode is suitable for demos or testing but not recommended for production use.
+
+### Development Setup
+
+```bash
+# Backend
+cd server
+uv sync
+docker compose up -d redis
+uv run alembic upgrade head
+uv run -m reflector.app --reload
+
+# In a separate terminal — start the worker
+cd server
+uv run celery -A reflector.worker.app worker --loglevel=info
+
+# Frontend
+cd www
+pnpm install
+cp .env_template .env
+pnpm dev
+```
+
+### Modal.com GPU (Optional)
+
+Reflector also supports deploying specialized models (transcription, diarization) to [Modal.com](https://modal.com/) for serverless GPU processing. This is **not integrated into the self-hosted setup script** and must be configured manually.
+
+See [Modal.com Setup Guide](docs/docs/installation/modal-setup.md) for deployment instructions.
+
+## Audio Processing Commands
+
+### Process a local audio file
+
+```bash
+cd server
+uv run python -m reflector.tools.process path/to/audio.wav
+```
+
+### Reprocess an existing transcription
+
+Re-run the processing pipeline on a previously uploaded transcription by its UUID:
+
+```bash
+cd server
+uv run -m reflector.tools.process_transcript <transcript-uuid> --sync
+```
 
 ## Usage
 
@@ -87,96 +165,9 @@ Note: We currently do not have instructions for Windows users.
 - Then goto `System Preferences -> Sound` and choose the devices created from the Output and Input tabs.
 - The input from your local microphone, the browser run meeting should be aggregated into one virtual stream to listen to and the output should be fed back to your specified output devices if everything is configured properly.
 
-## Installation
-
-*Note: we're working toward better installation, theses instructions are not accurate for now*
-
-### Frontend
-
-Start with `cd www`.
-
-**Installation**
-
-```bash
-pnpm install
-cp .env.example .env
-```
-
-Then, fill in the environment variables in `.env` as needed. If you are unsure on how to proceed, ask in Zulip.
-
-**Run in development mode**
-
-```bash
-pnpm dev
-```
-
-Then (after completing server setup and starting it) open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-**OpenAPI Code Generation**
-
-To generate the TypeScript files from the openapi.json file, make sure the python server is running, then run:
-
-```bash
-pnpm openapi
-```
-
-### Backend
-
-Start with `cd server`.
-
-**Run in development mode**
-
-```bash
-docker compose up -d redis
-
-# on the first run, or if the schemas changed
-uv run alembic upgrade head
-
-# start the worker
-uv run celery -A reflector.worker.app worker --loglevel=info
-
-# start the app
-uv run -m reflector.app --reload
-```
-
-Then fill `.env` with the omitted values (ask in Zulip).
-
-**Crontab (optional)**
-
-For crontab (only healthcheck for now), start the celery beat (you don't need it on your local dev environment):
-
-```bash
-uv run celery -A reflector.worker.app beat
-```
-
-### GPU models
-
-Currently, reflector heavily use custom local models, deployed on modal. All the micro services are available in server/gpu/
-
-To deploy llm changes to modal, you need:
-- a modal account
-- set up the required secret in your modal account (REFLECTOR_GPU_APIKEY)
-- install the modal cli
-- connect your modal cli to your account if not done previously
-- `modal run path/to/required/llm`
-
-## Using local files
-
-You can manually process an audio file by calling the process tool:
-
-```bash
-uv run python -m reflector.tools.process path/to/audio.wav
-```
-
-## Reprocessing any transcription
-
-```bash
-uv run -m reflector.tools.process_transcript 81ec38d1-9dd7-43d2-b3f8-51f4d34a07cd --sync
-```
-
 ## Build-time env variables
 
-Next.js projects are more used to NEXT_PUBLIC_ prefixed buildtime vars. We don't have those for the reason we need to serve a ccustomizable prebuild docker container.
+Next.js projects are more used to NEXT_PUBLIC_ prefixed buildtime vars. We don't have those for the reason we need to serve a customizable prebuilt docker container.
 
 Instead, all the variables are runtime. Variables needed to the frontend are served to the frontend app at initial render.
 
@@ -211,3 +202,16 @@ FEATURE_BROWSE=false
 # Enable Zulip integration
 FEATURE_SEND_TO_ZULIP=true
 ```
+
+## Contribution Guidelines
+
+All new contributions should be made in a separate branch, and goes through a Pull Request.
+[Conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) must be used for the PR title and commits.
+
+## Future Plans
+
+- **Daily.co integration with multitrack processing**: Support for Daily.co live rooms with per-participant audio tracks for improved diarization and transcription quality.
+
+## Legacy Documentation
+
+The `docs/` folder contains an older Docusaurus-based documentation site. These docs are **no longer actively maintained** and may be outdated. For current installation and deployment instructions, refer to the [`docsv2/`](docsv2/) folder instead.
