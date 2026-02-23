@@ -34,7 +34,7 @@ Reflector is an AI-powered audio transcription and meeting analysis platform tha
   </tr>
 </table>
 
-<p align="center">By <a href="https://greyhaven.co">Greyhaven</a></p>
+<p align="center" style="font-size: 1.5em; font-weight: bold;">By <a href="https://greyhaven.co">Greyhaven</a></p>
 
 ## What is Reflector?
 
