@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/Monadical-SAS/reflector/compare/v0.34.0...v0.35.0) (2026-02-23)
+
+
+### Features
+
+* Add Single User authentication to Selfhosted ([#870](https://github.com/Monadical-SAS/reflector/issues/870)) ([c8db373](https://github.com/Monadical-SAS/reflector/commit/c8db37362b6cfd8f772aee8857de2909f283c029))
+
 ## [0.34.0](https://github.com/Monadical-SAS/reflector/compare/v0.33.0...v0.34.0) (2026-02-20)
 
 
