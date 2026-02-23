@@ -34,6 +34,8 @@ Reflector is an AI-powered audio transcription and meeting analysis platform tha
   </tr>
 </table>
 
+<p align="center">By <a href="https://greyhaven.co">Greyhaven</a></p>
+
 ## What is Reflector?
 
 Reflector is a web application that utilizes local models to process audio content, providing:
@@ -210,7 +212,13 @@ All new contributions should be made in a separate branch, and goes through a Pu
 
 ## Future Plans
 
-- **Daily.co integration with multitrack processing**: Support for Daily.co live rooms with per-participant audio tracks for improved diarization and transcription quality.
+- **Multi-language support enhancement**: Default language selection per room/user, automatic language detection improvements, multi-language diarization, and RTL language UI support
+- **Jitsi integration**: Self-hosted video conferencing rooms with no external API keys, full control over video infrastructure, and enhanced privacy
+- **Calendar integration**: Google Calendar and Microsoft Outlook synchronization, automatic meeting room creation, and post-meeting transcript delivery
+- **Enhanced analytics**: Meeting insights dashboard, speaker participation metrics, topic trends over time, and team collaboration patterns
+- **Advanced AI features**: Real-time sentiment analysis, emotion detection, meeting quality scores, and automated coaching suggestions
+- **Integration ecosystem**: Slack/Teams notifications, CRM integration (Salesforce, HubSpot), project management tools (Jira, Asana), and knowledge bases (Notion, Confluence)
+- **Performance improvements**: WebAssembly for client-side processing, edge computing support, and network optimization
 
 ## Legacy Documentation
 
