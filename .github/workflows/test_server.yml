@@ -34,7 +34,7 @@ jobs:
           uv run -m pytest -v tests
 
   docker-amd64:
-    runs-on: linux-amd64
+    runs-on: [linux-amd64]
     concurrency:
       group: docker-amd64-${{ github.ref }}
       cancel-in-progress: true
@@ -52,7 +52,7 @@ jobs:
           github-token: ${{ secrets.GHA_CACHE_TOKEN }}
 
   docker-arm64:
-    runs-on: linux-arm64
+    runs-on: [linux-arm64]
     concurrency:
       group: docker-arm64-${{ github.ref }}
       cancel-in-progress: true
