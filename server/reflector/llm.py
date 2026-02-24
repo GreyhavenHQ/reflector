@@ -91,6 +91,13 @@ class LLM:
         max_retries = self.settings_obj.LLM_PARSE_MAX_RETRIES
 
         async def _call_with_reflection():
+            # Build full prompt: instruction + source texts
+            if texts:
+                texts_block = "\n\n".join(texts)
+                full_prompt = f"{prompt}\n\n{texts_block}"
+            else:
+                full_prompt = prompt
+
             prompt_tmpl = PromptTemplate("{user_prompt}")
             last_error: str | None = None
 
@@ -98,7 +105,7 @@ class LLM:
                 try:
                     if attempt == 1:
                         result = await Settings.llm.astructured_predict(
-                            output_cls, prompt_tmpl, user_prompt=prompt
+                            output_cls, prompt_tmpl, user_prompt=full_prompt
                         )
                     else:
                         reflection_tmpl = PromptTemplate(
@@ -107,7 +114,7 @@ class LLM:
                         result = await Settings.llm.astructured_predict(
                             output_cls,
                             reflection_tmpl,
-                            user_prompt=prompt,
+                            user_prompt=full_prompt,
                             reflection=reflection,
                         )
 

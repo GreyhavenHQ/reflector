@@ -252,6 +252,105 @@ class TestNetworkErrorRetries:
             assert mock_settings.llm.astructured_predict.call_count == 3
 
 
+class TestTextsInclusion:
+    """Test that texts parameter is included in the prompt sent to astructured_predict"""
+
+    @pytest.mark.asyncio
+    async def test_texts_included_in_prompt(self, test_settings):
+        """Test that texts content is appended to the prompt for astructured_predict"""
+        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+
+        captured_prompts = []
+
+        async def capture_prompt(output_cls, prompt_tmpl, **kwargs):
+            captured_prompts.append(kwargs.get("user_prompt", ""))
+            return TestResponse(title="Test", summary="Summary", confidence=0.95)
+
+        with patch("reflector.llm.Settings") as mock_settings:
+            mock_settings.llm.astructured_predict = AsyncMock(
+                side_effect=capture_prompt
+            )
+
+            await llm.get_structured_response(
+                prompt="Identify all participants",
+                texts=["Alice: Hello everyone", "Bob: Hi Alice"],
+                output_cls=TestResponse,
+            )
+
+            assert len(captured_prompts) == 1
+            prompt_sent = captured_prompts[0]
+            assert "Identify all participants" in prompt_sent
+            assert "Alice: Hello everyone" in prompt_sent
+            assert "Bob: Hi Alice" in prompt_sent
+
+    @pytest.mark.asyncio
+    async def test_empty_texts_uses_prompt_only(self, test_settings):
+        """Test that empty texts list sends only the prompt"""
+        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+
+        captured_prompts = []
+
+        async def capture_prompt(output_cls, prompt_tmpl, **kwargs):
+            captured_prompts.append(kwargs.get("user_prompt", ""))
+            return TestResponse(title="Test", summary="Summary", confidence=0.95)
+
+        with patch("reflector.llm.Settings") as mock_settings:
+            mock_settings.llm.astructured_predict = AsyncMock(
+                side_effect=capture_prompt
+            )
+
+            await llm.get_structured_response(
+                prompt="Identify all participants",
+                texts=[],
+                output_cls=TestResponse,
+            )
+
+            assert len(captured_prompts) == 1
+            assert captured_prompts[0] == "Identify all participants"
+
+    @pytest.mark.asyncio
+    async def test_texts_included_in_reflection_retry(self, test_settings):
+        """Test that texts are included in the prompt even during reflection retries"""
+        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+
+        captured_prompts = []
+        call_count = {"count": 0}
+
+        async def capture_and_fail_first(output_cls, prompt_tmpl, **kwargs):
+            call_count["count"] += 1
+            captured_prompts.append(kwargs.get("user_prompt", ""))
+            if call_count["count"] == 1:
+                raise ValidationError.from_exception_data(
+                    title="TestResponse",
+                    line_errors=[
+                        {
+                            "type": "missing",
+                            "loc": ("summary",),
+                            "msg": "Field required",
+                            "input": {},
+                        }
+                    ],
+                )
+            return TestResponse(title="Test", summary="Summary", confidence=0.95)
+
+        with patch("reflector.llm.Settings") as mock_settings:
+            mock_settings.llm.astructured_predict = AsyncMock(
+                side_effect=capture_and_fail_first
+            )
+
+            await llm.get_structured_response(
+                prompt="Summarize this",
+                texts=["The meeting covered project updates"],
+                output_cls=TestResponse,
+            )
+
+            # Both first attempt and reflection retry should include the texts
+            assert len(captured_prompts) == 2
+            for prompt_sent in captured_prompts:
+                assert "Summarize this" in prompt_sent
+                assert "The meeting covered project updates" in prompt_sent
+
+
 class TestReflectionRetryBackoff:
     """Test the reflection retry timing behavior"""
 
