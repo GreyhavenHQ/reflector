@@ -6,7 +6,7 @@ repos:
       - id: format
         name: run format
         language: system
-        entry: bash -c 'source "$HOME/.nvm/nvm.sh" && cd www && pnpm format'
+        entry: bash -c 'if [ -f "$HOME/.nvm/nvm.sh" ]; then source "$HOME/.nvm/nvm.sh"; fi; cd www && pnpm format'
         pass_filenames: false
         files: ^www/
 
