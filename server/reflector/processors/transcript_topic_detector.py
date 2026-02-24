@@ -14,12 +14,12 @@ class TopicResponse(BaseModel):
     title: str = Field(
         description="A descriptive title for the topic being discussed",
         validation_alias=AliasChoices("title", "Title"),
-        min_length=10,
+        min_length=8,
     )
     summary: str = Field(
         description="A concise 1-2 sentence summary of the discussion",
         validation_alias=AliasChoices("summary", "Summary"),
-        min_length=10,
+        min_length=8,
     )
 
 
