@@ -58,6 +58,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for Docker daemon
+        run: while ! docker version; do sleep 1; done
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build ARM64
