@@ -85,6 +85,21 @@ Optionally add `--ollama-gpu` or `--ollama-cpu` for a **local Ollama instance** 
 | `--llm-model MODEL` | Choose which Ollama model to download (default: `qwen2.5:14b`) | `--ollama-gpu` or `--ollama-cpu` |
 | *(omitted)* | User configures external LLM (OpenAI, Anthropic, etc.) | LLM API key |
 
+### macOS / Apple Silicon
+
+`--ollama-gpu` requires an NVIDIA GPU and **does not work on macOS**. Docker on macOS cannot access Apple GPU acceleration, so the containerized Ollama will run on CPU only regardless of the flag used.
+
+For the best performance on Mac, we recommend running Ollama **natively outside Docker** (install from https://ollama.com) — this gives Ollama direct access to Apple Metal GPU acceleration. Then omit `--ollama-gpu`/`--ollama-cpu` from the setup script and point the backend to your local Ollama instance:
+
+```env
+# In server/.env
+LLM_URL=http://host.docker.internal:11434/v1
+LLM_MODEL=qwen2.5:14b
+LLM_API_KEY=not-needed
+```
+
+`--ollama-cpu` does work on macOS but will be significantly slower than a native Ollama install with Metal acceleration.
+
 ### Choosing an Ollama model
 
 The default model is `qwen2.5:14b` (~9GB download, good multilingual support and summary quality). Override with `--llm-model`:
