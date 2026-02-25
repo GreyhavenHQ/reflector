@@ -22,7 +22,6 @@ dependencies = [
     "databases[aiosqlite, asyncpg]>=0.7.0",
     "sqlalchemy<1.5",
     "alembic>=1.11.3",
-    "nltk>=3.8.1",
     "prometheus-fastapi-instrumentator>=6.1.0",
     "sentencepiece>=0.1.99",
     "protobuf>=4.24.3",
