@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.35.1](https://github.com/GreyhavenHQ/reflector/compare/v0.35.0...v0.35.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* enable sentry on frontend ([#876](https://github.com/GreyhavenHQ/reflector/issues/876)) ([bc6bb63](https://github.com/GreyhavenHQ/reflector/commit/bc6bb63c32dc84be5d3b00388618d53f04f64e35))
+* switch structured output to tool-call with reflection retry ([#879](https://github.com/GreyhavenHQ/reflector/issues/879)) ([5d54758](https://github.com/GreyhavenHQ/reflector/commit/5d547586ef0f54514d1d65aacca8e57869013a82))
+
 ## [0.35.0](https://github.com/Monadical-SAS/reflector/compare/v0.34.0...v0.35.0) (2026-02-23)
 
 
