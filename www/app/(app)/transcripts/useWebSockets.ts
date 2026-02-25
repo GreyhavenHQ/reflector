@@ -346,9 +346,10 @@ export const useWebSockets = (transcriptId: string | null): UseWebSockets => {
     let intentionalClose = false;
 
     const connect = () => {
-      const subprotocols = auth.accessToken
-        ? ["bearer", auth.accessToken]
-        : undefined;
+      const subprotocols =
+        auth.status === "authenticated" && auth.accessToken
+          ? ["bearer", auth.accessToken]
+          : undefined;
       ws = new WebSocket(url, subprotocols);
 
       ws.onopen = () => {
