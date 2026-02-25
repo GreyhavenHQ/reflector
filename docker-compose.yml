@@ -83,25 +83,21 @@ services:
     ports:
       - 6379:6379
   web:
-    image: node:22-alpine
+    build:
+      context: ./www
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    command: sh -c "corepack enable && pnpm install && pnpm dev"
-    restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - ./www:/app/
-      - /app/node_modules
-      - next_cache:/app/.next
     env_file:
       - ./www/.env.local
     environment:
-      - NODE_ENV=development
-      - SERVER_API_URL=http://host.docker.internal:1250
+      NODE_ENV: development
+      SERVER_API_URL: http://host.docker.internal:1250
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - server
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:17
