@@ -161,7 +161,8 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 5. **Storage setup** — Either initializes Garage (bucket, keys, permissions) or prompts for external S3 credentials
 6. **Caddyfile** — Generates domain-specific (Let's Encrypt) or IP-specific (self-signed) configuration
 7. **Build & start** — Always builds GPU/CPU model image from source. With `--build`, also builds backend and frontend from source; otherwise pulls prebuilt images from the registry
-8. **Health checks** — Waits for each service, pulls Ollama model if needed, warns about missing LLM config
+8. **Auto-detects video platforms** — If `DAILY_API_KEY` is found in `server/.env`, generates `.env.hatchet` (dashboard URL/cookie config), starts Hatchet workflow engine, and generates an API token. If any video platform is configured, enables the Rooms feature
+9. **Health checks** — Waits for each service, pulls Ollama model if needed, warns about missing LLM config
 
 > For a deeper dive into each step, see [How the Self-Hosted Setup Works](selfhosted-architecture.md).
 
@@ -186,6 +187,13 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 | `CELERY_BEAT_POLL_INTERVAL` | Override all worker polling intervals (seconds). `0` = use individual defaults | `300` (selfhosted), `0` (other) |
 | `TRANSCRIPT_STORAGE_BACKEND` | Storage backend | `aws` |
 | `TRANSCRIPT_STORAGE_AWS_*` | S3 credentials | Auto-set for Garage |
+| `DAILY_API_KEY` | Daily.co API key (enables live rooms) | *(unset)* |
+| `DAILY_SUBDOMAIN` | Daily.co subdomain | *(unset)* |
+| `HATCHET_CLIENT_TOKEN` | Hatchet API token (auto-generated) | *(unset)* |
+| `HATCHET_CLIENT_SERVER_URL` | Hatchet server URL | Auto-set when Daily.co configured |
+| `HATCHET_CLIENT_HOST_PORT` | Hatchet gRPC address | Auto-set when Daily.co configured |
+| `TRANSCRIPT_FILE_TIMEOUT` | HTTP timeout (seconds) for file transcription requests | `600` (`3600` in CPU mode) |
+| `DIARIZATION_FILE_TIMEOUT` | HTTP timeout (seconds) for file diarization requests | `600` (`3600` in CPU mode) |
 
 ### Frontend Environment (`www/.env`)
 
@@ -197,6 +205,7 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 | `NEXTAUTH_SECRET` | Auth secret | Auto-generated |
 | `FEATURE_REQUIRE_LOGIN` | Require authentication | `false` |
 | `AUTH_PROVIDER` | Auth provider (`authentik` or `credentials`) | *(unset)* |
+| `FEATURE_ROOMS` | Enable meeting rooms UI | Auto-set when video platform configured |
 
 ## Storage Options
 
@@ -353,6 +362,76 @@ By default, authentication is disabled (`AUTH_BACKEND=none`, `FEATURE_REQUIRE_LO
    ```
 5. Restart: `docker compose -f docker-compose.selfhosted.yml down && ./scripts/setup-selfhosted.sh <same-flags>`
 
+## Enabling Daily.co Live Rooms
+
+Daily.co enables real-time meeting rooms with automatic recording and per-participant
+audio tracks for improved diarization. When configured, the setup script automatically
+starts the Hatchet workflow engine for multitrack recording processing.
+
+### Prerequisites
+
+- **Daily.co account** — Sign up at https://www.daily.co/
+- **API key** — From Daily.co Dashboard → Developers → API Keys
+- **Subdomain** — The `yourname` part of `yourname.daily.co`
+- **AWS S3 bucket** — For Daily.co to store recordings. See [Daily.co recording storage docs](https://docs.daily.co/guides/products/live-streaming-recording/storing-recordings-in-a-custom-s3-bucket)
+- **IAM role ARN** — An AWS IAM role that Daily.co assumes to write recordings to your bucket
+
+### Setup
+
+1. Configure Daily.co env vars in `server/.env` **before** running the setup script:
+
+   ```env
+   DAILY_API_KEY=your-daily-api-key
+   DAILY_SUBDOMAIN=your-subdomain
+   DEFAULT_VIDEO_PLATFORM=daily
+   DAILYCO_STORAGE_AWS_BUCKET_NAME=your-recordings-bucket
+   DAILYCO_STORAGE_AWS_REGION=us-east-1
+   DAILYCO_STORAGE_AWS_ROLE_ARN=arn:aws:iam::123456789:role/DailyCoAccess
+   ```
+
+2. Run the setup script as normal:
+
+   ```bash
+   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy
+   ```
+
+   The script detects `DAILY_API_KEY` and automatically:
+   - Starts the Hatchet workflow engine (`hatchet` container)
+   - Starts Hatchet CPU and LLM workers (`hatchet-worker-cpu`, `hatchet-worker-llm`)
+   - Generates a `HATCHET_CLIENT_TOKEN` and saves it to `server/.env`
+   - Sets `HATCHET_CLIENT_SERVER_URL` and `HATCHET_CLIENT_HOST_PORT`
+   - Enables `FEATURE_ROOMS=true` in `www/.env`
+   - Registers Daily.co beat tasks (recording polling, presence reconciliation)
+
+3. (Optional) For faster recording discovery, configure a Daily.co webhook:
+   - In the Daily.co dashboard, add a webhook pointing to `https://your-domain/v1/daily/webhook`
+   - Set `DAILY_WEBHOOK_SECRET` in `server/.env` (the signing secret from Daily.co)
+   - Without webhooks, the system polls the Daily.co API every 15 seconds
+
+### What Gets Started
+
+| Service | Purpose |
+|---------|---------|
+| `hatchet` | Workflow orchestration engine (manages multitrack processing pipelines) |
+| `hatchet-worker-cpu` | CPU-heavy audio tasks (track mixdown, waveform generation) |
+| `hatchet-worker-llm` | Transcription, LLM inference (summaries, topics, titles), orchestration |
+
+### Hatchet Dashboard
+
+The Hatchet workflow engine includes a web dashboard for monitoring workflow runs and debugging. The setup script auto-generates `.env.hatchet` at the project root with the dashboard URL and cookie domain configuration. This file is git-ignored.
+
+- **With Caddy**: Accessible at `https://your-domain:8888` (TLS via Caddy)
+- **Without Caddy**: Accessible at `http://your-ip:8888` (direct port mapping)
+
+### Conditional Beat Tasks
+
+Beat tasks are registered based on which services are configured:
+
+- **Whereby tasks** (only if `WHEREBY_API_KEY` or `AWS_PROCESS_RECORDING_QUEUE_URL`): `process_messages`, `reprocess_failed_recordings`
+- **Daily.co tasks** (only if `DAILY_API_KEY`): `poll_daily_recordings`, `trigger_daily_reconciliation`, `reprocess_failed_daily_recordings`
+- **Platform tasks** (if any video platform configured): `process_meetings`, `sync_all_ics_calendars`, `create_upcoming_meetings`
+- **Always registered**: `cleanup_old_public_data` (if `PUBLIC_MODE`), `healthcheck_ping` (if `HEALTHCHECK_URL`)
+
 ## Enabling Real Domain with Let's Encrypt
 
 By default, Caddy uses self-signed certificates. For a real domain:
@@ -446,6 +525,15 @@ docker compose -f docker-compose.selfhosted.yml logs server --tail 50
 For self-signed certs, your browser will warn. Click Advanced > Proceed.
 For Let's Encrypt, ensure ports 80/443 are open and DNS is pointed correctly.
 
+### File processing timeout on CPU
+CPU transcription and diarization are significantly slower than GPU. A 20-minute audio file can take 20-40 minutes to process on CPU. The setup script automatically sets `TRANSCRIPT_FILE_TIMEOUT=3600` and `DIARIZATION_FILE_TIMEOUT=3600` (1 hour) for `--cpu` mode. If you still hit timeouts with very long files, increase these values in `server/.env`:
+```bash
+# Increase to 2 hours for files over 1 hour
+TRANSCRIPT_FILE_TIMEOUT=7200
+DIARIZATION_FILE_TIMEOUT=7200
+```
+Then restart the worker: `docker compose -f docker-compose.selfhosted.yml restart worker`
+
 ### Summaries/topics not generating
 Check LLM configuration:
 ```bash
@@ -511,12 +599,15 @@ The setup script is idempotent — it won't overwrite existing secrets or env va
     │ (optional)│     │(optional│
     │ :11435    │     │ S3)     │
     └───────────┘     └─────────┘
+
+    ┌───────────────────────────────────┐
+    │  Hatchet (optional — Daily.co)   │
+    │  ┌─────────┐  ┌───────────────┐  │
+    │  │ hatchet │  │ hatchet-worker│  │
+    │  │ :8888   │──│  -cpu / -llm  │  │
+    │  └─────────┘  └───────────────┘  │
+    └───────────────────────────────────┘
 ```
 
-All services communicate over Docker's internal network. Only Caddy (if enabled) exposes ports to the internet.
+All services communicate over Docker's internal network. Only Caddy (if enabled) exposes ports to the internet. Hatchet services are only started when `DAILY_API_KEY` is configured.
 
-## Future Plans for the Self-Hosted Script
-
-The following features are supported by Reflector but are **not yet integrated into the self-hosted setup script** and require manual configuration:
-
-- **Daily.co live rooms with multitrack processing**: Daily.co enables real-time meeting rooms with automatic recording and per-participant audio tracks for improved diarization. Requires a Daily.co account, API key, and an AWS S3 bucket for recording storage. Currently not automated in the script because the worker orchestration (hatchet) is not yet supported in the selfhosted compose setup.

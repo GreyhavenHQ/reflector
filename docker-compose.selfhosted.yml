@@ -11,6 +11,9 @@
 #   --profile ollama-gpu   Local Ollama with NVIDIA GPU
 #   --profile ollama-cpu   Local Ollama on CPU only
 #
+# Daily.co multitrack processing (auto-detected from server/.env):
+#   --profile dailyco      Hatchet workflow engine + CPU/LLM workers
+#
 # Other optional services:
 #   --profile garage       Local S3-compatible storage (Garage)
 #   --profile caddy        Reverse proxy with auto-SSL
@@ -32,7 +35,7 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:1250:1250"
-      - "50000-50100:50000-50100/udp"
+      - "51000-51100:51000-51100/udp"
     env_file:
       - ./server/.env
     environment:
@@ -42,8 +45,6 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      HATCHET_CLIENT_SERVER_URL: ""
-      HATCHET_CLIENT_HOST_PORT: ""
       # Specialized models via gpu/cpu container (aliased as "transcription")
       TRANSCRIPT_BACKEND: modal
       TRANSCRIPT_URL: http://transcription:8000
@@ -53,7 +54,7 @@ services:
       TRANSLATION_BACKEND: modal
       TRANSLATE_URL: http://transcription:8000
       # WebRTC: fixed UDP port range for ICE candidates (mapped above)
-      WEBRTC_PORT_RANGE: "50000-50100"
+      WEBRTC_PORT_RANGE: "51000-51100"
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,8 +77,6 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      HATCHET_CLIENT_SERVER_URL: ""
-      HATCHET_CLIENT_HOST_PORT: ""
       TRANSCRIPT_BACKEND: modal
       TRANSCRIPT_URL: http://transcription:8000
       TRANSCRIPT_MODAL_API_KEY: selfhosted
@@ -153,6 +152,7 @@ services:
       POSTGRES_DB: reflector
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./server/docker/init-hatchet-db.sql:/docker-entrypoint-initdb.d/init-hatchet-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U reflector"]
       interval: 30s
@@ -305,6 +305,86 @@ services:
       - web
       - server
 
+  # ===========================================================
+  # Hatchet + Daily.co workers (optional — for Daily.co multitrack processing)
+  # Auto-enabled when DAILY_API_KEY is configured in server/r
+  # ===========================================================
+
+  hatchet:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest
+    profiles: [dailyco]
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8888:8888"
+    env_file:
+      - ./.env.hatchet
+    environment:
+      DATABASE_URL: "postgresql://reflector:reflector@postgres:5432/hatchet?sslmode=disable&connect_timeout=30"
+      SERVER_AUTH_COOKIE_INSECURE: "t"
+      SERVER_GRPC_BIND_ADDRESS: "0.0.0.0"
+      SERVER_GRPC_INSECURE: "t"
+      SERVER_GRPC_BROADCAST_ADDRESS: hatchet:7077
+      SERVER_GRPC_PORT: "7077"
+      SERVER_AUTH_SET_EMAIL_VERIFIED: "t"
+      SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS: hatchet:7077
+    volumes:
+      - hatchet_config:/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  hatchet-worker-cpu:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: monadicalsas/reflector-backend:latest
+    profiles: [dailyco]
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      ENTRYPOINT: hatchet-worker-cpu
+      DATABASE_URL: postgresql+asyncpg://reflector:reflector@postgres:5432/reflector
+      REDIS_HOST: redis
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      HATCHET_CLIENT_SERVER_URL: http://hatchet:8888
+      HATCHET_CLIENT_HOST_PORT: hatchet:7077
+    depends_on:
+      hatchet:
+        condition: service_healthy
+    volumes:
+      - server_data:/app/data
+
+  hatchet-worker-llm:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: monadicalsas/reflector-backend:latest
+    profiles: [dailyco]
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      ENTRYPOINT: hatchet-worker-llm
+      DATABASE_URL: postgresql+asyncpg://reflector:reflector@postgres:5432/reflector
+      REDIS_HOST: redis
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      HATCHET_CLIENT_SERVER_URL: http://hatchet:8888
+      HATCHET_CLIENT_HOST_PORT: hatchet:7077
+    depends_on:
+      hatchet:
+        condition: service_healthy
+    volumes:
+      - server_data:/app/data
+
 volumes:
   postgres_data:
   redis_data:
@@ -315,6 +395,7 @@ volumes:
   ollama_data:
   caddy_data:
   caddy_config:
+  hatchet_config:
 
 networks:
   default:

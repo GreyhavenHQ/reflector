@@ -3,6 +3,7 @@ server/.env
 server/.env.production
 .env
 Caddyfile
+.env.hatchet
 server/exportdanswer
 .vercel
 .env*.local
