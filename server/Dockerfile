@@ -17,9 +17,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md /app/
 RUN uv sync --compile-bytecode --locked
 
-# pre-download nltk packages
-RUN uv run python -c "import nltk; nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger_eng')"
-
 # bootstrap
 COPY alembic.ini runserver.sh /app/
 COPY images /app/images

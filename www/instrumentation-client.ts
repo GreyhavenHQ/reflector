@@ -3,8 +3,9 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { getClientEnv } from "./app/lib/clientEnv";
 
-const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
+const SENTRY_DSN = getClientEnv().SENTRY_DSN;
 
 if (SENTRY_DSN) {
   Sentry.init({

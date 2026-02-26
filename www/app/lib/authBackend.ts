@@ -53,7 +53,7 @@ const TOKEN_CACHE_TTL = REFRESH_ACCESS_TOKEN_BEFORE;
 const getAuthentikClientId = () => getNextEnvVar("AUTHENTIK_CLIENT_ID");
 const getAuthentikClientSecret = () => getNextEnvVar("AUTHENTIK_CLIENT_SECRET");
 const getAuthentikRefreshTokenUrl = () =>
-  getNextEnvVar("AUTHENTIK_REFRESH_TOKEN_URL").replace(/\/+$/, "");
+  getNextEnvVar("AUTHENTIK_REFRESH_TOKEN_URL");
 
 const getAuthentikIssuer = () => {
   const stringUrl = getNextEnvVar("AUTHENTIK_ISSUER");
@@ -62,7 +62,7 @@ const getAuthentikIssuer = () => {
   } catch (e) {
     throw new Error("AUTHENTIK_ISSUER is not a valid URL: " + stringUrl);
   }
-  return stringUrl.replace(/\/+$/, "");
+  return stringUrl;
 };
 
 export const authOptions = (): AuthOptions => {

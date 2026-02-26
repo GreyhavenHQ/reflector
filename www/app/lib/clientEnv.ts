@@ -35,6 +35,7 @@ export type ClientEnvCommon = EnvFeaturePartial & {
   API_URL: NonEmptyString;
   WEBSOCKET_URL: NonEmptyString | null;
   AUTH_PROVIDER: AuthProviderType;
+  SENTRY_DSN: string | null;
 };
 
 let clientEnv: ClientEnvCommon | null = null;
@@ -86,6 +87,9 @@ export const getClientEnvServer = (): ClientEnvCommon => {
       API_URL: getNextEnvVar("API_URL"),
       WEBSOCKET_URL: parseMaybeNonEmptyString(process.env.WEBSOCKET_URL ?? ""),
       AUTH_PROVIDER: parseAuthProvider(),
+      SENTRY_DSN: parseMaybeNonEmptyString(
+        process.env.NEXT_PUBLIC_SENTRY_DSN ?? "",
+      ),
       ...features,
     };
   }
@@ -94,6 +98,9 @@ export const getClientEnvServer = (): ClientEnvCommon => {
     API_URL: getNextEnvVar("API_URL"),
     WEBSOCKET_URL: parseMaybeNonEmptyString(process.env.WEBSOCKET_URL ?? ""),
     AUTH_PROVIDER: parseAuthProvider(),
+    SENTRY_DSN: parseMaybeNonEmptyString(
+      process.env.NEXT_PUBLIC_SENTRY_DSN ?? "",
+    ),
     ...features,
   };
   return clientEnv;
