@@ -18,7 +18,7 @@ dependencies = [
     "fastapi[standard]>=0.100.1",
     "sentry-sdk[fastapi]>=1.29.2",
     "httpx>=0.24.1",
-    "fastapi-pagination>=0.12.6",
+    "fastapi-pagination>=0.14.2",
     "databases[aiosqlite, asyncpg]>=0.7.0",
     "sqlalchemy<1.5",
     "alembic>=1.11.3",
@@ -39,6 +39,7 @@ dependencies = [
     "webvtt-py>=0.5.0",
     "icalendar>=6.0.0",
     "hatchet-sdk>=0.47.0",
+    "pydantic>=2.12.5",
 ]
 
 [dependency-groups]
