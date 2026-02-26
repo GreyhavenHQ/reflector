@@ -1,5 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClose } from "@fortawesome/free-solid-svg-icons";
+import type { JSX } from "react";
 import { MouseEventHandler } from "react";
 
 type ModalProps = {
