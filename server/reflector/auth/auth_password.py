@@ -9,9 +9,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Annotated, Optional
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
-from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from reflector.auth.password_utils import verify_password
@@ -110,7 +110,7 @@ async def _authenticate_user(
             user_id = payload["sub"]
             email = payload.get("email")
             user_infos.append(UserInfo(sub=user_id, email=email))
-        except JWTError as e:
+        except jwt.PyJWTError as e:
             logger.error(f"JWT error: {e}")
             raise HTTPException(status_code=401, detail="Invalid authentication")
 

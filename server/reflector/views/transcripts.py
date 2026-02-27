@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal, Optional, assert_never
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page
 from fastapi_pagination.ext.databases import apaginate
-from jose import jwt
 from pydantic import (
     AwareDatetime,
     BaseModel,

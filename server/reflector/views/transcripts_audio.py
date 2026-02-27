@@ -7,8 +7,8 @@ Transcripts audio related endpoints
 from typing import Annotated, Optional
 
 import httpx
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from jose import jwt
 
 import reflector.auth as auth
 from reflector.db.transcripts import AudioWaveform, transcripts_controller
@@ -44,7 +44,7 @@ async def transcript_get_audio_mp3(
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
             user_id: str = payload.get("sub")
-        except jwt.JWTError:
+        except jwt.PyJWTError:
             raise unauthorized_exception
 
     transcript = await transcripts_controller.get_by_id_for_http(

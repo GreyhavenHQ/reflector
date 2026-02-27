@@ -4,8 +4,8 @@ from fastapi import Depends, HTTPException
 
 if TYPE_CHECKING:
     from fastapi import WebSocket
+import jwt
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
-from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from reflector.db.user_api_keys import user_api_keys_controller
@@ -54,7 +54,7 @@ class JWTAuth:
                 audience=jwt_audience,
             )
             return payload
-        except JWTError as e:
+        except jwt.PyJWTError as e:
             logger.error(f"JWT error: {e}")
             raise
 
@@ -94,7 +94,7 @@ async def _authenticate_user(
                 )
 
             user_infos.append(UserInfo(sub=user.id, email=email))
-        except JWTError as e:
+        except jwt.PyJWTError as e:
             logger.error(f"JWT error: {e}")
             raise HTTPException(status_code=401, detail="Invalid authentication")
 
