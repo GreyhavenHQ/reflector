@@ -1183,7 +1183,7 @@ wheels = [
 
 [[package]]
 name = "hatchet-sdk"
-version = "1.21.6"
+version = "1.27.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1195,11 +1195,12 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dateutil" },
     { name = "tenacity" },
+    { name = "typing-inspection" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/df/75dd02e1dc6b99f7151a57f084876c50f739ad4d643b060078f65d51d717/hatchet_sdk-1.21.6.tar.gz", hash = "sha256:b65741324ad721ce57f5fe3f960e2942c4ac2ceec6ca483dd35f84137ff7c46c", size = 219345, upload-time = "2025-12-11T15:04:24.899Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/02/e8bcc42654f03af3a39f9319d21fc42ab36abca9514cee275c04b2810186/hatchet_sdk-1.27.0.tar.gz", hash = "sha256:c312a83c8e6c13040cc2512a6ed7e60085af2496587a2dbd5c18a62d84217cb8", size = 246838, upload-time = "2026-02-27T18:21:40.236Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/86/e4cd7928bcabd33c634c33d4e878e2454e03f97c87b72947c7ff5762d813/hatchet_sdk-1.21.6-py3-none-any.whl", hash = "sha256:589fba9104a6517e1ba677b9865fa0a20e221863a8c2a2724051198994c11399", size = 529167, upload-time = "2025-12-11T15:04:23.697Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/5b/3c2a8b6908a68d42489d903c41fa460cd6d61e07a27252737fcec8d97b31/hatchet_sdk-1.27.0-py3-none-any.whl", hash = "sha256:3cea10e68d3551881588ec941b50f0e383855b191eb79905ee57ee806b08430b", size = 574642, upload-time = "2026-02-27T18:21:37.611Z" },
 ]
 
 [[package]]
