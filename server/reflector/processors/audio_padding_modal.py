@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from reflector.hatchet.constants import TIMEOUT_AUDIO
 from reflector.logger import logger
+from reflector.processors.audio_padding_auto import AudioPaddingAutoProcessor
 
 
 class PaddingResponse(BaseModel):
@@ -111,3 +112,6 @@ class AudioPaddingModalProcessor:
         except Exception as e:
             log.error("Modal padding unexpected error", error=str(e), exc_info=True)
             raise
+
+
+AudioPaddingAutoProcessor.register("modal", AudioPaddingModalProcessor)

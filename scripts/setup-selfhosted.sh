@@ -431,6 +431,8 @@ step_server_env() {
     env_set "$SERVER_ENV" "DIARIZATION_URL" "http://transcription:8000"
     env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
     env_set "$SERVER_ENV" "TRANSLATE_URL" "http://transcription:8000"
+    env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
+    env_set "$SERVER_ENV" "PADDING_URL" "http://transcription:8000"
 
     # HuggingFace token for gated models (pyannote diarization)
     # Written to root .env so docker compose picks it up for gpu/cpu containers
@@ -470,7 +472,7 @@ step_server_env() {
         if env_has_key "$SERVER_ENV" "LLM_URL"; then
             current_llm_url=$(env_get "$SERVER_ENV" "LLM_URL")
         fi
-        if [[ -z "$current_llm_url" ]] || [[ "$current_llm_url" == "http://host.docker.internal"* ]]; then
+        if [[ -z "$current_llm_url" ]]; then
             warn "LLM not configured. Summarization and topic detection will NOT work."
             warn "Edit server/.env and set LLM_URL, LLM_API_KEY, LLM_MODEL"
             warn "Example: LLM_URL=https://api.openai.com/v1  LLM_MODEL=gpt-4o-mini"
@@ -821,6 +823,30 @@ step_services() {
         ok "Hatchet worker images built"
     fi
 
+    # Ensure hatchet database exists before starting hatchet (init-hatchet-db.sql only runs on fresh postgres volumes)
+    if [[ "$DAILY_DETECTED" == "true" ]]; then
+        info "Ensuring postgres is running for Hatchet database setup..."
+        compose_cmd up -d postgres
+        local pg_ready=false
+        for i in $(seq 1 30); do
+            if compose_cmd exec -T postgres pg_isready -U reflector > /dev/null 2>&1; then
+                pg_ready=true
+                break
+            fi
+            sleep 2
+        done
+        if [[ "$pg_ready" == "true" ]]; then
+            compose_cmd exec -T postgres psql -U reflector -tc \
+                "SELECT 1 FROM pg_database WHERE datname = 'hatchet'" 2>/dev/null \
+                | grep -q 1 \
+                || compose_cmd exec -T postgres psql -U reflector -c "CREATE DATABASE hatchet" 2>/dev/null \
+                || true
+            ok "Hatchet database ready"
+        else
+            warn "Postgres not ready — hatchet database may need to be created manually"
+        fi
+    fi
+
     # Start all services
     compose_cmd up -d
     ok "Containers started"
@@ -1001,13 +1027,6 @@ step_hatchet_token() {
     fi
 
     info "Step 8: Generating Hatchet API token"
-
-    # Ensure hatchet database exists (for existing postgres volumes that predate init-hatchet-db.sql)
-    compose_cmd exec -T postgres psql -U reflector -tc \
-        "SELECT 1 FROM pg_database WHERE datname = 'hatchet'" 2>/dev/null \
-        | grep -q 1 \
-        || compose_cmd exec -T postgres psql -U reflector -c "CREATE DATABASE hatchet" 2>/dev/null \
-        || true
 
     # Wait for hatchet to be healthy
     local hatchet_ok=false

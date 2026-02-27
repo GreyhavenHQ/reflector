@@ -367,3 +367,126 @@ async def test_aws_storage_none_endpoint_url():
     assert storage.base_url == "https://reflector-bucket.s3.amazonaws.com/"
     # No s3 addressing_style override — boto_config should only have retries
     assert not hasattr(storage.boto_config, "s3") or storage.boto_config.s3 is None
+
+
+# --- Tests for get_source_storage() ---
+
+
+def test_get_source_storage_daily_with_credentials():
+    """Daily platform with access keys returns AwsStorage with Daily credentials."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID = "daily-key"
+        mock_settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY = "daily-secret"
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = "us-west-2"
+
+        from reflector.storage import get_source_storage
+
+        storage = get_source_storage("daily")
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._bucket_name == "daily-bucket"
+        assert storage._region == "us-west-2"
+        assert storage._access_key_id == "daily-key"
+        assert storage._secret_access_key == "daily-secret"
+        assert storage._endpoint_url is None
+
+
+def test_get_source_storage_daily_falls_back_without_credentials():
+    """Daily platform without access keys falls back to transcript storage."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID = None
+        mock_settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY = None
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.TRANSCRIPT_STORAGE_BACKEND = "aws"
+        mock_settings.TRANSCRIPT_STORAGE_AWS_BUCKET_NAME = "transcript-bucket"
+        mock_settings.TRANSCRIPT_STORAGE_AWS_REGION = "us-east-1"
+        mock_settings.TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID = "transcript-key"
+        mock_settings.TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY = "transcript-secret"
+        mock_settings.TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL = None
+
+        from reflector.storage import get_source_storage
+
+        with patch("reflector.storage.get_transcripts_storage") as mock_get_transcripts:
+            fallback = AwsStorage(
+                aws_bucket_name="transcript-bucket",
+                aws_region="us-east-1",
+                aws_access_key_id="transcript-key",
+                aws_secret_access_key="transcript-secret",
+            )
+            mock_get_transcripts.return_value = fallback
+
+            storage = get_source_storage("daily")
+
+            mock_get_transcripts.assert_called_once()
+            assert storage is fallback
+
+
+def test_get_source_storage_whereby_with_credentials():
+    """Whereby platform with access keys returns AwsStorage with Whereby credentials."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.WHEREBY_STORAGE_AWS_ACCESS_KEY_ID = "whereby-key"
+        mock_settings.WHEREBY_STORAGE_AWS_SECRET_ACCESS_KEY = "whereby-secret"
+        mock_settings.WHEREBY_STORAGE_AWS_BUCKET_NAME = "whereby-bucket"
+        mock_settings.WHEREBY_STORAGE_AWS_REGION = "eu-west-1"
+
+        from reflector.storage import get_source_storage
+
+        storage = get_source_storage("whereby")
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._bucket_name == "whereby-bucket"
+        assert storage._region == "eu-west-1"
+        assert storage._access_key_id == "whereby-key"
+        assert storage._secret_access_key == "whereby-secret"
+
+
+def test_get_source_storage_unknown_platform_falls_back():
+    """Unknown platform falls back to transcript storage."""
+    with patch("reflector.storage.settings"):
+        from reflector.storage import get_source_storage
+
+        with patch("reflector.storage.get_transcripts_storage") as mock_get_transcripts:
+            fallback = MagicMock()
+            mock_get_transcripts.return_value = fallback
+
+            storage = get_source_storage("unknown-platform")
+
+            mock_get_transcripts.assert_called_once()
+            assert storage is fallback
+
+
+@pytest.mark.asyncio
+async def test_source_storage_presigns_for_correct_bucket():
+    """Source storage presigns URLs using the platform's credentials and the override bucket."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID = "daily-key"
+        mock_settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY = "daily-secret"
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = "us-west-2"
+
+        from reflector.storage import get_source_storage
+
+        storage = get_source_storage("daily")
+
+        mock_client = AsyncMock()
+        mock_client.generate_presigned_url = AsyncMock(
+            return_value="https://daily-bucket.s3.amazonaws.com/track.webm?signed"
+        )
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(storage.session, "client", return_value=mock_client):
+            url = await storage.get_file_url(
+                "track.webm",
+                operation="get_object",
+                expires_in=3600,
+                bucket="override-bucket",
+            )
+
+            assert "track.webm" in url
+            mock_client.generate_presigned_url.assert_called_once()
+            call_kwargs = mock_client.generate_presigned_url.call_args
+            params = call_kwargs[1].get("Params") or call_kwargs[0][1]
+            assert params["Bucket"] == "override-bucket"
+            assert params["Key"] == "track.webm"

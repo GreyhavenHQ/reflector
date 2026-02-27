@@ -53,6 +53,8 @@ services:
       DIARIZATION_URL: http://transcription:8000
       TRANSLATION_BACKEND: modal
       TRANSLATE_URL: http://transcription:8000
+      PADDING_BACKEND: modal
+      PADDING_URL: http://transcription:8000
       # WebRTC: fixed UDP port range for ICE candidates (mapped above)
       WEBRTC_PORT_RANGE: "51000-51100"
     depends_on:
@@ -84,6 +86,8 @@ services:
       DIARIZATION_URL: http://transcription:8000
       TRANSLATION_BACKEND: modal
       TRANSLATE_URL: http://transcription:8000
+      PADDING_BACKEND: modal
+      PADDING_URL: http://transcription:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -319,6 +323,7 @@ services:
         condition: service_healthy
     ports:
       - "8888:8888"
+      - "7078:7077"
     env_file:
       - ./.env.hatchet
     environment:

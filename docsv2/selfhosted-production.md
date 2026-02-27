@@ -67,7 +67,7 @@ That's it. The script generates env files, secrets, starts all containers, waits
 
 ## Specialized Models (Required)
 
-Pick `--gpu` or `--cpu`. This determines how **transcription, diarization, and translation** run:
+Pick `--gpu` or `--cpu`. This determines how **transcription, diarization, translation, and audio padding** run:
 
 | Flag | What it does | Requires |
 |------|-------------|----------|
@@ -181,6 +181,8 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 | `ADMIN_PASSWORD_HASH` | PBKDF2 hash for password auth | *(unset)* |
 | `WEBRTC_HOST` | IP advertised in WebRTC ICE candidates | Auto-detected (server IP) |
 | `TRANSCRIPT_URL` | Specialized model endpoint | `http://transcription:8000` |
+| `PADDING_BACKEND` | Audio padding backend (`local` or `modal`) | `modal` (selfhosted), `local` (default) |
+| `PADDING_URL` | Audio padding endpoint (when `PADDING_BACKEND=modal`) | `http://transcription:8000` |
 | `LLM_URL` | OpenAI-compatible LLM endpoint | Auto-set for Ollama modes |
 | `LLM_API_KEY` | LLM API key | `not-needed` for Ollama |
 | `LLM_MODEL` | LLM model name | `qwen2.5:14b` for Ollama (override with `--llm-model`) |
@@ -189,6 +191,8 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 | `TRANSCRIPT_STORAGE_AWS_*` | S3 credentials | Auto-set for Garage |
 | `DAILY_API_KEY` | Daily.co API key (enables live rooms) | *(unset)* |
 | `DAILY_SUBDOMAIN` | Daily.co subdomain | *(unset)* |
+| `DAILYCO_STORAGE_AWS_ACCESS_KEY_ID` | AWS access key for reading Daily's recording bucket | *(unset)* |
+| `DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY` | AWS secret key for reading Daily's recording bucket | *(unset)* |
 | `HATCHET_CLIENT_TOKEN` | Hatchet API token (auto-generated) | *(unset)* |
 | `HATCHET_CLIENT_SERVER_URL` | Hatchet server URL | Auto-set when Daily.co configured |
 | `HATCHET_CLIENT_HOST_PORT` | Hatchet gRPC address | Auto-set when Daily.co configured |
@@ -387,7 +391,18 @@ starts the Hatchet workflow engine for multitrack recording processing.
    DAILYCO_STORAGE_AWS_BUCKET_NAME=your-recordings-bucket
    DAILYCO_STORAGE_AWS_REGION=us-east-1
    DAILYCO_STORAGE_AWS_ROLE_ARN=arn:aws:iam::123456789:role/DailyCoAccess
+   # Worker credentials for reading/deleting recordings from Daily's S3 bucket.
+   # Required when transcript storage is separate from Daily's bucket
+   # (e.g., selfhosted with Garage or a different S3 account).
+   DAILYCO_STORAGE_AWS_ACCESS_KEY_ID=your-aws-access-key
+   DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY=your-aws-secret-key
    ```
+
+   > **Important:** The `DAILYCO_STORAGE_AWS_ACCESS_KEY_ID` and `SECRET_ACCESS_KEY` are AWS IAM
+   > credentials that allow the Hatchet workers to **read and delete** recording files from Daily's
+   > S3 bucket. These are separate from the `ROLE_ARN` (which Daily's API uses to *write* recordings).
+   > Without these keys, multitrack processing will fail with 404 errors when transcript storage
+   > (e.g., Garage) uses different credentials than the Daily recording bucket.
 
 2. Run the setup script as normal:
 

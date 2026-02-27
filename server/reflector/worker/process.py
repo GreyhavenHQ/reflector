@@ -357,6 +357,7 @@ async def _process_multitrack_recording_inner(
             "bucket_name": bucket_name,
             "transcript_id": transcript.id,
             "room_id": room.id,
+            "source_platform": "daily",
         },
         additional_metadata={
             "transcript_id": transcript.id,
@@ -1068,6 +1069,7 @@ async def reprocess_failed_daily_recordings():
                     "bucket_name": bucket_name,
                     "transcript_id": transcript.id,
                     "room_id": room.id if room else None,
+                    "source_platform": "daily",
                 },
                 additional_metadata={
                     "transcript_id": transcript.id,
