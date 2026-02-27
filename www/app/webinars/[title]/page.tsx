@@ -159,7 +159,7 @@ export default function WebinarPage(details: WebinarDetails) {
       <div className="max-w-4xl mx-auto px-2 py-8 bg-gray-50">
         <div className="bg-white rounded-3xl px-4 md:px-36 py-4 shadow-md mx-auto">
           <Link href="https://www.monadical.com" target="_blank">
-            <img
+            <Image
               src="/monadical-black-white 1.svg"
               alt="Monadical Logo"
               className="mx-auto mb-8"
@@ -355,7 +355,7 @@ export default function WebinarPage(details: WebinarDetails) {
     <div className="max-w-4xl mx-auto px-2 py-8 bg-gray-50">
       <div className="bg-white rounded-3xl px-4 md:px-36 py-4 shadow-md mx-auto">
         <Link href="https://www.monadical.com" target="_blank">
-          <img
+          <Image
             src="/monadical-black-white 1.svg"
             alt="Monadical Logo"
             className="mx-auto mb-8"

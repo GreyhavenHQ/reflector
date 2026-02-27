@@ -1,4 +1,4 @@
-import { Container, Flex, Link } from "@chakra-ui/react";
+import { Container, Flex } from "@chakra-ui/react";
 import { featureEnabled } from "../lib/features";
 import NextLink from "next/link";
 import Image from "next/image";
@@ -30,7 +30,7 @@ export default async function AppLayout({
         mt="1"
       >
         {/* Logo on the left */}
-        <Link as={NextLink} href="/" className="flex">
+        <NextLink href="/" className="flex">
           <Image
             src="/reach.svg"
             width={32}
@@ -46,22 +46,18 @@ export default async function AppLayout({
               Capture the signal, not the noise
             </p>
           </div>
-        </Link>
+        </NextLink>
         <div>
           {/* Text link on the right */}
-          <Link
-            as={NextLink}
-            href={RECORD_A_MEETING_URL}
-            className="font-light px-2"
-          >
+          <NextLink href={RECORD_A_MEETING_URL} className="font-light px-2">
             Create
-          </Link>
+          </NextLink>
           {featureEnabled("browse") ? (
             <>
               &nbsp;·&nbsp;
-              <Link href="/browse" as={NextLink} className="font-light px-2">
+              <NextLink href="/browse" className="font-light px-2">
                 Browse
-              </Link>
+              </NextLink>
             </>
           ) : (
             <></>
@@ -69,9 +65,9 @@ export default async function AppLayout({
           {featureEnabled("rooms") ? (
             <>
               &nbsp;·&nbsp;
-              <Link href="/rooms" as={NextLink} className="font-light px-2">
+              <NextLink href="/rooms" className="font-light px-2">
                 Rooms
-              </Link>
+              </NextLink>
             </>
           ) : (
             <></>
@@ -79,13 +75,9 @@ export default async function AppLayout({
           {featureEnabled("requireLogin") ? (
             <>
               &nbsp;·&nbsp;
-              <Link
-                href="/settings/api-keys"
-                as={NextLink}
-                className="font-light px-2"
-              >
+              <NextLink href="/settings/api-keys" className="font-light px-2">
                 Settings
-              </Link>
+              </NextLink>
               &nbsp;·&nbsp;
               <UserInfo />
             </>

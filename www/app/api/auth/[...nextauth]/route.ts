@@ -1,6 +1,14 @@
 import NextAuth from "next-auth";
 import { authOptions } from "../../../lib/authBackend";
 
-const handler = NextAuth(authOptions());
+export const dynamic = "force-dynamic";
 
-export { handler as GET, handler as POST };
+// authOptions() is deferred to request time to avoid calling getNextEnvVar
+// during Turbopack's build-phase module evaluation (Next.js 16+)
+export function GET(req: Request, ctx: any) {
+  return NextAuth(authOptions())(req as any, ctx);
+}
+
+export function POST(req: Request, ctx: any) {
+  return NextAuth(authOptions())(req as any, ctx);
+}
