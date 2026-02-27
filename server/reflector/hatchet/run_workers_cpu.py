@@ -7,6 +7,7 @@ Configuration:
 - Worker affinity: pool=cpu-heavy
 """
 
+import reflector._warnings_filter  # noqa: F401 -- side effect: suppress pydantic validate_default warning
 from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.workflows.daily_multitrack_pipeline import (
     daily_multitrack_pipeline,

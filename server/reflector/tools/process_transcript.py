@@ -17,6 +17,7 @@ from typing import Callable
 from celery.result import AsyncResult
 from hatchet_sdk.clients.rest.models import V1TaskStatus
 
+import reflector._warnings_filter  # noqa: F401 -- side effect: suppress pydantic validate_default warning
 from reflector.db import get_database
 from reflector.db.transcripts import Transcript, transcripts_controller
 from reflector.hatchet.client import HatchetClientManager
