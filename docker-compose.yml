@@ -93,6 +93,7 @@ services:
     environment:
       NODE_ENV: development
       SERVER_API_URL: http://host.docker.internal:1250
+      KV_URL: redis://redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
