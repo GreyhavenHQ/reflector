@@ -44,7 +44,6 @@
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
     "react-qr-code": "^2.0.18",
-    "react-select-search": "^4.1.9",
     "react-uuid-hook": "^0.0.6",
     "redlock": "5.0.0-beta.2",
     "remeda": "^2.33.6",
