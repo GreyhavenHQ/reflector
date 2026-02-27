@@ -10,6 +10,7 @@ overrides:
   minimatch@>=9.0.0 <9.0.7: 9.0.7
   lodash@<4.17.23: 4.17.23
   js-yaml@<4.1.1: 4.1.1
+  gray-matter: github:jonschlinkert/gray-matter#234163e
 
 importers:
 
@@ -3405,8 +3406,9 @@ packages:
   graphlib@2.1.8:
     resolution: {integrity: sha512-jcLLfkpoVGmH7/InMC/1hIvOPSUh38oJtGhvrOFGzioE1DZ+0YW16RgmOJhHiuWTvGiJQ9Z1Ik43JvkRPRvE+A==}
 
-  gray-matter@4.0.3:
-    resolution: {integrity: sha512-5v6yZd4JK3eMI3FqqCouswVqwugaA9r4dNZB1wwcmrD02QkV5H0y7XBQW8QwQqEaZY1pM9aqORSORhJRdNK44Q==}
+  gray-matter@https://codeload.github.com/jonschlinkert/gray-matter/tar.gz/234163e:
+    resolution: {tarball: https://codeload.github.com/jonschlinkert/gray-matter/tar.gz/234163e}
+    version: 4.0.3
     engines: {node: '>=6.0'}
 
   gzip-size@6.0.0:
@@ -8154,7 +8156,7 @@ snapshots:
       fs-extra: 11.3.3
       github-slugger: 1.5.0
       globby: 11.1.0
-      gray-matter: 4.0.3
+      gray-matter: https://codeload.github.com/jonschlinkert/gray-matter/tar.gz/234163e
       jiti: 1.21.7
       js-yaml: 4.1.1
       lodash: 4.17.23
@@ -10652,7 +10654,7 @@ snapshots:
     dependencies:
       lodash: 4.17.23
 
-  gray-matter@4.0.3:
+  gray-matter@https://codeload.github.com/jonschlinkert/gray-matter/tar.gz/234163e:
     dependencies:
       js-yaml: 4.1.1
       kind-of: 6.0.3
