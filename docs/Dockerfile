@@ -1,14 +1,17 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install curl for fetching OpenAPI spec
 RUN apk add --no-cache curl
 
-# Copy package files
-COPY package*.json ./
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package files and lockfile
+COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source
 COPY . .
@@ -21,7 +24,7 @@ RUN mkdir -p ./static && curl -sf "${OPENAPI_URL}" -o ./static/openapi.json || e
 RUN sed -i "s/onBrokenLinks: 'throw'/onBrokenLinks: 'warn'/g" docusaurus.config.ts
 
 # Build static site (skip prebuild hook by calling docusaurus directly)
-RUN npx docusaurus build
+RUN pnpm exec docusaurus build
 
 # Production image
 FROM nginx:alpine

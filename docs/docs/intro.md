@@ -46,7 +46,7 @@ Reflector consists of three main components:
 
 Ready to deploy Reflector? Head over to our [Installation Guide](./installation/overview) to set up your own instance.
 
-For a quick overview of how Reflector processes audio, check out our [Pipeline Documentation](./pipelines/overview).
+For a quick overview of how Reflector processes audio, check out our [Pipeline Documentation](./concepts/pipeline).
 
 ## Open Source
 

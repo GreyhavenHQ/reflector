@@ -124,11 +124,11 @@ const config: Config = {
           items: [
             {
               label: 'Architecture',
-              to: '/docs/reference/architecture/overview',
+              to: '/docs/concepts/overview',
             },
             {
               label: 'Pipelines',
-              to: '/docs/pipelines/overview',
+              to: '/docs/concepts/pipeline',
             },
             {
               label: 'Roadmap',

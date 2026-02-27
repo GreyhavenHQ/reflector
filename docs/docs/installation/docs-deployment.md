@@ -36,14 +36,15 @@ This creates `docs/static/openapi.json` (should be ~70KB) which will be copied d
 The Dockerfile is already in `docs/Dockerfile`:
 
 ```dockerfile
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Enable pnpm and copy package files + lockfile
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml* ./
 
-# Inshall dependencies
-RUN npm ci
+# Install dependencies
+RUN pnpm install --frozen-lockfile
 
 # Copy source (includes static/openapi.json if pre-fetched)
 COPY . .
@@ -52,7 +53,7 @@ COPY . .
 RUN sed -i "s/onBrokenLinks: 'throw'/onBrokenLinks: 'warn'/g" docusaurus.config.ts
 
 # Build static site
-RUN npx docusaurus build
+RUN pnpm exec docusaurus build
 
 FROM nginx:alpine
 COPY --from=builder /app/build /usr/share/nginx/html
