@@ -60,6 +60,7 @@
   "author": "Andreas <andreas@monadical.com>",
   "license": "All Rights Reserved",
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/jest": "^30.0.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "^19.2.3",
