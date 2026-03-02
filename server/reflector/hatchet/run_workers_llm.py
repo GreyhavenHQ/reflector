@@ -5,6 +5,7 @@ Handles: all tasks except mixdown_tracks (transcription, LLM inference, orchestr
 
 import asyncio
 
+import reflector._warnings_filter  # noqa: F401 -- side effect: suppress pydantic validate_default warning
 from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.workflows.daily_multitrack_pipeline import (
     daily_multitrack_pipeline,

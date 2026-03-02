@@ -1,8 +1,8 @@
 """Tests for the password auth backend."""
 
+import jwt
 import pytest
 from httpx import AsyncClient
-from jose import jwt
 
 from reflector.auth.password_utils import hash_password
 from reflector.settings import settings

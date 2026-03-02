@@ -1,13 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import useAudioDevice from "../useAudioDevice";
-import "react-select-search/style.css";
 import "../../../styles/form.scss";
 import About from "../../../(aboutAndPrivacy)/about";
 import Privacy from "../../../(aboutAndPrivacy)/privacy";
 import { useRouter } from "next/navigation";
 import useCreateTranscript from "../createTranscript";
-import SelectSearch from "react-select-search";
 import { supportedLanguages } from "../../../supportedLanguages";
 import {
   Flex,
@@ -21,6 +19,7 @@ import {
 } from "@chakra-ui/react";
 import { useAuth } from "../../../lib/AuthProvider";
 import { featureEnabled } from "../../../lib/features";
+import { SearchableLanguageSelect } from "../../../components/SearchableLanguageSelect";
 
 const TranscriptCreate = () => {
   const router = useRouter();
@@ -147,31 +146,27 @@ const TranscriptCreate = () => {
                 p={8}
                 flexDir="column"
                 my={4}
+                className="form-on-primary"
               >
                 <Heading size="xl" mb={4}>
                   Try Reflector
                 </Heading>
                 <Box mb={4}>
-                  <Text>Recording name</Text>
-                  <div className="select-search-container">
-                    <input
-                      className="select-search-input"
-                      type="text"
-                      onChange={nameChange}
-                      placeholder="Optional"
-                    />
-                  </div>
+                  <Text mb={1}>Recording name</Text>
+                  <input
+                    className="form-field-input"
+                    type="text"
+                    onChange={nameChange}
+                    placeholder="Optional"
+                  />
                 </Box>
                 <Box mb={4}>
-                  <Text>Do you want to enable live translation?</Text>
-                  <SelectSearch
-                    search
+                  <Text mb={1}>Do you want to enable live translation?</Text>
+                  <SearchableLanguageSelect
                     options={supportedLanguages}
                     value={targetLanguage}
                     onChange={onLanguageChange}
-                    onBlur={() => {}}
-                    onFocus={() => {}}
-                    placeholder="Choose your language"
+                    placeholder="No translation"
                   />
                 </Box>
                 {!loading ? (

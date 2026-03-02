@@ -5,6 +5,22 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/metrics": {
       "get": {
         "summary": "Metrics",
@@ -29,6 +45,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -74,6 +93,105 @@
         }
       }
     },
+    "/v1/meetings/{meeting_id}/deactivate": {
+      "patch": {
+        "summary": "Meeting Deactivate",
+        "operationId": "v1_meeting_deactivate",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Meeting Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/meetings/{meeting_id}/recordings/start": {
+      "post": {
+        "summary": "Start Recording",
+        "description": "Start cloud or raw-tracks recording via Daily.co REST API.\n\nBoth cloud and raw-tracks are started via REST API to bypass enable_recording limitation of allowing only 1 recording at a time.\nUses different instanceIds for cloud vs raw-tracks (same won't work)\n\nNote: No authentication required - anonymous users supported. TODO this is a DOS vector",
+        "operationId": "v1_start_recording",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A non-empty string",
+              "title": "Meeting Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRecordingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Start Recording V1 Meetings  Meeting Id  Recordings Start Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/rooms": {
       "get": {
         "summary": "Rooms List",
@@ -81,6 +199,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -118,7 +239,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page_Room_"
+                  "$ref": "#/components/schemas/Page_RoomDetails_"
                 }
               }
             }
@@ -141,6 +262,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "requestBody": {
@@ -178,12 +302,60 @@
       }
     },
     "/v1/rooms/{room_id}": {
+      "get": {
+        "summary": "Rooms Get",
+        "operationId": "v1_rooms_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "summary": "Rooms Update",
         "operationId": "v1_rooms_update",
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -213,7 +385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Room"
+                  "$ref": "#/components/schemas/RoomDetails"
                 }
               }
             }
@@ -236,6 +408,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -273,13 +448,16 @@
         }
       }
     },
-    "/v1/rooms/{room_name}/meeting": {
-      "post": {
-        "summary": "Rooms Create Meeting",
-        "operationId": "v1_rooms_create_meeting",
+    "/v1/rooms/name/{room_name}": {
+      "get": {
+        "summary": "Rooms Get By Name",
+        "operationId": "v1_rooms_get_by_name",
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -290,6 +468,481 @@
             "schema": {
               "type": "string",
               "title": "Room Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/meeting": {
+      "post": {
+        "summary": "Rooms Create Meeting",
+        "operationId": "v1_rooms_create_meeting",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomMeeting"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meeting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_id}/webhook/test": {
+      "post": {
+        "summary": "Rooms Test Webhook",
+        "description": "Test webhook configuration by sending a sample payload.",
+        "operationId": "v1_rooms_test_webhook",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookTestResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/ics/sync": {
+      "post": {
+        "summary": "Rooms Sync Ics",
+        "operationId": "v1_rooms_sync_ics",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ICSSyncResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/ics/status": {
+      "get": {
+        "summary": "Rooms Ics Status",
+        "operationId": "v1_rooms_ics_status",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ICSStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/meetings": {
+      "get": {
+        "summary": "Rooms List Meetings",
+        "operationId": "v1_rooms_list_meetings",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarEventResponse"
+                  },
+                  "title": "Response Rooms List Meetings V1 Rooms  Room Name  Meetings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/meetings/upcoming": {
+      "get": {
+        "summary": "Rooms List Upcoming Meetings",
+        "operationId": "v1_rooms_list_upcoming_meetings",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          },
+          {
+            "name": "minutes_ahead",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 120,
+              "title": "Minutes Ahead"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarEventResponse"
+                  },
+                  "title": "Response Rooms List Upcoming Meetings V1 Rooms  Room Name  Meetings Upcoming Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/meetings/active": {
+      "get": {
+        "summary": "Rooms List Active Meetings",
+        "operationId": "v1_rooms_list_active_meetings",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Meeting"
+                  },
+                  "title": "Response Rooms List Active Meetings V1 Rooms  Room Name  Meetings Active Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/meetings/{meeting_id}": {
+      "get": {
+        "summary": "Rooms Get Meeting",
+        "description": "Get a single meeting by ID within a specific room.",
+        "operationId": "v1_rooms_get_meeting",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          },
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Meeting Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meeting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{room_name}/meetings/{meeting_id}/join": {
+      "post": {
+        "summary": "Rooms Join Meeting",
+        "operationId": "v1_rooms_join_meeting",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "room_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Room Name"
+            }
+          },
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Meeting Id"
             }
           }
         ],
@@ -324,6 +977,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -373,6 +1029,42 @@
                 }
               ],
               "title": "Search Term"
+            }
+          },
+          {
+            "name": "change_seq_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Change Seq From"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "created_at",
+                    "change_seq"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort By"
             }
           },
           {
@@ -432,6 +1124,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "requestBody": {
@@ -450,7 +1145,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTranscript"
+                  "$ref": "#/components/schemas/GetTranscriptWithParticipants"
                 }
               }
             }
@@ -476,6 +1171,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -485,7 +1183,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
+              "minLength": 0,
               "description": "Search query text",
               "title": "Q"
             },
@@ -533,6 +1231,60 @@
               ],
               "title": "Room Id"
             }
+          },
+          {
+            "name": "source_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SourceKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Kind"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter transcripts created on or after this datetime (ISO 8601 with timezone)",
+              "title": "From"
+            },
+            "description": "Filter transcripts created on or after this datetime (ISO 8601 with timezone)"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter transcripts created on or before this datetime (ISO 8601 with timezone)",
+              "title": "To"
+            },
+            "description": "Filter transcripts created on or before this datetime (ISO 8601 with timezone)"
           }
         ],
         "responses": {
@@ -566,6 +1318,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -577,6 +1332,22 @@
               "type": "string",
               "title": "Transcript Id"
             }
+          },
+          {
+            "name": "transcript_format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "text",
+                "text-timestamped",
+                "webvtt-named",
+                "json"
+              ],
+              "type": "string",
+              "default": "text",
+              "title": "Transcript Format"
+            }
           }
         ],
         "responses": {
@@ -585,7 +1356,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTranscript"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/GetTranscriptWithText"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetTranscriptWithTextTimestamped"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetTranscriptWithWebVTTNamed"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetTranscriptWithJSON"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "transcript_format",
+                    "mapping": {
+                      "text": "#/components/schemas/GetTranscriptWithText",
+                      "text-timestamped": "#/components/schemas/GetTranscriptWithTextTimestamped",
+                      "webvtt-named": "#/components/schemas/GetTranscriptWithWebVTTNamed",
+                      "json": "#/components/schemas/GetTranscriptWithJSON"
+                    }
+                  },
+                  "title": "Response Transcript Get V1 Transcripts  Transcript Id  Get"
                 }
               }
             }
@@ -608,6 +1402,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -637,7 +1434,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetTranscript"
+                  "$ref": "#/components/schemas/GetTranscriptWithParticipants"
                 }
               }
             }
@@ -660,6 +1457,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -704,6 +1504,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -752,6 +1555,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -800,6 +1606,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -853,6 +1662,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -922,6 +1734,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -978,6 +1793,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1036,6 +1854,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1080,6 +1901,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1126,6 +1950,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1180,6 +2007,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1231,6 +2061,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1292,6 +2125,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1345,6 +2181,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1399,6 +2238,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1453,6 +2295,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1518,7 +2363,8 @@
     },
     "/v1/transcripts/{transcript_id}/events": {
       "get": {
-        "summary": "Transcript Get Websocket Events",
+        "summary": "Transcript WebSocket event schema",
+        "description": "Stub exposing the discriminated union of all transcript-level WS events for OpenAPI type generation. Real events are delivered over the WebSocket at the same path.",
         "operationId": "v1_transcript_get_websocket_events",
         "parameters": [
           {
@@ -1536,7 +2382,52 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsTranscript"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsTopic"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsStatus"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsFinalTitle"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsFinalLongSummary"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsFinalShortSummary"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsActionItems"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsDuration"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TranscriptWsWaveform"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "event",
+                    "mapping": {
+                      "TRANSCRIPT": "#/components/schemas/TranscriptWsTranscript",
+                      "TOPIC": "#/components/schemas/TranscriptWsTopic",
+                      "STATUS": "#/components/schemas/TranscriptWsStatus",
+                      "FINAL_TITLE": "#/components/schemas/TranscriptWsFinalTitle",
+                      "FINAL_LONG_SUMMARY": "#/components/schemas/TranscriptWsFinalLongSummary",
+                      "FINAL_SHORT_SUMMARY": "#/components/schemas/TranscriptWsFinalShortSummary",
+                      "ACTION_ITEMS": "#/components/schemas/TranscriptWsActionItems",
+                      "DURATION": "#/components/schemas/TranscriptWsDuration",
+                      "WAVEFORM": "#/components/schemas/TranscriptWsWaveform"
+                    }
+                  },
+                  "title": "Response Transcript Get Websocket Events V1 Transcripts  Transcript Id  Events Get"
+                }
               }
             }
           },
@@ -1560,6 +2451,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1612,6 +2506,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1630,7 +2527,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessStatus"
+                }
               }
             }
           },
@@ -1674,8 +2573,178 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ]
+      }
+    },
+    "/v1/user/api-keys": {
+      "get": {
+        "summary": "List Api Keys",
+        "operationId": "v1_list_api_keys",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Api Keys V1 User Api Keys Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Api Key",
+        "operationId": "v1_create_api_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateApiKeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/user/api-keys/{key_id}": {
+      "delete": {
+        "summary": "Delete Api Key",
+        "operationId": "v1_delete_api_key",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A non-empty string",
+              "title": "Key Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "summary": "User WebSocket event schema",
+        "description": "Stub exposing the discriminated union of all user-level WS events for OpenAPI type generation. Real events are delivered over the WebSocket at the same path.",
+        "operationId": "v1_user_get_websocket_events",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/UserWsTranscriptCreated"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserWsTranscriptDeleted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserWsTranscriptStatus"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserWsTranscriptFinalTitle"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserWsTranscriptDuration"
+                    }
+                  ],
+                  "title": "Response User Get Websocket Events V1 Events Get",
+                  "discriminator": {
+                    "propertyName": "event",
+                    "mapping": {
+                      "TRANSCRIPT_CREATED": "#/components/schemas/UserWsTranscriptCreated",
+                      "TRANSCRIPT_DELETED": "#/components/schemas/UserWsTranscriptDeleted",
+                      "TRANSCRIPT_STATUS": "#/components/schemas/UserWsTranscriptStatus",
+                      "TRANSCRIPT_FINAL_TITLE": "#/components/schemas/UserWsTranscriptFinalTitle",
+                      "TRANSCRIPT_DURATION": "#/components/schemas/UserWsTranscriptDuration"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/zulip/streams": {
@@ -1702,6 +2771,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ]
       }
@@ -1714,6 +2786,9 @@
         "security": [
           {
             "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
           }
         ],
         "parameters": [
@@ -1790,10 +2865,69 @@
           }
         }
       }
+    },
+    "/v1/daily/webhook": {
+      "post": {
+        "summary": "Webhook",
+        "description": "Handle Daily webhook events.\n\nExample webhook payload:\n{\n  \"version\": \"1.0.0\",\n  \"type\": \"recording.ready-to-download\",\n  \"id\": \"rec-rtd-c3df927c-f738-4471-a2b7-066fa7e95a6b-1692124192\",\n  \"payload\": {\n    \"recording_id\": \"08fa0b24-9220-44c5-846c-3f116cf8e738\",\n    \"room_name\": \"Xcm97xRZ08b2dePKb78g\",\n    \"start_ts\": 1692124183,\n    \"status\": \"finished\",\n    \"max_participants\": 1,\n    \"duration\": 9,\n    \"share_token\": \"ntDCL5k98Ulq\", #gitleaks:allow\n    \"s3_key\": \"api-test-1j8fizhzd30c/Xcm97xRZ08b2dePKb78g/1692124183028\"\n  },\n  \"event_ts\": 1692124192\n}\n\nDaily.co circuit-breaker: After 3+ failed responses (4xx/5xx), webhook\nstate→FAILED, stops sending events. Reset: scripts/recreate_daily_webhook.py",
+        "operationId": "v1_webhook",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ApiKeyResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          },
+          "user_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "User Id",
+            "description": "A non-empty string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "description": "A non-empty string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "created_at"
+        ],
+        "title": "ApiKeyResponse"
+      },
       "AudioWaveform": {
         "properties": {
           "data": {
@@ -1814,7 +2948,7 @@
         "properties": {
           "chunk": {
             "type": "string",
-            "format": "binary",
+            "contentMediaType": "application/octet-stream",
             "title": "Chunk"
           }
         },
@@ -1823,6 +2957,175 @@
           "chunk"
         ],
         "title": "Body_transcript_record_upload_v1_transcripts__transcript_id__record_upload_post"
+      },
+      "CalendarEventResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "room_id": {
+            "type": "string",
+            "title": "Room Id"
+          },
+          "ics_uid": {
+            "type": "string",
+            "title": "Ics Uid"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "attendees": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attendees"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "last_synced": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Synced"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "room_id",
+          "ics_uid",
+          "start_time",
+          "end_time",
+          "last_synced",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CalendarEventResponse"
+      },
+      "CreateApiKeyRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "description": "A non-empty string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "CreateApiKeyRequest"
+      },
+      "CreateApiKeyResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          },
+          "user_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "User Id",
+            "description": "A non-empty string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "description": "A non-empty string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Key",
+            "description": "A non-empty string"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "created_at",
+          "key"
+        ],
+        "title": "CreateApiKeyResponse"
       },
       "CreateParticipant": {
         "properties": {
@@ -1885,6 +3188,48 @@
           "is_shared": {
             "type": "boolean",
             "title": "Is Shared"
+          },
+          "webhook_url": {
+            "type": "string",
+            "title": "Webhook Url"
+          },
+          "webhook_secret": {
+            "type": "string",
+            "title": "Webhook Secret"
+          },
+          "ics_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Url"
+          },
+          "ics_fetch_interval": {
+            "type": "integer",
+            "title": "Ics Fetch Interval",
+            "default": 300
+          },
+          "ics_enabled": {
+            "type": "boolean",
+            "title": "Ics Enabled",
+            "default": false
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "whereby",
+              "daily"
+            ],
+            "title": "Platform"
+          },
+          "skip_consent": {
+            "type": "boolean",
+            "title": "Skip Consent",
+            "default": false
           }
         },
         "type": "object",
@@ -1897,9 +3242,30 @@
           "room_mode",
           "recording_type",
           "recording_trigger",
-          "is_shared"
+          "is_shared",
+          "webhook_url",
+          "webhook_secret",
+          "platform"
         ],
         "title": "CreateRoom"
+      },
+      "CreateRoomMeeting": {
+        "properties": {
+          "allow_duplicated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Duplicated",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "CreateRoomMeeting"
       },
       "CreateTranscript": {
         "properties": {
@@ -1916,6 +3282,16 @@
             "type": "string",
             "title": "Target Language",
             "default": "en"
+          },
+          "source_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1936,190 +3312,6 @@
           "status"
         ],
         "title": "DeletionStatus"
-      },
-      "GetTranscript": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "user_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "User Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "locked": {
-            "type": "boolean",
-            "title": "Locked"
-          },
-          "duration": {
-            "type": "number",
-            "title": "Duration"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "short_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Short Summary"
-          },
-          "long_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Long Summary"
-          },
-          "created_at": {
-            "type": "string",
-            "title": "Created At"
-          },
-          "share_mode": {
-            "type": "string",
-            "title": "Share Mode",
-            "default": "private"
-          },
-          "source_language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Language"
-          },
-          "target_language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Language"
-          },
-          "reviewed": {
-            "type": "boolean",
-            "title": "Reviewed"
-          },
-          "meeting_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Meeting Id"
-          },
-          "source_kind": {
-            "$ref": "#/components/schemas/SourceKind"
-          },
-          "room_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Room Id"
-          },
-          "room_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Room Name"
-          },
-          "audio_deleted": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audio Deleted"
-          },
-          "participants": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/TranscriptParticipant"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Participants"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "user_id",
-          "name",
-          "status",
-          "locked",
-          "duration",
-          "title",
-          "short_summary",
-          "long_summary",
-          "created_at",
-          "source_language",
-          "target_language",
-          "reviewed",
-          "meeting_id",
-          "source_kind",
-          "participants"
-        ],
-        "title": "GetTranscript"
       },
       "GetTranscriptMinimal": {
         "properties": {
@@ -2144,6 +3336,14 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
             "title": "Status"
           },
           "locked": {
@@ -2268,6 +3468,17 @@
               }
             ],
             "title": "Audio Deleted"
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
           }
         },
         "type": "object",
@@ -2488,6 +3699,1072 @@
         ],
         "title": "GetTranscriptTopicWithWordsPerSpeaker"
       },
+      "GetTranscriptWithJSON": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Status"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "short_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Summary"
+          },
+          "long_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "share_mode": {
+            "type": "string",
+            "title": "Share Mode",
+            "default": "private"
+          },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "target_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Language"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "meeting_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Id"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "audio_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted"
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TranscriptParticipantWithEmail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          },
+          "transcript_format": {
+            "type": "string",
+            "const": "json",
+            "title": "Transcript Format",
+            "default": "json"
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSegment"
+            },
+            "type": "array",
+            "title": "Transcript"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "status",
+          "locked",
+          "duration",
+          "title",
+          "short_summary",
+          "long_summary",
+          "created_at",
+          "source_language",
+          "target_language",
+          "reviewed",
+          "meeting_id",
+          "source_kind",
+          "participants",
+          "transcript"
+        ],
+        "title": "GetTranscriptWithJSON",
+        "description": "Transcript response as structured JSON segments.\n\nFormat: Array of segment objects with speaker info, text, and timing.\nExample:\n    [\n        {\n            \"speaker\": 0,\n            \"speaker_name\": \"John Smith\",\n            \"text\": \"Hello everyone\",\n            \"start\": 0.0,\n            \"end\": 5.0\n        }\n    ]"
+      },
+      "GetTranscriptWithParticipants": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Status"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "short_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Summary"
+          },
+          "long_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "share_mode": {
+            "type": "string",
+            "title": "Share Mode",
+            "default": "private"
+          },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "target_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Language"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "meeting_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Id"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "audio_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted"
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TranscriptParticipantWithEmail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "status",
+          "locked",
+          "duration",
+          "title",
+          "short_summary",
+          "long_summary",
+          "created_at",
+          "source_language",
+          "target_language",
+          "reviewed",
+          "meeting_id",
+          "source_kind",
+          "participants"
+        ],
+        "title": "GetTranscriptWithParticipants"
+      },
+      "GetTranscriptWithText": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Status"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "short_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Summary"
+          },
+          "long_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "share_mode": {
+            "type": "string",
+            "title": "Share Mode",
+            "default": "private"
+          },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "target_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Language"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "meeting_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Id"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "audio_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted"
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TranscriptParticipantWithEmail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          },
+          "transcript_format": {
+            "type": "string",
+            "const": "text",
+            "title": "Transcript Format",
+            "default": "text"
+          },
+          "transcript": {
+            "type": "string",
+            "title": "Transcript"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "status",
+          "locked",
+          "duration",
+          "title",
+          "short_summary",
+          "long_summary",
+          "created_at",
+          "source_language",
+          "target_language",
+          "reviewed",
+          "meeting_id",
+          "source_kind",
+          "participants",
+          "transcript"
+        ],
+        "title": "GetTranscriptWithText",
+        "description": "Transcript response with plain text format.\n\nFormat: Speaker names followed by their dialogue, one line per segment.\nExample:\n    John Smith: Hello everyone\n    Jane Doe: Hi there"
+      },
+      "GetTranscriptWithTextTimestamped": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Status"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "short_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Summary"
+          },
+          "long_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "share_mode": {
+            "type": "string",
+            "title": "Share Mode",
+            "default": "private"
+          },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "target_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Language"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "meeting_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Id"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "audio_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted"
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TranscriptParticipantWithEmail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          },
+          "transcript_format": {
+            "type": "string",
+            "const": "text-timestamped",
+            "title": "Transcript Format",
+            "default": "text-timestamped"
+          },
+          "transcript": {
+            "type": "string",
+            "title": "Transcript"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "status",
+          "locked",
+          "duration",
+          "title",
+          "short_summary",
+          "long_summary",
+          "created_at",
+          "source_language",
+          "target_language",
+          "reviewed",
+          "meeting_id",
+          "source_kind",
+          "participants",
+          "transcript"
+        ],
+        "title": "GetTranscriptWithTextTimestamped",
+        "description": "Transcript response with timestamped text format.\n\nFormat: [MM:SS] timestamp prefix before each speaker and dialogue.\nExample:\n    [00:00] John Smith: Hello everyone\n    [00:05] Jane Doe: Hi there"
+      },
+      "GetTranscriptWithWebVTTNamed": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Status"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "short_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Summary"
+          },
+          "long_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Long Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "share_mode": {
+            "type": "string",
+            "title": "Share Mode",
+            "default": "private"
+          },
+          "source_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Language"
+          },
+          "target_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Language"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "meeting_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Id"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "audio_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted"
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TranscriptParticipantWithEmail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          },
+          "transcript_format": {
+            "type": "string",
+            "const": "webvtt-named",
+            "title": "Transcript Format",
+            "default": "webvtt-named"
+          },
+          "transcript": {
+            "type": "string",
+            "title": "Transcript"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "status",
+          "locked",
+          "duration",
+          "title",
+          "short_summary",
+          "long_summary",
+          "created_at",
+          "source_language",
+          "target_language",
+          "reviewed",
+          "meeting_id",
+          "source_kind",
+          "participants",
+          "transcript"
+        ],
+        "title": "GetTranscriptWithWebVTTNamed",
+        "description": "Transcript response in WebVTT subtitle format with participant names.\n\nFormat: Standard WebVTT with voice tags using participant names.\nExample:\n    WEBVTT\n\n    00:00:00.000 --> 00:00:05.000\n    <v John Smith>Hello everyone"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2500,6 +4777,133 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ICSStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "Status"
+          },
+          "last_sync": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync"
+          },
+          "next_sync": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Sync"
+          },
+          "last_etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Etag"
+          },
+          "events_count": {
+            "type": "integer",
+            "title": "Events Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ICSStatus"
+      },
+      "ICSSyncResult": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/SyncStatus"
+          },
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash"
+          },
+          "events_found": {
+            "type": "integer",
+            "title": "Events Found",
+            "default": 0
+          },
+          "total_events": {
+            "type": "integer",
+            "title": "Total Events",
+            "default": 0
+          },
+          "events_created": {
+            "type": "integer",
+            "title": "Events Created",
+            "default": 0
+          },
+          "events_updated": {
+            "type": "integer",
+            "title": "Events Updated",
+            "default": 0
+          },
+          "events_deleted": {
+            "type": "integer",
+            "title": "Events Deleted",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ICSSyncResult"
       },
       "Meeting": {
         "properties": {
@@ -2529,6 +4933,42 @@
             "format": "date-time",
             "title": "End Date"
           },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "room_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Id"
+          },
+          "is_locked": {
+            "type": "boolean",
+            "title": "Is Locked",
+            "default": false
+          },
+          "room_mode": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "group"
+            ],
+            "title": "Room Mode",
+            "default": "normal"
+          },
           "recording_type": {
             "type": "string",
             "enum": [
@@ -2538,6 +4978,80 @@
             ],
             "title": "Recording Type",
             "default": "cloud"
+          },
+          "recording_trigger": {
+            "type": "string",
+            "enum": [
+              "none",
+              "prompt",
+              "automatic",
+              "automatic-2nd-participant"
+            ],
+            "title": "Recording Trigger",
+            "default": "automatic-2nd-participant"
+          },
+          "num_clients": {
+            "type": "integer",
+            "title": "Num Clients",
+            "default": 0
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          },
+          "calendar_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Event Id"
+          },
+          "calendar_metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Metadata"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "whereby",
+              "daily"
+            ],
+            "title": "Platform"
+          },
+          "daily_composed_video_s3_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Composed Video S3 Key"
+          },
+          "daily_composed_video_duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Composed Video Duration"
           }
         },
         "type": "object",
@@ -2547,7 +5061,8 @@
           "room_url",
           "host_room_url",
           "start_date",
-          "end_date"
+          "end_date",
+          "platform"
         ],
         "title": "Meeting"
       },
@@ -2574,127 +5089,75 @@
             "title": "Items"
           },
           "total": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Total"
           },
           "page": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 1.0,
             "title": "Page"
           },
           "size": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 1.0,
             "title": "Size"
           },
           "pages": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Pages"
           }
         },
         "type": "object",
         "required": [
           "items",
+          "total",
           "page",
-          "size"
+          "size",
+          "pages"
         ],
         "title": "Page[GetTranscriptMinimal]"
       },
-      "Page_Room_": {
+      "Page_RoomDetails_": {
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/Room"
+              "$ref": "#/components/schemas/RoomDetails"
             },
             "type": "array",
             "title": "Items"
           },
           "total": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Total"
           },
           "page": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 1.0,
             "title": "Page"
           },
           "size": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 1.0,
             "title": "Size"
           },
           "pages": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Pages"
           }
         },
         "type": "object",
         "required": [
           "items",
+          "total",
           "page",
-          "size"
+          "size",
+          "pages"
         ],
-        "title": "Page[Room]"
+        "title": "Page[RoomDetails]"
       },
       "Participant": {
         "properties": {
@@ -2725,6 +5188,19 @@
           "name"
         ],
         "title": "Participant"
+      },
+      "ProcessStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ProcessStatus"
       },
       "Room": {
         "properties": {
@@ -2776,6 +5252,63 @@
           "is_shared": {
             "type": "boolean",
             "title": "Is Shared"
+          },
+          "ics_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Url"
+          },
+          "ics_fetch_interval": {
+            "type": "integer",
+            "title": "Ics Fetch Interval",
+            "default": 300
+          },
+          "ics_enabled": {
+            "type": "boolean",
+            "title": "Ics Enabled",
+            "default": false
+          },
+          "ics_last_sync": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Last Sync"
+          },
+          "ics_last_etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Last Etag"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "whereby",
+              "daily"
+            ],
+            "title": "Platform"
+          },
+          "skip_consent": {
+            "type": "boolean",
+            "title": "Skip Consent",
+            "default": false
           }
         },
         "type": "object",
@@ -2791,9 +5324,161 @@
           "room_mode",
           "recording_type",
           "recording_trigger",
-          "is_shared"
+          "is_shared",
+          "platform"
         ],
         "title": "Room"
+      },
+      "RoomDetails": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "zulip_auto_post": {
+            "type": "boolean",
+            "title": "Zulip Auto Post"
+          },
+          "zulip_stream": {
+            "type": "string",
+            "title": "Zulip Stream"
+          },
+          "zulip_topic": {
+            "type": "string",
+            "title": "Zulip Topic"
+          },
+          "is_locked": {
+            "type": "boolean",
+            "title": "Is Locked"
+          },
+          "room_mode": {
+            "type": "string",
+            "title": "Room Mode"
+          },
+          "recording_type": {
+            "type": "string",
+            "title": "Recording Type"
+          },
+          "recording_trigger": {
+            "type": "string",
+            "title": "Recording Trigger"
+          },
+          "is_shared": {
+            "type": "boolean",
+            "title": "Is Shared"
+          },
+          "ics_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Url"
+          },
+          "ics_fetch_interval": {
+            "type": "integer",
+            "title": "Ics Fetch Interval",
+            "default": 300
+          },
+          "ics_enabled": {
+            "type": "boolean",
+            "title": "Ics Enabled",
+            "default": false
+          },
+          "ics_last_sync": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Last Sync"
+          },
+          "ics_last_etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Last Etag"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "whereby",
+              "daily"
+            ],
+            "title": "Platform"
+          },
+          "skip_consent": {
+            "type": "boolean",
+            "title": "Skip Consent",
+            "default": false
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url"
+          },
+          "webhook_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "user_id",
+          "created_at",
+          "zulip_auto_post",
+          "zulip_stream",
+          "zulip_topic",
+          "is_locked",
+          "room_mode",
+          "recording_type",
+          "recording_trigger",
+          "is_shared",
+          "platform",
+          "webhook_url",
+          "webhook_secret"
+        ],
+        "title": "RoomDetails"
       },
       "RtcOffer": {
         "properties": {
@@ -2829,10 +5514,17 @@
             "description": "Total number of search results"
           },
           "query": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Query",
-            "description": "Search query text"
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "description": "Search query text"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
           },
           "limit": {
             "type": "integer",
@@ -2852,7 +5544,6 @@
         "required": [
           "results",
           "total",
-          "query",
           "limit",
           "offset"
         ],
@@ -2898,12 +5589,34 @@
             ],
             "title": "Room Id"
           },
+          "room_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Name"
+          },
+          "source_kind": {
+            "$ref": "#/components/schemas/SourceKind"
+          },
           "created_at": {
             "type": "string",
             "title": "Created At"
           },
           "status": {
             "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
             "minLength": 1,
             "title": "Status"
           },
@@ -2933,11 +5646,30 @@
             "type": "array",
             "title": "Search Snippets",
             "description": "Text snippets around search matches"
+          },
+          "total_match_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Match Count",
+            "description": "Total number of matches found in the transcript",
+            "default": 0
+          },
+          "change_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Seq"
           }
         },
         "type": "object",
         "required": [
           "id",
+          "source_kind",
           "created_at",
           "status",
           "rank",
@@ -3049,6 +5781,29 @@
         ],
         "title": "SpeakerWords"
       },
+      "StartRecordingRequest": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "cloud",
+              "raw-tracks"
+            ],
+            "title": "Type"
+          },
+          "instanceId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Instanceid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "instanceId"
+        ],
+        "title": "StartRecordingRequest"
+      },
       "Stream": {
         "properties": {
           "stream_id": {
@@ -3067,6 +5822,16 @@
         ],
         "title": "Stream"
       },
+      "SyncStatus": {
+        "type": "string",
+        "enum": [
+          "success",
+          "unchanged",
+          "error",
+          "skipped"
+        ],
+        "title": "SyncStatus"
+      },
       "Topic": {
         "properties": {
           "name": {
@@ -3079,6 +5844,72 @@
           "name"
         ],
         "title": "Topic"
+      },
+      "TranscriptActionItems": {
+        "properties": {
+          "action_items": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Action Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_items"
+        ],
+        "title": "TranscriptActionItems"
+      },
+      "TranscriptDuration": {
+        "properties": {
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration"
+        ],
+        "title": "TranscriptDuration"
+      },
+      "TranscriptFinalLongSummary": {
+        "properties": {
+          "long_summary": {
+            "type": "string",
+            "title": "Long Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "long_summary"
+        ],
+        "title": "TranscriptFinalLongSummary"
+      },
+      "TranscriptFinalShortSummary": {
+        "properties": {
+          "short_summary": {
+            "type": "string",
+            "title": "Short Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "short_summary"
+        ],
+        "title": "TranscriptFinalShortSummary"
+      },
+      "TranscriptFinalTitle": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "TranscriptFinalTitle"
       },
       "TranscriptParticipant": {
         "properties": {
@@ -3100,6 +5931,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
           }
         },
         "type": "object",
@@ -3108,6 +5950,315 @@
           "name"
         ],
         "title": "TranscriptParticipant"
+      },
+      "TranscriptParticipantWithEmail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker",
+          "name"
+        ],
+        "title": "TranscriptParticipantWithEmail"
+      },
+      "TranscriptSegment": {
+        "properties": {
+          "speaker": {
+            "type": "integer",
+            "title": "Speaker"
+          },
+          "speaker_name": {
+            "type": "string",
+            "title": "Speaker Name"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker",
+          "speaker_name",
+          "text",
+          "start",
+          "end"
+        ],
+        "title": "TranscriptSegment",
+        "description": "A single transcript segment with speaker and timing information."
+      },
+      "TranscriptText": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "translation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "translation"
+        ],
+        "title": "TranscriptText"
+      },
+      "TranscriptWaveform": {
+        "properties": {
+          "waveform": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Waveform"
+          }
+        },
+        "type": "object",
+        "required": [
+          "waveform"
+        ],
+        "title": "TranscriptWaveform"
+      },
+      "TranscriptWsActionItems": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "ACTION_ITEMS",
+            "title": "Event",
+            "default": "ACTION_ITEMS"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptActionItems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsActionItems"
+      },
+      "TranscriptWsDuration": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "DURATION",
+            "title": "Event",
+            "default": "DURATION"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptDuration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsDuration"
+      },
+      "TranscriptWsFinalLongSummary": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "FINAL_LONG_SUMMARY",
+            "title": "Event",
+            "default": "FINAL_LONG_SUMMARY"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptFinalLongSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsFinalLongSummary"
+      },
+      "TranscriptWsFinalShortSummary": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "FINAL_SHORT_SUMMARY",
+            "title": "Event",
+            "default": "FINAL_SHORT_SUMMARY"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptFinalShortSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsFinalShortSummary"
+      },
+      "TranscriptWsFinalTitle": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "FINAL_TITLE",
+            "title": "Event",
+            "default": "FINAL_TITLE"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptFinalTitle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsFinalTitle"
+      },
+      "TranscriptWsStatus": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "STATUS",
+            "title": "Event",
+            "default": "STATUS"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptWsStatusData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsStatus"
+      },
+      "TranscriptWsStatusData": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "TranscriptWsStatusData"
+      },
+      "TranscriptWsTopic": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TOPIC",
+            "title": "Event",
+            "default": "TOPIC"
+          },
+          "data": {
+            "$ref": "#/components/schemas/GetTranscriptTopic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsTopic"
+      },
+      "TranscriptWsTranscript": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TRANSCRIPT",
+            "title": "Event",
+            "default": "TRANSCRIPT"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptText"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsTranscript"
+      },
+      "TranscriptWsWaveform": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "WAVEFORM",
+            "title": "Event",
+            "default": "WAVEFORM"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TranscriptWaveform"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "TranscriptWsWaveform"
       },
       "UpdateParticipant": {
         "properties": {
@@ -3140,54 +6291,187 @@
       "UpdateRoom": {
         "properties": {
           "name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           },
           "zulip_auto_post": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Zulip Auto Post"
           },
           "zulip_stream": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Zulip Stream"
           },
           "zulip_topic": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Zulip Topic"
           },
           "is_locked": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Is Locked"
           },
           "room_mode": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Room Mode"
           },
           "recording_type": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Recording Type"
           },
           "recording_trigger": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Recording Trigger"
           },
           "is_shared": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Is Shared"
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url"
+          },
+          "webhook_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Secret"
+          },
+          "ics_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Url"
+          },
+          "ics_fetch_interval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Fetch Interval"
+          },
+          "ics_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ics Enabled"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "whereby",
+                  "daily"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "skip_consent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Consent"
           }
         },
         "type": "object",
-        "required": [
-          "name",
-          "zulip_auto_post",
-          "zulip_stream",
-          "zulip_topic",
-          "is_locked",
-          "room_mode",
-          "recording_type",
-          "recording_trigger",
-          "is_shared"
-        ],
         "title": "UpdateRoom"
       },
       "UpdateTranscript": {
@@ -3319,26 +6603,204 @@
               }
             ],
             "title": "Email"
-          },
-          "email_verified": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email Verified"
           }
         },
         "type": "object",
         "required": [
           "sub",
-          "email",
-          "email_verified"
+          "email"
         ],
         "title": "UserInfo"
+      },
+      "UserTranscriptCreatedData": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "UserTranscriptCreatedData"
+      },
+      "UserTranscriptDeletedData": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "UserTranscriptDeletedData"
+      },
+      "UserTranscriptDurationData": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "duration"
+        ],
+        "title": "UserTranscriptDurationData"
+      },
+      "UserTranscriptFinalTitleData": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title",
+            "description": "A non-empty string"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "UserTranscriptFinalTitleData"
+      },
+      "UserTranscriptStatusData": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id",
+            "description": "A non-empty string"
+          },
+          "value": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "uploaded",
+              "recording",
+              "processing",
+              "error",
+              "ended"
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "value"
+        ],
+        "title": "UserTranscriptStatusData"
+      },
+      "UserWsTranscriptCreated": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TRANSCRIPT_CREATED",
+            "title": "Event",
+            "default": "TRANSCRIPT_CREATED"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserTranscriptCreatedData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "UserWsTranscriptCreated"
+      },
+      "UserWsTranscriptDeleted": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TRANSCRIPT_DELETED",
+            "title": "Event",
+            "default": "TRANSCRIPT_DELETED"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserTranscriptDeletedData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "UserWsTranscriptDeleted"
+      },
+      "UserWsTranscriptDuration": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TRANSCRIPT_DURATION",
+            "title": "Event",
+            "default": "TRANSCRIPT_DURATION"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserTranscriptDurationData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "UserWsTranscriptDuration"
+      },
+      "UserWsTranscriptFinalTitle": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TRANSCRIPT_FINAL_TITLE",
+            "title": "Event",
+            "default": "TRANSCRIPT_FINAL_TITLE"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserTranscriptFinalTitleData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "UserWsTranscriptFinalTitle"
+      },
+      "UserWsTranscriptStatus": {
+        "properties": {
+          "event": {
+            "type": "string",
+            "const": "TRANSCRIPT_STATUS",
+            "title": "Event",
+            "default": "TRANSCRIPT_STATUS"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserTranscriptStatusData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "UserWsTranscriptStatus"
       },
       "ValidationError": {
         "properties": {
@@ -3363,6 +6825,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",
@@ -3372,6 +6841,51 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebhookTestResult": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          },
+          "status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Code"
+          },
+          "response_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Preview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "WebhookTestResult"
       },
       "WherebyWebhookEvent": {
         "properties": {
@@ -3450,6 +6964,11 @@
             "tokenUrl": "token"
           }
         }
+      },
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       }
     }
   }

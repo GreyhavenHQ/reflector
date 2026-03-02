@@ -21,7 +21,6 @@ CLAUDE.local.md
 www/.env.development
 www/.env.production
 .playwright-mcp
-docs/pnpm-lock.yaml
 .secrets
 opencode.json
 

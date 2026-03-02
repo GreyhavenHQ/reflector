@@ -1,10 +1,8 @@
 import { Container, Flex } from "@chakra-ui/react";
-import { featureEnabled } from "../lib/features";
 import NextLink from "next/link";
 import Image from "next/image";
-import UserInfo from "../(auth)/userInfo";
 import AuthWrapper from "./AuthWrapper";
-import { RECORD_A_MEETING_URL } from "../api/urls";
+import MainNav from "../components/MainNav";
 
 export default async function AppLayout({
   children,
@@ -47,44 +45,7 @@ export default async function AppLayout({
             </p>
           </div>
         </NextLink>
-        <div>
-          {/* Text link on the right */}
-          <NextLink href={RECORD_A_MEETING_URL} className="font-light px-2">
-            Create
-          </NextLink>
-          {featureEnabled("browse") ? (
-            <>
-              &nbsp;·&nbsp;
-              <NextLink href="/browse" className="font-light px-2">
-                Browse
-              </NextLink>
-            </>
-          ) : (
-            <></>
-          )}
-          {featureEnabled("rooms") ? (
-            <>
-              &nbsp;·&nbsp;
-              <NextLink href="/rooms" className="font-light px-2">
-                Rooms
-              </NextLink>
-            </>
-          ) : (
-            <></>
-          )}
-          {featureEnabled("requireLogin") ? (
-            <>
-              &nbsp;·&nbsp;
-              <NextLink href="/settings/api-keys" className="font-light px-2">
-                Settings
-              </NextLink>
-              &nbsp;·&nbsp;
-              <UserInfo />
-            </>
-          ) : (
-            <></>
-          )}
-        </div>
+        <MainNav />
       </Flex>
 
       <AuthWrapper>{children}</AuthWrapper>

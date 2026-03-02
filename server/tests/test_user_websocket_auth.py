@@ -67,7 +67,7 @@ def appserver_ws_user(setup_database):
 @pytest.fixture(autouse=True)
 def patch_jwt_verification(monkeypatch):
     """Patch JWT verification to accept HS256 tokens signed with SECRET_KEY for tests."""
-    from jose import jwt
+    import jwt
 
     from reflector.settings import settings
 
@@ -84,7 +84,7 @@ def _make_dummy_jwt(sub: str = "user123") -> str:
     # Create a short HS256 JWT using the app secret to pass verification in tests
     from datetime import datetime, timedelta, timezone
 
-    from jose import jwt
+    import jwt
 
     from reflector.settings import settings
 

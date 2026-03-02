@@ -11,7 +11,7 @@ Reflector is built as a modern, scalable, microservices-based application design
 
 ### Frontend Application
 
-The user interface is built with **Next.js 15** using the App Router pattern, providing:
+The user interface is built with **Next.js 16** using the App Router pattern, providing:
 
 - Server-side rendering for optimal performance
 - Real-time WebSocket connections for live transcription

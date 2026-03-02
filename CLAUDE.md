@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Reflector is an AI-powered audio transcription and meeting analysis platform with real-time processing capabilities. The system consists of:
 
-- **Frontend**: Next.js 14 React application (`www/`) with Chakra UI, real-time WebSocket integration
+- **Frontend**: Next.js 16 React application (`www/`) with Chakra UI, real-time WebSocket integration
 - **Backend**: Python FastAPI server (`server/`) with async database operations and background processing
 - **Processing**: GPU-accelerated ML pipeline for transcription, diarization, summarization via Modal.com
 - **Infrastructure**: Redis, PostgreSQL/SQLite, Celery workers, WebRTC streaming

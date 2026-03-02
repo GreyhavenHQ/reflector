@@ -1,42 +1,74 @@
-@media (prefers-color-scheme: dark) {
-  .select-search-container,
-  .input-container {
-    --select-search-background: #fff;
-    --select-search-border: #dce0e8;
-    --select-search-selected: #1e66f5;
-    --select-search-text: #000;
-    --select-search-subtle-text: #6c6f85;
-    --select-search-highlight: #eff1f5;
+/* Form fields on primary (blue) card – white inputs like previous react-select */
+.form-on-primary {
+  --form-bg: #fff;
+  --form-border: #dce0e8;
+  --form-focus-border: #1e66f5;
+  --form-text: #000;
+  --form-placeholder: #6c6f85;
+  --form-option-bg: #fff;
+  --form-option-hover: #eff1f5;
+  --form-dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --form-radius: 0.5rem; /* 8px, matches rounded-lg elsewhere */
+}
+
+.form-on-primary .form-field-input,
+.form-on-primary .form-field-select,
+.form-on-primary .form-field-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--form-radius);
+  border: 1px solid var(--form-border);
+  background-color: var(--form-bg);
+  color: var(--form-text);
+  font-size: 0.9375rem;
+  outline: none;
+  cursor: pointer;
+
+  &::placeholder {
+    color: var(--form-placeholder);
+  }
+
+  &:focus {
+    border-color: var(--form-focus-border);
   }
 }
 
-body.is-dark-mode .select-search-container,
-body.is-dark-mode .input-container {
-  --select-search-background: #fff;
-  --select-search-border: #dce0e8;
-  --select-search-selected: #1e66f5;
-  --select-search-text: #000;
-  --select-search-subtle-text: #6c6f85;
-  --select-search-highlight: #eff1f5;
+.form-on-primary .form-field-select option {
+  background: var(--form-option-bg);
+  color: var(--form-text);
 }
 
-body.is-light-mode .select-search-container,
-body.is-light-mode .input-container {
-  --select-search-background: #fff;
-  --select-search-border: #dce0e8;
-  --select-search-selected: #1e66f5;
-  --select-search-text: #000;
-  --select-search-subtle-text: #6c6f85;
-  --select-search-highlight: #eff1f5;
-}
+/* Chakra Combobox inside form-on-primary: white input + dropdown, dark text */
+.form-on-primary .form-combobox {
+  width: 100%;
 
-.input-container,
-.select-search-container {
-  max-width: 100%;
-  width: auto;
-}
+  [data-part="control"],
+  & input {
+    border-radius: var(--form-radius);
+    border-color: var(--form-border);
+    background-color: var(--form-bg);
+    color: var(--form-text);
 
-body .select-search-container .select-search--top.select-search-select {
-  top: auto;
-  bottom: 46px;
+    &:focus,
+    &[data-focus] {
+      border-color: var(--form-focus-border);
+    }
+  }
+
+  [data-part="content"] {
+    border-radius: var(--form-radius);
+    border: 1px solid var(--form-border);
+    background: var(--form-bg);
+    box-shadow: var(--form-dropdown-shadow);
+    color: var(--form-text);
+  }
+
+  [data-part="item"] {
+    color: var(--form-text);
+
+    &:hover {
+      background: var(--form-option-hover);
+    }
+  }
 }
