@@ -34,6 +34,10 @@
 #   ./scripts/setup-selfhosted.sh --gpu --garage --caddy
 #   ./scripts/setup-selfhosted.sh --cpu
 #
+# The script auto-detects Daily.co (DAILY_API_KEY) and Whereby (WHEREBY_API_KEY)
+# from server/.env. If Daily.co is configured, Hatchet workflow services are
+# started automatically for multitrack recording processing.
+#
 # Idempotent — safe to re-run at any time.
 #
 set -euo pipefail
@@ -427,6 +431,8 @@ step_server_env() {
     env_set "$SERVER_ENV" "DIARIZATION_URL" "http://transcription:8000"
     env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
     env_set "$SERVER_ENV" "TRANSLATE_URL" "http://transcription:8000"
+    env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
+    env_set "$SERVER_ENV" "PADDING_URL" "http://transcription:8000"
 
     # HuggingFace token for gated models (pyannote diarization)
     # Written to root .env so docker compose picks it up for gpu/cpu containers
@@ -466,13 +472,27 @@ step_server_env() {
         if env_has_key "$SERVER_ENV" "LLM_URL"; then
             current_llm_url=$(env_get "$SERVER_ENV" "LLM_URL")
         fi
-        if [[ -z "$current_llm_url" ]] || [[ "$current_llm_url" == "http://host.docker.internal"* ]]; then
+        if [[ -z "$current_llm_url" ]]; then
             warn "LLM not configured. Summarization and topic detection will NOT work."
             warn "Edit server/.env and set LLM_URL, LLM_API_KEY, LLM_MODEL"
             warn "Example: LLM_URL=https://api.openai.com/v1  LLM_MODEL=gpt-4o-mini"
         else
             ok "LLM already configured: $current_llm_url"
         fi
+    fi
+
+    # CPU mode: increase file processing timeouts (default 600s is too short for long audio on CPU)
+    if [[ "$MODEL_MODE" == "cpu" ]]; then
+        env_set "$SERVER_ENV" "TRANSCRIPT_FILE_TIMEOUT" "3600"
+        env_set "$SERVER_ENV" "DIARIZATION_FILE_TIMEOUT" "3600"
+        ok "CPU mode — file processing timeouts set to 3600s (1 hour)"
+    fi
+
+    # If Daily.co is manually configured, ensure Hatchet connectivity vars are set
+    if env_has_key "$SERVER_ENV" "DAILY_API_KEY" && [[ -n "$(env_get "$SERVER_ENV" "DAILY_API_KEY")" ]]; then
+        env_set "$SERVER_ENV" "HATCHET_CLIENT_SERVER_URL" "http://hatchet:8888"
+        env_set "$SERVER_ENV" "HATCHET_CLIENT_HOST_PORT" "hatchet:7077"
+        ok "Daily.co detected — Hatchet connectivity configured"
     fi
 
     ok "server/.env ready"
@@ -533,6 +553,19 @@ step_www_env() {
         else
             ok "Keeping existing auth provider: $current_auth_provider"
         fi
+    fi
+
+    # Enable rooms if any video platform is configured in server/.env
+    local _daily_key="" _whereby_key=""
+    if env_has_key "$SERVER_ENV" "DAILY_API_KEY"; then
+        _daily_key=$(env_get "$SERVER_ENV" "DAILY_API_KEY")
+    fi
+    if env_has_key "$SERVER_ENV" "WHEREBY_API_KEY"; then
+        _whereby_key=$(env_get "$SERVER_ENV" "WHEREBY_API_KEY")
+    fi
+    if [[ -n "$_daily_key" ]] || [[ -n "$_whereby_key" ]]; then
+        env_set "$WWW_ENV" "FEATURE_ROOMS" "true"
+        ok "Rooms feature enabled (video platform configured)"
     fi
 
     ok "www/.env ready (URL=$base_url)"
@@ -739,6 +772,23 @@ CADDYEOF
     else
         ok "Caddyfile already exists"
     fi
+
+    # Add Hatchet dashboard route if Daily.co is detected
+    if [[ "$DAILY_DETECTED" == "true" ]]; then
+        if ! grep -q "hatchet" "$caddyfile" 2>/dev/null; then
+            cat >> "$caddyfile" << CADDYEOF
+
+# Hatchet workflow dashboard (Daily.co multitrack processing)
+:8888 {
+    tls internal
+    reverse_proxy hatchet:8888
+}
+CADDYEOF
+            ok "Added Hatchet dashboard route to Caddyfile (port 8888)"
+        else
+            ok "Hatchet dashboard route already in Caddyfile"
+        fi
+    fi
 }
 
 # =========================================================
@@ -764,6 +814,37 @@ step_services() {
     else
         info "Pulling latest backend and frontend images..."
         compose_cmd pull server web || warn "Pull failed — using cached images"
+    fi
+
+    # Build hatchet workers if Daily.co is configured (same backend image)
+    if [[ "$DAILY_DETECTED" == "true" ]] && [[ "$BUILD_IMAGES" == "true" ]]; then
+        info "Building Hatchet worker images..."
+        compose_cmd build hatchet-worker-cpu hatchet-worker-llm
+        ok "Hatchet worker images built"
+    fi
+
+    # Ensure hatchet database exists before starting hatchet (init-hatchet-db.sql only runs on fresh postgres volumes)
+    if [[ "$DAILY_DETECTED" == "true" ]]; then
+        info "Ensuring postgres is running for Hatchet database setup..."
+        compose_cmd up -d postgres
+        local pg_ready=false
+        for i in $(seq 1 30); do
+            if compose_cmd exec -T postgres pg_isready -U reflector > /dev/null 2>&1; then
+                pg_ready=true
+                break
+            fi
+            sleep 2
+        done
+        if [[ "$pg_ready" == "true" ]]; then
+            compose_cmd exec -T postgres psql -U reflector -tc \
+                "SELECT 1 FROM pg_database WHERE datname = 'hatchet'" 2>/dev/null \
+                | grep -q 1 \
+                || compose_cmd exec -T postgres psql -U reflector -c "CREATE DATABASE hatchet" 2>/dev/null \
+                || true
+            ok "Hatchet database ready"
+        else
+            warn "Postgres not ready — hatchet database may need to be created manually"
+        fi
     fi
 
     # Start all services
@@ -894,6 +975,26 @@ step_health() {
         fi
     fi
 
+    # Hatchet (if Daily.co detected)
+    if [[ "$DAILY_DETECTED" == "true" ]]; then
+        info "Waiting for Hatchet workflow engine..."
+        local hatchet_ok=false
+        for i in $(seq 1 60); do
+            if curl -sf http://localhost:8888/api/live > /dev/null 2>&1; then
+                hatchet_ok=true
+                break
+            fi
+            echo -ne "\r  Waiting for Hatchet... ($i/60)"
+            sleep 3
+        done
+        echo ""
+        if [[ "$hatchet_ok" == "true" ]]; then
+            ok "Hatchet workflow engine healthy"
+        else
+            warn "Hatchet not ready yet. Check: docker compose logs hatchet"
+        fi
+    fi
+
     # LLM warning for non-Ollama modes
     if [[ "$USES_OLLAMA" == "false" ]]; then
         local llm_url=""
@@ -909,6 +1010,71 @@ step_health() {
             warn "Configure in server/.env: LLM_URL, LLM_API_KEY, LLM_MODEL"
         fi
     fi
+}
+
+# =========================================================
+# Step 8: Hatchet token generation (Daily.co only)
+# =========================================================
+step_hatchet_token() {
+    if [[ "$DAILY_DETECTED" != "true" ]]; then
+        return
+    fi
+
+    # Skip if token already set
+    if env_has_key "$SERVER_ENV" "HATCHET_CLIENT_TOKEN" && [[ -n "$(env_get "$SERVER_ENV" "HATCHET_CLIENT_TOKEN")" ]]; then
+        ok "HATCHET_CLIENT_TOKEN already set — skipping generation"
+        return
+    fi
+
+    info "Step 8: Generating Hatchet API token"
+
+    # Wait for hatchet to be healthy
+    local hatchet_ok=false
+    for i in $(seq 1 60); do
+        if curl -sf http://localhost:8888/api/live > /dev/null 2>&1; then
+            hatchet_ok=true
+            break
+        fi
+        echo -ne "\r  Waiting for Hatchet API... ($i/60)"
+        sleep 3
+    done
+    echo ""
+
+    if [[ "$hatchet_ok" != "true" ]]; then
+        err "Hatchet not responding — cannot generate token"
+        err "Check: docker compose logs hatchet"
+        return
+    fi
+
+    # Get tenant ID from hatchet database
+    local tenant_id
+    tenant_id=$(compose_cmd exec -T postgres psql -U reflector -d hatchet -t -c \
+        "SELECT id FROM \"Tenant\" WHERE slug = 'default';" 2>/dev/null | tr -d ' \n')
+
+    if [[ -z "$tenant_id" ]]; then
+        err "Could not find default tenant in Hatchet database"
+        err "Hatchet may still be initializing. Try re-running the script."
+        return
+    fi
+
+    # Generate token via hatchet-admin
+    local token
+    token=$(compose_cmd exec -T hatchet /hatchet-admin token create \
+        --config /config --tenant-id "$tenant_id" 2>/dev/null | tr -d '\n')
+
+    if [[ -z "$token" ]]; then
+        err "Failed to generate Hatchet token"
+        err "Try generating manually: see server/README.md"
+        return
+    fi
+
+    env_set "$SERVER_ENV" "HATCHET_CLIENT_TOKEN" "$token"
+    ok "HATCHET_CLIENT_TOKEN generated and saved to server/.env"
+
+    # Restart services that need the token
+    info "Restarting services with new Hatchet token..."
+    compose_cmd restart server worker hatchet-worker-cpu hatchet-worker-llm
+    ok "Services restarted with Hatchet token"
 }
 
 # =========================================================
@@ -957,6 +1123,48 @@ main() {
     echo ""
     step_server_env
     echo ""
+
+    # Auto-detect video platforms from server/.env (after step_server_env so file exists)
+    DAILY_DETECTED=false
+    WHEREBY_DETECTED=false
+    if env_has_key "$SERVER_ENV" "DAILY_API_KEY" && [[ -n "$(env_get "$SERVER_ENV" "DAILY_API_KEY")" ]]; then
+        DAILY_DETECTED=true
+    fi
+    if env_has_key "$SERVER_ENV" "WHEREBY_API_KEY" && [[ -n "$(env_get "$SERVER_ENV" "WHEREBY_API_KEY")" ]]; then
+        WHEREBY_DETECTED=true
+    fi
+    ANY_PLATFORM_DETECTED=false
+    [[ "$DAILY_DETECTED" == "true" || "$WHEREBY_DETECTED" == "true" ]] && ANY_PLATFORM_DETECTED=true
+
+    # Conditional profile activation for Daily.co
+    if [[ "$DAILY_DETECTED" == "true" ]]; then
+        COMPOSE_PROFILES+=("dailyco")
+        ok "Daily.co detected — enabling Hatchet workflow services"
+    fi
+
+    # Generate .env.hatchet for hatchet dashboard config
+    if [[ "$DAILY_DETECTED" == "true" ]]; then
+        local hatchet_server_url hatchet_cookie_domain
+        if [[ -n "$CUSTOM_DOMAIN" ]]; then
+            hatchet_server_url="https://${CUSTOM_DOMAIN}:8888"
+            hatchet_cookie_domain="$CUSTOM_DOMAIN"
+        elif [[ -n "$PRIMARY_IP" ]]; then
+            hatchet_server_url="http://${PRIMARY_IP}:8888"
+            hatchet_cookie_domain="$PRIMARY_IP"
+        else
+            hatchet_server_url="http://localhost:8888"
+            hatchet_cookie_domain="localhost"
+        fi
+        cat > "$ROOT_DIR/.env.hatchet" << EOF
+SERVER_URL=$hatchet_server_url
+SERVER_AUTH_COOKIE_DOMAIN=$hatchet_cookie_domain
+EOF
+        ok "Generated .env.hatchet (dashboard URL=$hatchet_server_url)"
+    else
+        # Create empty .env.hatchet so compose doesn't fail if dailyco profile is ever activated manually
+        touch "$ROOT_DIR/.env.hatchet"
+    fi
+
     step_www_env
     echo ""
     step_storage
@@ -966,6 +1174,8 @@ main() {
     step_services
     echo ""
     step_health
+    echo ""
+    step_hatchet_token
 
     echo ""
     echo "=========================================="
@@ -995,6 +1205,9 @@ main() {
     [[ "$USE_GARAGE" != "true" ]] && echo "  Storage: External S3"
     [[ "$USES_OLLAMA" == "true" ]] && echo "  LLM:     Ollama ($OLLAMA_MODEL) for summarization/topics"
     [[ "$USES_OLLAMA" != "true" ]] && echo "  LLM:     External (configure in server/.env)"
+    [[ "$DAILY_DETECTED" == "true" ]] && echo "  Video:   Daily.co (live rooms + multitrack processing via Hatchet)"
+    [[ "$WHEREBY_DETECTED" == "true" ]] && echo "  Video:   Whereby (live rooms)"
+    [[ "$ANY_PLATFORM_DETECTED" != "true" ]] && echo "  Video:   None (rooms disabled)"
     echo ""
     echo "  To stop:   docker compose -f docker-compose.selfhosted.yml down"
     echo "  To re-run: ./scripts/setup-selfhosted.sh $*"

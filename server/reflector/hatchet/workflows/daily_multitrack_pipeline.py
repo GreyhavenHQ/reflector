@@ -90,7 +90,6 @@ from reflector.processors.summary.summary_builder import SummaryBuilder
 from reflector.processors.types import TitleSummary, Word
 from reflector.processors.types import Transcript as TranscriptType
 from reflector.settings import settings
-from reflector.storage.storage_aws import AwsStorage
 from reflector.utils.audio_constants import (
     PRESIGNED_URL_EXPIRATION_SECONDS,
     WAVEFORM_SEGMENTS,
@@ -117,6 +116,7 @@ class PipelineInput(BaseModel):
     bucket_name: NonEmptyString
     transcript_id: NonEmptyString
     room_id: NonEmptyString | None = None
+    source_platform: str = "daily"
 
 
 hatchet = HatchetClientManager.get_client()
@@ -170,15 +170,10 @@ async def set_workflow_error_status(transcript_id: NonEmptyString) -> bool:
 
 
 def _spawn_storage():
-    """Create fresh storage instance."""
-    # TODO: replace direct AwsStorage construction with get_transcripts_storage() factory
-    return AwsStorage(
-        aws_bucket_name=settings.TRANSCRIPT_STORAGE_AWS_BUCKET_NAME,
-        aws_region=settings.TRANSCRIPT_STORAGE_AWS_REGION,
-        aws_access_key_id=settings.TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY,
-        aws_endpoint_url=settings.TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL,
-    )
+    """Create fresh storage instance for writing to our transcript bucket."""
+    from reflector.storage import get_transcripts_storage  # noqa: PLC0415
+
+    return get_transcripts_storage()
 
 
 class Loggable(Protocol):
@@ -434,6 +429,7 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
                 bucket_name=input.bucket_name,
                 transcript_id=input.transcript_id,
                 language=source_language,
+                source_platform=input.source_platform,
             )
         )
         for i, track in enumerate(input.tracks)
@@ -1195,7 +1191,10 @@ async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
         )
         from reflector.db.recordings import recordings_controller  # noqa: PLC0415
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.storage import get_transcripts_storage  # noqa: PLC0415
+        from reflector.storage import (  # noqa: PLC0415
+            get_source_storage,
+            get_transcripts_storage,
+        )
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if not transcript:
@@ -1245,7 +1244,7 @@ async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
         deletion_errors = []
 
         if input_track_keys and input.bucket_name:
-            master_storage = get_transcripts_storage()
+            master_storage = get_source_storage(input.source_platform)
             for key in input_track_keys:
                 try:
                     await master_storage.delete_file(key, bucket=input.bucket_name)

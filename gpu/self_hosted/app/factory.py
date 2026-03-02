@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from .routers.diarization import router as diarization_router
+from .routers.padding import router as padding_router
 from .routers.transcription import router as transcription_router
 from .routers.translation import router as translation_router
 from .services.transcriber import WhisperService
@@ -27,4 +28,5 @@ def create_app() -> FastAPI:
     app.include_router(transcription_router)
     app.include_router(translation_router)
     app.include_router(diarization_router)
+    app.include_router(padding_router)
     return app

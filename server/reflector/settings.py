@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     DAILYCO_STORAGE_AWS_BUCKET_NAME: str | None = None
     DAILYCO_STORAGE_AWS_REGION: str | None = None
     DAILYCO_STORAGE_AWS_ROLE_ARN: str | None = None
+    # Worker credentials for reading/deleting from Daily's recording bucket
+    DAILYCO_STORAGE_AWS_ACCESS_KEY_ID: str | None = None
+    DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY: str | None = None
 
     # Translate into the target language
     TRANSLATION_BACKEND: str = "passthrough"
@@ -106,7 +109,11 @@ class Settings(BaseSettings):
     # Diarization: modal backend
     DIARIZATION_MODAL_API_KEY: str | None = None
 
-    # Audio Padding (Modal.com backend)
+    # Audio Padding
+    # backends:
+    #   - local: in-process PyAV padding (no HTTP, runs in same process)
+    #   - modal: HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
+    PADDING_BACKEND: str = "local"
     PADDING_URL: str | None = None
     PADDING_MODAL_API_KEY: str | None = None
 

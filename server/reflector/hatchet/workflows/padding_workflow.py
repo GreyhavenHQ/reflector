@@ -24,6 +24,7 @@ class PaddingInput(BaseModel):
     s3_key: str
     bucket_name: str
     transcript_id: str
+    source_platform: str = "daily"
 
 
 hatchet = HatchetClientManager.get_client()
@@ -45,20 +46,14 @@ async def pad_track(input: PaddingInput, ctx: Context) -> PadTrackResult:
     )
 
     try:
-        # Create fresh storage instance to avoid aioboto3 fork issues
-        from reflector.settings import settings  # noqa: PLC0415
-        from reflector.storage.storage_aws import AwsStorage  # noqa: PLC0415
-
-        # TODO: replace direct AwsStorage construction with get_transcripts_storage() factory
-        storage = AwsStorage(
-            aws_bucket_name=settings.TRANSCRIPT_STORAGE_AWS_BUCKET_NAME,
-            aws_region=settings.TRANSCRIPT_STORAGE_AWS_REGION,
-            aws_access_key_id=settings.TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY,
-            aws_endpoint_url=settings.TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL,
+        from reflector.storage import (  # noqa: PLC0415
+            get_source_storage,
+            get_transcripts_storage,
         )
 
-        source_url = await storage.get_file_url(
+        # Source reads: use platform-specific credentials
+        source_storage = get_source_storage(input.source_platform)
+        source_url = await source_storage.get_file_url(
             input.s3_key,
             operation="get_object",
             expires_in=PRESIGNED_URL_EXPIRATION_SECONDS,
@@ -96,52 +91,28 @@ async def pad_track(input: PaddingInput, ctx: Context) -> PadTrackResult:
 
         storage_path = f"file_pipeline_hatchet/{input.transcript_id}/tracks/padded_{input.track_index}.webm"
 
-        # Presign PUT URL for output (Modal will upload directly)
-        output_url = await storage.get_file_url(
+        # Output writes: use transcript storage (our own bucket)
+        output_storage = get_transcripts_storage()
+        output_url = await output_storage.get_file_url(
             storage_path,
             operation="put_object",
             expires_in=PRESIGNED_URL_EXPIRATION_SECONDS,
         )
 
-        import httpx  # noqa: PLC0415
-
-        from reflector.processors.audio_padding_modal import (  # noqa: PLC0415
-            AudioPaddingModalProcessor,
+        from reflector.processors.audio_padding_auto import (  # noqa: PLC0415
+            AudioPaddingAutoProcessor,
         )
 
-        try:
-            processor = AudioPaddingModalProcessor()
-            result = await processor.pad_track(
-                track_url=source_url,
-                output_url=output_url,
-                start_time_seconds=start_time_seconds,
-                track_index=input.track_index,
-            )
-            file_size = result.size
+        processor = AudioPaddingAutoProcessor()
+        result = await processor.pad_track(
+            track_url=source_url,
+            output_url=output_url,
+            start_time_seconds=start_time_seconds,
+            track_index=input.track_index,
+        )
+        file_size = result.size
 
-            ctx.log(f"pad_track: Modal returned size={file_size}")
-        except httpx.HTTPStatusError as e:
-            error_detail = e.response.text if hasattr(e.response, "text") else str(e)
-            logger.error(
-                "[Hatchet] Modal padding HTTP error",
-                transcript_id=input.transcript_id,
-                track_index=input.track_index,
-                status_code=e.response.status_code if hasattr(e, "response") else None,
-                error=error_detail,
-                exc_info=True,
-            )
-            raise Exception(
-                f"Modal padding failed: HTTP {e.response.status_code}"
-            ) from e
-        except httpx.TimeoutException as e:
-            logger.error(
-                "[Hatchet] Modal padding timeout",
-                transcript_id=input.transcript_id,
-                track_index=input.track_index,
-                error=str(e),
-                exc_info=True,
-            )
-            raise Exception("Modal padding timeout") from e
+        ctx.log(f"pad_track: padding returned size={file_size}")
 
         logger.info(
             "[Hatchet] pad_track complete",

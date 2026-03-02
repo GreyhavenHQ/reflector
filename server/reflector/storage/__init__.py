@@ -17,6 +17,49 @@ def get_transcripts_storage() -> Storage:
     )
 
 
+def get_source_storage(platform: str) -> Storage:
+    """Get storage for reading/deleting source recording files from the platform's bucket.
+
+    Returns an AwsStorage configured with the platform's worker credentials
+    (access keys), or falls back to get_transcripts_storage() when platform-specific
+    credentials aren't configured (e.g., single-bucket setups).
+
+    Args:
+        platform: Recording platform name ("daily", "whereby", or other).
+    """
+    if platform == "daily":
+        if (
+            settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID
+            and settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY
+            and settings.DAILYCO_STORAGE_AWS_BUCKET_NAME
+        ):
+            from reflector.storage.storage_aws import AwsStorage
+
+            return AwsStorage(
+                aws_bucket_name=settings.DAILYCO_STORAGE_AWS_BUCKET_NAME,
+                aws_region=settings.DAILYCO_STORAGE_AWS_REGION or "us-east-1",
+                aws_access_key_id=settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY,
+            )
+
+    elif platform == "whereby":
+        if (
+            settings.WHEREBY_STORAGE_AWS_ACCESS_KEY_ID
+            and settings.WHEREBY_STORAGE_AWS_SECRET_ACCESS_KEY
+            and settings.WHEREBY_STORAGE_AWS_BUCKET_NAME
+        ):
+            from reflector.storage.storage_aws import AwsStorage
+
+            return AwsStorage(
+                aws_bucket_name=settings.WHEREBY_STORAGE_AWS_BUCKET_NAME,
+                aws_region=settings.WHEREBY_STORAGE_AWS_REGION or "us-east-1",
+                aws_access_key_id=settings.WHEREBY_STORAGE_AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.WHEREBY_STORAGE_AWS_SECRET_ACCESS_KEY,
+            )
+
+    return get_transcripts_storage()
+
+
 def get_whereby_storage() -> Storage:
     """
     Get storage config for Whereby (for passing to Whereby API).

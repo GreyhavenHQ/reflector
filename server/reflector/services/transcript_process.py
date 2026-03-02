@@ -40,6 +40,7 @@ class MultitrackProcessingConfig:
     track_keys: list[str]
     recording_id: NonEmptyString | None = None
     room_id: NonEmptyString | None = None
+    source_platform: str = "daily"
     mode: Literal["multitrack"] = "multitrack"
 
 
@@ -256,6 +257,7 @@ async def dispatch_transcript_processing(
                 "bucket_name": config.bucket_name,
                 "transcript_id": config.transcript_id,
                 "room_id": config.room_id,
+                "source_platform": config.source_platform,
             },
             additional_metadata={
                 "transcript_id": config.transcript_id,
