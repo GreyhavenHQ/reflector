@@ -446,7 +446,9 @@ step_server_env() {
         warn "HF_TOKEN not set. Diarization will use a public model fallback."
         warn "For best results, get a token at https://huggingface.co/settings/tokens"
         warn "and accept pyannote licenses at https://huggingface.co/pyannote/speaker-diarization-3.1"
-        read -rp "  HuggingFace token (or press Enter to skip): " current_hf_token
+        if [[ -t 0 ]]; then
+            read -rp "  HuggingFace token (or press Enter to skip): " current_hf_token
+        fi
     fi
     if [[ -n "$current_hf_token" ]]; then
         touch "$root_env"
