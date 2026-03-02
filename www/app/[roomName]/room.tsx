@@ -49,8 +49,8 @@ export type RoomDetails = {
 
 // stages: we focus on the consent, then whereby steals focus, then we focus on the consent again, then return focus to whoever stole it initially
 const useConsentWherebyFocusManagement = (
-  acceptButtonRef: RefObject<HTMLButtonElement>,
-  wherebyRef: RefObject<HTMLElement>,
+  acceptButtonRef: RefObject<HTMLButtonElement | null>,
+  wherebyRef: RefObject<HTMLElement | null>,
 ) => {
   const currentFocusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -87,7 +87,7 @@ const useConsentWherebyFocusManagement = (
 
 const useConsentDialog = (
   meetingId: MeetingId,
-  wherebyRef: RefObject<HTMLElement> /*accessibility*/,
+  wherebyRef: RefObject<HTMLElement | null> /*accessibility*/,
 ) => {
   const { state: consentState, touch, hasAnswered } = useRecordingConsent();
   // toast would open duplicates, even with using "id=" prop
@@ -220,7 +220,7 @@ function ConsentDialogButton({
   wherebyRef,
 }: {
   meetingId: MeetingId;
-  wherebyRef: React.RefObject<HTMLElement>;
+  wherebyRef: React.RefObject<HTMLElement | null>;
 }) {
   const { showConsentModal, consentState, hasAnswered, consentLoading } =
     useConsentDialog(meetingId, wherebyRef);

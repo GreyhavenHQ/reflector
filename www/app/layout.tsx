@@ -24,55 +24,63 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-const SITE_URL = getNextEnvVar("SITE_URL");
-const env = getClientEnv();
-
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: {
-    template: "%s – Reflector",
-    default: "Reflector - AI-Powered Meeting Transcriptions by Monadical",
-  },
-  description:
-    "Reflector is an AI-powered tool that transcribes your meetings with unparalleled accuracy, divides content by topics, and provides insightful summaries. Maximize your productivity with Reflector, brought to you by Monadical. Capture the signal, not the noise",
-  applicationName: "Reflector",
-  referrer: "origin-when-cross-origin",
-  keywords: ["Reflector", "Monadical", "AI", "Meetings", "Transcription"],
-  authors: [{ name: "Monadical Team", url: "https://monadical.com/team.html" }],
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-
-  openGraph: {
-    title: "Reflector",
+export function generateMetadata(): Metadata {
+  const SITE_URL = getNextEnvVar("SITE_URL");
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: {
+      template: "%s – Reflector",
+      default: "Reflector - AI-Powered Meeting Transcriptions by Monadical",
+    },
     description:
-      "Reflector is an AI-powered tool that transcribes your meetings with unparalleled accuracy, divides content by topics, and provides insightful summaries. Maximize your productivity with Reflector, brought to you by Monadical. Capture the signal, not the noise.",
-    type: "website",
-  },
+      "Reflector is an AI-powered tool that transcribes your meetings with unparalleled accuracy, divides content by topics, and provides insightful summaries. Maximize your productivity with Reflector, brought to you by Monadical. Capture the signal, not the noise",
+    applicationName: "Reflector",
+    referrer: "origin-when-cross-origin",
+    keywords: ["Reflector", "Monadical", "AI", "Meetings", "Transcription"],
+    authors: [
+      { name: "Monadical Team", url: "https://monadical.com/team.html" },
+    ],
+    formatDetection: {
+      email: false,
+      address: false,
+      telephone: false,
+    },
 
-  twitter: {
-    card: "summary_large_image",
-    title: "Reflector",
-    description:
-      "Reflector is an AI-powered tool that transcribes your meetings with unparalleled accuracy, divides content by topics, and provides insightful summaries. Maximize your productivity with Reflector, brought to you by Monadical. Capture the signal, not the noise.",
-    images: ["/r-icon.png"],
-  },
+    openGraph: {
+      title: "Reflector",
+      description:
+        "Reflector is an AI-powered tool that transcribes your meetings with unparalleled accuracy, divides content by topics, and provides insightful summaries. Maximize your productivity with Reflector, brought to you by Monadical. Capture the signal, not the noise.",
+      type: "website",
+    },
 
-  icons: {
-    icon: "/r-icon.png",
-    shortcut: "/r-icon.png",
-    apple: "/r-icon.png",
-  },
-  robots: { index: false, follow: false, noarchive: true, noimageindex: true },
-};
+    twitter: {
+      card: "summary_large_image",
+      title: "Reflector",
+      description:
+        "Reflector is an AI-powered tool that transcribes your meetings with unparalleled accuracy, divides content by topics, and provides insightful summaries. Maximize your productivity with Reflector, brought to you by Monadical. Capture the signal, not the noise.",
+      images: ["/r-icon.png"],
+    },
+
+    icons: {
+      icon: "/r-icon.png",
+      shortcut: "/r-icon.png",
+      apple: "/r-icon.png",
+    },
+    robots: {
+      index: false,
+      follow: false,
+      noarchive: true,
+      noimageindex: true,
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const env = getClientEnv();
   return (
     <html lang="en" className={poppins.className} suppressHydrationWarning>
       <body

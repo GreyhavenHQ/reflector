@@ -28,7 +28,7 @@ function WherebyConsentDialogButton({
   meetingId: MeetingId;
   recordingType: Meeting["recording_type"];
   skipConsent: boolean;
-  wherebyRef: React.RefObject<HTMLElement>;
+  wherebyRef: React.RefObject<HTMLElement | null>;
 }) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
 

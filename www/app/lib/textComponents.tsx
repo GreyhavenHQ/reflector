@@ -1,3 +1,5 @@
+import type { JSX } from "react";
+
 type SimpleProps = {
   children: JSX.Element | string | (JSX.Element | string)[];
   className?: string;
