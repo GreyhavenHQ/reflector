@@ -1,0 +1,36 @@
+# Validates the self-hosted setup script: runs with --cpu and --garage,
+# brings up services, runs health checks, then tears down.
+name: Selfhost script (CPU + Garage)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+jobs:
+  selfhost-cpu-garage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: selfhost-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run setup-selfhosted.sh (CPU + Garage)
+        run: |
+          ./scripts/setup-selfhosted.sh --cpu --garage
+
+      - name: Quick health checks
+        run: |
+          curl -sf http://localhost:1250/health && echo " Server OK"
+          curl -sf http://localhost:3000 > /dev/null && echo " Frontend OK"
+          curl -sf http://localhost:3903/metrics > /dev/null && echo " Garage admin OK"
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f docker-compose.selfhosted.yml --profile cpu --profile garage down -v --remove-orphans 2>/dev/null || true
