@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.37.0](https://github.com/GreyhavenHQ/reflector/compare/v0.36.0...v0.37.0) (2026-03-03)
+
+
+### Features
+
+* enable daily co in selfhosted + only schedule tasks when necessary ([#883](https://github.com/GreyhavenHQ/reflector/issues/883)) ([045eae8](https://github.com/GreyhavenHQ/reflector/commit/045eae8ff2014a7b83061045e3c8cb25cce9d60a))
+
+
+### Bug Fixes
+
+* aws storage construction ([#895](https://github.com/GreyhavenHQ/reflector/issues/895)) ([f5ec2d2](https://github.com/GreyhavenHQ/reflector/commit/f5ec2d28cfa2de9b2b4aeec81966737b740689c2))
+* remaining dependabot security issues ([#890](https://github.com/GreyhavenHQ/reflector/issues/890)) ([0931095](https://github.com/GreyhavenHQ/reflector/commit/0931095f49e61216e651025ce92be460e6a9df9e))
+* test selfhosted script ([#892](https://github.com/GreyhavenHQ/reflector/issues/892)) ([4d915e2](https://github.com/GreyhavenHQ/reflector/commit/4d915e2a9fe9f05f31cbd0018d9c2580daf7854f))
+* upgrade to nextjs 16 ([#888](https://github.com/GreyhavenHQ/reflector/issues/888)) ([f6cc032](https://github.com/GreyhavenHQ/reflector/commit/f6cc03286baf3e3a115afd3b22ae993ad7a4b7e3))
+
 ## [0.35.1](https://github.com/GreyhavenHQ/reflector/compare/v0.35.0...v0.35.1) (2026-02-25)
 
 
