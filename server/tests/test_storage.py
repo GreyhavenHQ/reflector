@@ -490,3 +490,267 @@ async def test_source_storage_presigns_for_correct_bucket():
             params = call_kwargs[1].get("Params") or call_kwargs[0][1]
             assert params["Bucket"] == "override-bucket"
             assert params["Key"] == "track.webm"
+
+
+def test_get_source_storage_daily_default_region():
+    """Daily platform without region falls back to us-east-1."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID = "daily-key"
+        mock_settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY = "daily-secret"
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = None
+
+        from reflector.storage import get_source_storage
+
+        storage = get_source_storage("daily")
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._region == "us-east-1"
+
+
+# --- Tests for get_dailyco_storage() ---
+
+
+def test_get_dailyco_storage_with_role_arn():
+    """get_dailyco_storage returns AwsStorage with role_arn for Daily API."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = "us-west-2"
+        mock_settings.DAILYCO_STORAGE_AWS_ROLE_ARN = "arn:aws:iam::123:role/DailyAccess"
+
+        from reflector.storage import get_dailyco_storage
+
+        storage = get_dailyco_storage()
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._bucket_name == "daily-bucket"
+        assert storage._region == "us-west-2"
+        assert storage._role_arn == "arn:aws:iam::123:role/DailyAccess"
+        assert storage._access_key_id is None
+        assert storage._secret_access_key is None
+
+
+def test_get_dailyco_storage_no_conflict_when_access_keys_also_set():
+    """get_dailyco_storage ignores access keys even when set (avoids mixed-auth error).
+
+    This is the key regression test: DAILYCO_STORAGE_AWS_ACCESS_KEY_ID and
+    SECRET_ACCESS_KEY are for get_source_storage(), not for get_dailyco_storage().
+    """
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = "us-west-2"
+        mock_settings.DAILYCO_STORAGE_AWS_ROLE_ARN = "arn:aws:iam::123:role/DailyAccess"
+        # These are set for get_source_storage but must NOT leak into get_dailyco_storage
+        mock_settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID = "AKIA-worker-key"
+        mock_settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY = "worker-secret"
+
+        from reflector.storage import get_dailyco_storage
+
+        # Must NOT raise "cannot use both aws_role_arn and access keys"
+        storage = get_dailyco_storage()
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._role_arn == "arn:aws:iam::123:role/DailyAccess"
+        assert storage._access_key_id is None
+        assert storage._secret_access_key is None
+
+
+def test_get_dailyco_storage_default_region():
+    """get_dailyco_storage falls back to us-east-1 when region is None."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = None
+        mock_settings.DAILYCO_STORAGE_AWS_ROLE_ARN = "arn:aws:iam::123:role/DailyAccess"
+
+        from reflector.storage import get_dailyco_storage
+
+        storage = get_dailyco_storage()
+
+        assert storage._region == "us-east-1"
+
+
+def test_get_dailyco_storage_raises_without_bucket():
+    """get_dailyco_storage raises ValueError when bucket is not configured."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = None
+
+        from reflector.storage import get_dailyco_storage
+
+        with pytest.raises(
+            ValueError, match="DAILYCO_STORAGE_AWS_BUCKET_NAME required"
+        ):
+            get_dailyco_storage()
+
+
+def test_get_dailyco_storage_exposes_role_credential():
+    """get_dailyco_storage().role_credential returns the role ARN."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-bucket"
+        mock_settings.DAILYCO_STORAGE_AWS_REGION = "us-east-1"
+        mock_settings.DAILYCO_STORAGE_AWS_ROLE_ARN = "arn:aws:iam::123:role/DailyAccess"
+
+        from reflector.storage import get_dailyco_storage
+
+        storage = get_dailyco_storage()
+
+        assert storage.role_credential == "arn:aws:iam::123:role/DailyAccess"
+        assert storage.bucket_name == "daily-bucket"
+        assert storage.region == "us-east-1"
+
+
+# --- Tests for get_whereby_storage() ---
+
+
+def test_get_whereby_storage_with_access_keys():
+    """get_whereby_storage returns AwsStorage with Whereby access keys."""
+    whereby_settings = [
+        ("WHEREBY_STORAGE_AWS_BUCKET_NAME", "whereby-bucket"),
+        ("WHEREBY_STORAGE_AWS_REGION", "eu-west-1"),
+        ("WHEREBY_STORAGE_AWS_ACCESS_KEY_ID", "whereby-key"),
+        ("WHEREBY_STORAGE_AWS_SECRET_ACCESS_KEY", "whereby-secret"),
+    ]
+    mock_settings = MagicMock()
+    mock_settings.WHEREBY_STORAGE_AWS_BUCKET_NAME = "whereby-bucket"
+    mock_settings.__iter__ = MagicMock(return_value=iter(whereby_settings))
+
+    # Patch both settings references: __init__.py and base.py
+    with (
+        patch("reflector.storage.settings", mock_settings),
+        patch("reflector.storage.base.settings", mock_settings),
+    ):
+        from reflector.storage import get_whereby_storage
+
+        storage = get_whereby_storage()
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._bucket_name == "whereby-bucket"
+        assert storage._region == "eu-west-1"
+        assert storage._access_key_id == "whereby-key"
+        assert storage._secret_access_key == "whereby-secret"
+
+
+def test_get_whereby_storage_raises_without_bucket():
+    """get_whereby_storage raises ValueError when bucket is not configured."""
+    with patch("reflector.storage.settings") as mock_settings:
+        mock_settings.WHEREBY_STORAGE_AWS_BUCKET_NAME = None
+
+        from reflector.storage import get_whereby_storage
+
+        with pytest.raises(
+            ValueError, match="WHEREBY_STORAGE_AWS_BUCKET_NAME required"
+        ):
+            get_whereby_storage()
+
+
+# --- Tests for get_transcripts_storage() ---
+
+
+def test_get_transcripts_storage_with_garage():
+    """get_transcripts_storage returns AwsStorage configured for Garage (custom endpoint)."""
+    garage_settings = [
+        ("TRANSCRIPT_STORAGE_AWS_BUCKET_NAME", "reflector-media"),
+        ("TRANSCRIPT_STORAGE_AWS_REGION", "garage"),
+        ("TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID", "GK-garage-key"),
+        ("TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY", "garage-secret"),
+        ("TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL", "http://garage:3900"),
+    ]
+    mock_settings = MagicMock()
+    mock_settings.TRANSCRIPT_STORAGE_BACKEND = "aws"
+    mock_settings.__iter__ = MagicMock(return_value=iter(garage_settings))
+
+    with (
+        patch("reflector.storage.settings", mock_settings),
+        patch("reflector.storage.base.settings", mock_settings),
+    ):
+        from reflector.storage import get_transcripts_storage
+
+        storage = get_transcripts_storage()
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._bucket_name == "reflector-media"
+        assert storage._endpoint_url == "http://garage:3900"
+        assert storage._access_key_id == "GK-garage-key"
+        assert storage.boto_config.s3["addressing_style"] == "path"
+
+
+def test_get_transcripts_storage_with_vanilla_aws():
+    """get_transcripts_storage returns AwsStorage configured for real AWS S3."""
+    aws_settings = [
+        ("TRANSCRIPT_STORAGE_AWS_BUCKET_NAME", "prod-transcripts"),
+        ("TRANSCRIPT_STORAGE_AWS_REGION", "us-east-1"),
+        ("TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID", "AKIA-prod-key"),
+        ("TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY", "prod-secret"),
+    ]
+    mock_settings = MagicMock()
+    mock_settings.TRANSCRIPT_STORAGE_BACKEND = "aws"
+    mock_settings.__iter__ = MagicMock(return_value=iter(aws_settings))
+
+    with (
+        patch("reflector.storage.settings", mock_settings),
+        patch("reflector.storage.base.settings", mock_settings),
+    ):
+        from reflector.storage import get_transcripts_storage
+
+        storage = get_transcripts_storage()
+
+        assert isinstance(storage, AwsStorage)
+        assert storage._bucket_name == "prod-transcripts"
+        assert storage._endpoint_url is None
+        assert storage._access_key_id == "AKIA-prod-key"
+
+
+# --- Tests for coexistence (selfhosted scenario) ---
+
+
+def test_all_factories_coexist_selfhosted_scenario():
+    """All storage factories work simultaneously with selfhosted config.
+
+    Simulates the real selfhosted setup:
+    - Transcript storage → Garage (http://garage:3900)
+    - Daily API storage → role_arn (for Daily to write recordings)
+    - Source storage → access keys (for workers to read Daily's S3 bucket)
+    """
+    transcript_settings = [
+        ("TRANSCRIPT_STORAGE_AWS_BUCKET_NAME", "reflector-media"),
+        ("TRANSCRIPT_STORAGE_AWS_REGION", "garage"),
+        ("TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID", "GK-garage-key"),
+        ("TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY", "garage-secret"),
+        ("TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL", "http://garage:3900"),
+    ]
+    mock_settings = MagicMock()
+    # Transcript storage: Garage
+    mock_settings.TRANSCRIPT_STORAGE_BACKEND = "aws"
+    mock_settings.__iter__ = MagicMock(return_value=iter(transcript_settings))
+
+    # Daily.co: both role_arn AND access keys configured
+    mock_settings.DAILYCO_STORAGE_AWS_BUCKET_NAME = "daily-recordings"
+    mock_settings.DAILYCO_STORAGE_AWS_REGION = "us-west-2"
+    mock_settings.DAILYCO_STORAGE_AWS_ROLE_ARN = "arn:aws:iam::123:role/DailyAccess"
+    mock_settings.DAILYCO_STORAGE_AWS_ACCESS_KEY_ID = "AKIA-daily-worker"
+    mock_settings.DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY = "daily-worker-secret"
+
+    with (
+        patch("reflector.storage.settings", mock_settings),
+        patch("reflector.storage.base.settings", mock_settings),
+    ):
+        from reflector.storage import (
+            get_dailyco_storage,
+            get_source_storage,
+            get_transcripts_storage,
+        )
+
+        # 1. Transcript storage → Garage
+        transcript_storage = get_transcripts_storage()
+        assert transcript_storage._endpoint_url == "http://garage:3900"
+        assert transcript_storage._access_key_id == "GK-garage-key"
+
+        # 2. Daily API storage → role_arn only (no access keys)
+        daily_api_storage = get_dailyco_storage()
+        assert daily_api_storage._role_arn == "arn:aws:iam::123:role/DailyAccess"
+        assert daily_api_storage._access_key_id is None
+
+        # 3. Source storage → access keys only (no role_arn)
+        source_storage = get_source_storage("daily")
+        assert source_storage._access_key_id == "AKIA-daily-worker"
+        assert source_storage._role_arn is None
+        assert source_storage._endpoint_url is None
