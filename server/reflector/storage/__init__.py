@@ -90,6 +90,9 @@ def get_dailyco_storage() -> Storage:
     """
     Get storage config for Daily.co (for passing to Daily API).
 
+    Uses role_arn only — access keys are excluded because they're for
+    worker reads (get_source_storage), not for the Daily API.
+
     Usage:
         daily_storage = get_dailyco_storage()
         daily_api.create_meeting(
@@ -100,13 +103,15 @@ def get_dailyco_storage() -> Storage:
 
     Do NOT use for our file operations - use get_transcripts_storage() instead.
     """
-    # Fail fast if platform-specific config missing
     if not settings.DAILYCO_STORAGE_AWS_BUCKET_NAME:
         raise ValueError(
             "DAILYCO_STORAGE_AWS_BUCKET_NAME required for Daily.co with AWS storage"
         )
 
-    return Storage.get_instance(
-        name="aws",
-        settings_prefix="DAILYCO_STORAGE_",
+    from reflector.storage.storage_aws import AwsStorage
+
+    return AwsStorage(
+        aws_bucket_name=settings.DAILYCO_STORAGE_AWS_BUCKET_NAME,
+        aws_region=settings.DAILYCO_STORAGE_AWS_REGION or "us-east-1",
+        aws_role_arn=settings.DAILYCO_STORAGE_AWS_ROLE_ARN,
     )
