@@ -3,13 +3,17 @@ from faster_whisper import WhisperModel
 from reflector.processors.audio_transcript import AudioTranscriptProcessor
 from reflector.processors.audio_transcript_auto import AudioTranscriptAutoProcessor
 from reflector.processors.types import AudioFile, Transcript, Word
+from reflector.settings import settings
 
 
 class AudioTranscriptWhisperProcessor(AudioTranscriptProcessor):
     def __init__(self):
         super().__init__()
         self.model = WhisperModel(
-            "tiny", device="cpu", compute_type="float32", num_workers=12
+            settings.WHISPER_CHUNK_MODEL,
+            device="cpu",
+            compute_type="float32",
+            num_workers=12,
         )
 
     async def _transcript(self, data: AudioFile):

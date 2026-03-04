@@ -40,11 +40,19 @@ class Settings(BaseSettings):
     # backends: silero, frames
     AUDIO_CHUNKER_BACKEND: str = "frames"
 
+    # HuggingFace token for gated models (pyannote diarization in --cpu mode)
+    HF_TOKEN: str | None = None
+
     # Audio Transcription
     # backends:
     #   - whisper: in-process model loading (no HTTP, runs in same process)
     #   - modal: HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
     TRANSCRIPT_BACKEND: str = "whisper"
+
+    # Whisper model sizes for local transcription
+    # Options: "tiny", "base", "small", "medium", "large-v2"
+    WHISPER_CHUNK_MODEL: str = "tiny"
+    WHISPER_FILE_MODEL: str = "tiny"
     TRANSCRIPT_URL: str | None = None
     TRANSCRIPT_TIMEOUT: int = 90
     TRANSCRIPT_FILE_TIMEOUT: int = 600
@@ -100,7 +108,7 @@ class Settings(BaseSettings):
     )
 
     # Diarization
-    # backend: modal — HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
+    # backends: modal — HTTP API client, pyannote — in-process pyannote.audio
     DIARIZATION_ENABLED: bool = True
     DIARIZATION_BACKEND: str = "modal"
     DIARIZATION_URL: str | None = None
@@ -111,9 +119,9 @@ class Settings(BaseSettings):
 
     # Audio Padding
     # backends:
-    #   - local: in-process PyAV padding (no HTTP, runs in same process)
+    #   - pyav: in-process PyAV padding (no HTTP, runs in same process)
     #   - modal: HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
-    PADDING_BACKEND: str = "local"
+    PADDING_BACKEND: str = "pyav"
     PADDING_URL: str | None = None
     PADDING_MODAL_API_KEY: str | None = None
 

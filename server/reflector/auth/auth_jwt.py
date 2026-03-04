@@ -144,3 +144,8 @@ async def current_user_ws_optional(websocket: "WebSocket") -> Optional[UserInfo]
     if not token:
         return None
     return await _authenticate_user(token, None, JWTAuth())
+
+
+async def verify_raw_token(token: str) -> Optional[UserInfo]:
+    """Verify a raw JWT token string (used for query-param auth fallback)."""
+    return await _authenticate_user(token, None, JWTAuth())

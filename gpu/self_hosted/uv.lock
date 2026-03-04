@@ -1742,7 +1742,7 @@ wheels = [
 
 [[package]]
 name = "pyannote-audio"
-version = "3.1.0"
+version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asteroid-filterbanks" },
@@ -1765,9 +1765,9 @@ dependencies = [
     { name = "torchaudio" },
     { name = "torchmetrics" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/55/7253267c35e2aa9188b1d86cba121eb5bdd91ed12d3194488625a008cae7/pyannote.audio-3.1.0.tar.gz", hash = "sha256:da04705443d3b74607e034d3ca88f8b572c7e9672dd9a4199cab65a0dbc33fad", size = 14812058, upload-time = "2023-11-16T12:26:38.939Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/1e/efe9619c38f1281ddf21640654d8ea9e3f67c459b76f78657b26d8557bbe/pyannote_audio-3.4.0.tar.gz", hash = "sha256:d523d883cb8d37cb6daf99f3ba83f9138bb193646ad71e6eae7deb89d8ddd642", size = 804850, upload-time = "2025-09-09T07:04:51.17Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a1/37/158859ce4c45b5ba2dca40b53b0c10d36f935b7f6d4e737298397167c8b1/pyannote.audio-3.1.0-py2.py3-none-any.whl", hash = "sha256:66ab485728c6e141760e80555cb7a083e7be824cd528cc79b9e6f7d6421a91ae", size = 208592, upload-time = "2023-11-16T12:26:36.726Z" },
+    { url = "https://files.pythonhosted.org/packages/79/13/620c6f711b723653092fd063bfee82a6af5ea3a4d3c42efc53ce623a7f4d/pyannote_audio-3.4.0-py2.py3-none-any.whl", hash = "sha256:36e38f058059f46da3478dda581cda53d9d85a21173a3e70bbdbc3ba93b5e1b7", size = 897789, upload-time = "2025-09-09T07:04:49.464Z" },
 ]
 
 [[package]]
@@ -2075,6 +2075,7 @@ dependencies = [
     { name = "librosa" },
     { name = "numpy" },
     { name = "pyannote-audio" },
+    { name = "pytorch-lightning" },
     { name = "sentencepiece" },
     { name = "silero-vad" },
     { name = "torch" },
@@ -2090,9 +2091,10 @@ requires-dist = [
     { name = "faster-whisper", specifier = ">=1.1.0" },
     { name = "librosa", specifier = "==0.10.1" },
     { name = "numpy", specifier = "<2" },
-    { name = "pyannote-audio", specifier = "==3.1.0" },
+    { name = "pyannote-audio", specifier = "==3.4.0" },
+    { name = "pytorch-lightning", specifier = "<2.6" },
     { name = "sentencepiece" },
-    { name = "silero-vad", specifier = "==5.1.0" },
+    { name = "silero-vad", specifier = "==5.1.2" },
     { name = "torch", specifier = ">=2.3.0" },
     { name = "torchaudio", specifier = ">=2.3.0" },
     { name = "transformers", specifier = ">=4.35.0" },
@@ -2472,16 +2474,16 @@ wheels = [
 
 [[package]]
 name = "silero-vad"
-version = "5.1"
+version = "5.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "onnxruntime" },
     { name = "torch" },
     { name = "torchaudio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/5d/b912e45d21b8b61859a552554893222d2cdebfd0f9afa7e8ba69c7a3441a/silero_vad-5.1.tar.gz", hash = "sha256:c644275ba5df06cee596cc050ba0bd1e0f5237d1abfa44d58dd4618f6e77434d", size = 3996829, upload-time = "2024-07-09T13:19:24.181Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/b4/d0311b2e6220a11f8f4699f4a278cb088131573286cdfe804c87c7eb5123/silero_vad-5.1.2.tar.gz", hash = "sha256:c442971160026d2d7aa0ad83f0c7ee86c89797a65289fe625c8ea59fc6fb828d", size = 5098526, upload-time = "2024-10-09T09:50:47.019Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/be/0fdbc72030b93d6f55107490d5d2185ddf0dbabdc921f589649d3e92ccd5/silero_vad-5.1-py3-none-any.whl", hash = "sha256:ecb50b484f538f7a962ce5cd3c07120d9db7b9d5a0c5861ccafe459856f22c8f", size = 3939986, upload-time = "2024-07-09T13:19:21.383Z" },
+    { url = "https://files.pythonhosted.org/packages/98/f7/5ae11d13fbb733cd3bfd7ff1c3a3902e6f55437df4b72307c1f168146268/silero_vad-5.1.2-py3-none-any.whl", hash = "sha256:93b41953d7774b165407fda6b533c119c5803864e367d5034dc626c82cfdf661", size = 5026737, upload-time = "2024-10-09T09:50:44.355Z" },
 ]
 
 [[package]]

@@ -13,7 +13,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 import reflector.auth as auth
 from reflector.db.transcripts import AudioWaveform, transcripts_controller
 from reflector.settings import settings
-from reflector.views.transcripts import ALGORITHM
 
 from ._range_requests_response import range_requests_response
 
@@ -36,16 +35,23 @@ async def transcript_get_audio_mp3(
 ):
     user_id = user["sub"] if user else None
     if not user_id and token:
-        unauthorized_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
-            user_id: str = payload.get("sub")
-        except jwt.PyJWTError:
-            raise unauthorized_exception
+            token_user = await auth.verify_raw_token(token)
+        except Exception:
+            token_user = None
+        # Fallback: try as internal HS256 token (created by _generate_local_audio_link)
+        if not token_user:
+            try:
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                user_id = payload.get("sub")
+            except jwt.PyJWTError:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+        else:
+            user_id = token_user["sub"]
 
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id

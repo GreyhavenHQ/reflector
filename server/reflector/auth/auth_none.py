@@ -27,3 +27,8 @@ def parse_ws_bearer_token(websocket):
 
 async def current_user_ws_optional(websocket):
     return None
+
+
+async def verify_raw_token(token):
+    """Verify a raw JWT token string (used for query-param auth fallback)."""
+    return None
