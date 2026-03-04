@@ -75,6 +75,7 @@ silero-vad = [
     "torch>=2.8.0",
     "torchaudio>=2.8.0",
     "pyannote.audio==3.4.0",
+    "pytorch-lightning<2.6",
     "librosa==0.10.1",
 ]
 

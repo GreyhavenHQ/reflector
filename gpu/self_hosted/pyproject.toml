@@ -15,6 +15,7 @@ dependencies = [
     "transformers>=4.35.0",
     "sentencepiece",
     "pyannote.audio==3.4.0",
+    "pytorch-lightning<2.6",
     "torchaudio>=2.3.0",
     "av>=13.1.0",
 ]

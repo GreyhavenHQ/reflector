@@ -14,6 +14,7 @@ current_user = auth_module.current_user
 current_user_optional = auth_module.current_user_optional
 parse_ws_bearer_token = auth_module.parse_ws_bearer_token
 current_user_ws_optional = auth_module.current_user_ws_optional
+verify_raw_token = auth_module.verify_raw_token
 
 # Optional router (e.g. for /auth/login in password backend)
 router = getattr(auth_module, "router", None)

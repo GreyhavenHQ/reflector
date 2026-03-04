@@ -168,6 +168,11 @@ async def current_user_ws_optional(websocket: "WebSocket") -> Optional[UserInfo]
     return await _authenticate_user(token, None)
 
 
+async def verify_raw_token(token: str) -> Optional[UserInfo]:
+    """Verify a raw JWT token string (used for query-param auth fallback)."""
+    return await _authenticate_user(token, None)
+
+
 # --- Login router ---
 router = APIRouter(prefix="/auth", tags=["auth"])
 
