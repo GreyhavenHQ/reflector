@@ -447,12 +447,12 @@ step_server_env() {
             ok "ML backends: GPU container (modal)"
             ;;
         cpu)
-            # In-process local backends — no ML service container needed
+            # In-process backends — no ML service container needed
             env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "whisper"
-            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "local"
-            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "local"
-            env_set "$SERVER_ENV" "PADDING_BACKEND" "local"
-            ok "ML backends: in-process CPU (whisper/local)"
+            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "pyannote"
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "marian"
+            env_set "$SERVER_ENV" "PADDING_BACKEND" "pyav"
+            ok "ML backends: in-process CPU (whisper/pyannote/marian/pyav)"
             ;;
         hosted)
             # Remote GPU service — user provides URL

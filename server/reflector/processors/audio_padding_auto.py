@@ -1,9 +1,10 @@
 import importlib
 
+from reflector.processors.audio_padding import AudioPaddingProcessor
 from reflector.settings import settings
 
 
-class AudioPaddingAutoProcessor:
+class AudioPaddingAutoProcessor(AudioPaddingProcessor):
     _registry = {}
 
     @classmethod

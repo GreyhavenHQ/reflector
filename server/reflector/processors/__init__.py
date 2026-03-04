@@ -4,6 +4,8 @@ from .audio_diarization_auto import AudioDiarizationAutoProcessor  # noqa: F401
 from .audio_downscale import AudioDownscaleProcessor  # noqa: F401
 from .audio_file_writer import AudioFileWriterProcessor  # noqa: F401
 from .audio_merge import AudioMergeProcessor  # noqa: F401
+from .audio_padding import AudioPaddingProcessor  # noqa: F401
+from .audio_padding_auto import AudioPaddingAutoProcessor  # noqa: F401
 from .audio_transcript import AudioTranscriptProcessor  # noqa: F401
 from .audio_transcript_auto import AudioTranscriptAutoProcessor  # noqa: F401
 from .base import (  # noqa: F401

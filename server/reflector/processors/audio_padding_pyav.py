@@ -1,5 +1,5 @@
 """
-Local audio padding processor using PyAV.
+PyAV audio padding processor.
 
 Pads audio tracks with silence directly in-process (no HTTP).
 Reuses the shared PyAV utilities from reflector.utils.audio_padding.
@@ -12,15 +12,15 @@ import tempfile
 import av
 
 from reflector.logger import logger
+from reflector.processors.audio_padding import AudioPaddingProcessor, PaddingResponse
 from reflector.processors.audio_padding_auto import AudioPaddingAutoProcessor
-from reflector.processors.audio_padding_modal import PaddingResponse
 from reflector.utils.audio_padding import apply_audio_padding_to_file
 
 S3_TIMEOUT = 60
 
 
-class AudioPaddingLocalProcessor:
-    """Audio padding processor using local PyAV (no HTTP backend)."""
+class AudioPaddingPyavProcessor(AudioPaddingProcessor):
+    """Audio padding processor using PyAV (no HTTP backend)."""
 
     async def pad_track(
         self,
@@ -29,7 +29,7 @@ class AudioPaddingLocalProcessor:
         start_time_seconds: float,
         track_index: int,
     ) -> PaddingResponse:
-        """Pad audio track with silence locally via PyAV.
+        """Pad audio track with silence via PyAV.
 
         Args:
             track_url: Presigned GET URL for source audio track
@@ -130,4 +130,4 @@ class AudioPaddingLocalProcessor:
                 log.warning("Failed to cleanup temp directory", error=str(e))
 
 
-AudioPaddingAutoProcessor.register("local", AudioPaddingLocalProcessor)
+AudioPaddingAutoProcessor.register("pyav", AudioPaddingPyavProcessor)

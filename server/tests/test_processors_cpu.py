@@ -1,5 +1,5 @@
 """
-Tests for local processor backends (--cpu mode).
+Tests for in-process processor backends (--cpu mode).
 
 All ML model calls are mocked — no actual model loading needed.
 Tests verify processor registration, wiring, error handling, and data flow.
@@ -26,33 +26,33 @@ from reflector.processors.types import (
 # ── Registration Tests ──────────────────────────────────────────────────
 
 
-def test_audio_diarization_local_registers():
-    """Verify AudioDiarizationLocalProcessor registers with 'local' backend."""
+def test_audio_diarization_pyannote_registers():
+    """Verify AudioDiarizationPyannoteProcessor registers with 'pyannote' backend."""
     # Importing the module triggers registration
-    import reflector.processors.audio_diarization_local  # noqa: F401
+    import reflector.processors.audio_diarization_pyannote  # noqa: F401
     from reflector.processors.audio_diarization_auto import (
         AudioDiarizationAutoProcessor,
     )
 
-    assert "local" in AudioDiarizationAutoProcessor._registry
+    assert "pyannote" in AudioDiarizationAutoProcessor._registry
 
 
-def test_file_diarization_local_registers():
-    """Verify FileDiarizationLocalProcessor registers with 'local' backend."""
-    import reflector.processors.file_diarization_local  # noqa: F401
+def test_file_diarization_pyannote_registers():
+    """Verify FileDiarizationPyannoteProcessor registers with 'pyannote' backend."""
+    import reflector.processors.file_diarization_pyannote  # noqa: F401
     from reflector.processors.file_diarization_auto import FileDiarizationAutoProcessor
 
-    assert "local" in FileDiarizationAutoProcessor._registry
+    assert "pyannote" in FileDiarizationAutoProcessor._registry
 
 
-def test_transcript_translator_local_registers():
-    """Verify TranscriptTranslatorLocalProcessor registers with 'local' backend."""
-    import reflector.processors.transcript_translator_local  # noqa: F401
+def test_transcript_translator_marian_registers():
+    """Verify TranscriptTranslatorMarianProcessor registers with 'marian' backend."""
+    import reflector.processors.transcript_translator_marian  # noqa: F401
     from reflector.processors.transcript_translator_auto import (
         TranscriptTranslatorAutoProcessor,
     )
 
-    assert "local" in TranscriptTranslatorAutoProcessor._registry
+    assert "marian" in TranscriptTranslatorAutoProcessor._registry
 
 
 def test_file_transcript_whisper_registers():
@@ -139,14 +139,14 @@ def test_detect_extension_fallback():
     )
 
 
-# ── Audio Diarization Local Processor Tests ─────────────────────────────
+# ── Audio Diarization Pyannote Processor Tests ──────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_audio_diarization_local_diarize():
-    """Verify local audio diarization downloads, diarizes, and cleans up."""
-    from reflector.processors.audio_diarization_local import (
-        AudioDiarizationLocalProcessor,
+async def test_audio_diarization_pyannote_diarize():
+    """Verify pyannote audio diarization downloads, diarizes, and cleans up."""
+    from reflector.processors.audio_diarization_pyannote import (
+        AudioDiarizationPyannoteProcessor,
     )
 
     mock_diarization_result = {
@@ -162,16 +162,16 @@ async def test_audio_diarization_local_diarize():
     tmp.close()
     tmp_path = Path(tmp.name)
 
-    processor = AudioDiarizationLocalProcessor()
+    processor = AudioDiarizationPyannoteProcessor()
 
     with (
         patch(
-            "reflector.processors.audio_diarization_local.download_audio_to_temp",
+            "reflector.processors.audio_diarization_pyannote.download_audio_to_temp",
             new_callable=AsyncMock,
             return_value=tmp_path,
         ),
         patch(
-            "reflector.processors.audio_diarization_local.diarization_service"
+            "reflector.processors.audio_diarization_pyannote.diarization_service"
         ) as mock_svc,
     ):
         mock_svc.diarize_file.return_value = mock_diarization_result
@@ -197,14 +197,14 @@ async def test_audio_diarization_local_diarize():
         mock_svc.diarize_file.assert_called_once()
 
 
-# ── File Diarization Local Processor Tests ──────────────────────────────
+# ── File Diarization Pyannote Processor Tests ───────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_file_diarization_local_diarize():
-    """Verify local file diarization returns FileDiarizationOutput."""
-    from reflector.processors.file_diarization_local import (
-        FileDiarizationLocalProcessor,
+async def test_file_diarization_pyannote_diarize():
+    """Verify pyannote file diarization returns FileDiarizationOutput."""
+    from reflector.processors.file_diarization_pyannote import (
+        FileDiarizationPyannoteProcessor,
     )
 
     mock_diarization_result = {
@@ -219,16 +219,16 @@ async def test_file_diarization_local_diarize():
     tmp.close()
     tmp_path = Path(tmp.name)
 
-    processor = FileDiarizationLocalProcessor()
+    processor = FileDiarizationPyannoteProcessor()
 
     with (
         patch(
-            "reflector.processors.file_diarization_local.download_audio_to_temp",
+            "reflector.processors.file_diarization_pyannote.download_audio_to_temp",
             new_callable=AsyncMock,
             return_value=tmp_path,
         ),
         patch(
-            "reflector.processors.file_diarization_local.diarization_service"
+            "reflector.processors.file_diarization_pyannote.diarization_service"
         ) as mock_svc,
     ):
         mock_svc.diarize_file.return_value = mock_diarization_result
@@ -242,19 +242,19 @@ async def test_file_diarization_local_diarize():
         assert result.diarization[1]["speaker"] == 1
 
 
-# ── Transcript Translator Local Processor Tests ────────────────────────
+# ── Transcript Translator Marian Processor Tests ───────────────────────
 
 
 @pytest.mark.asyncio
-async def test_transcript_translator_local_translate():
-    """Verify local translator calls service and extracts translation."""
-    from reflector.processors.transcript_translator_local import (
-        TranscriptTranslatorLocalProcessor,
+async def test_transcript_translator_marian_translate():
+    """Verify MarianMT translator calls service and extracts translation."""
+    from reflector.processors.transcript_translator_marian import (
+        TranscriptTranslatorMarianProcessor,
     )
 
     mock_result = {"text": {"en": "Hello world", "fr": "Bonjour le monde"}}
 
-    processor = TranscriptTranslatorLocalProcessor()
+    processor = TranscriptTranslatorMarianProcessor()
 
     def fake_get_pref(key, default=None):
         prefs = {"audio:source_language": "en", "audio:target_language": "fr"}
@@ -263,7 +263,7 @@ async def test_transcript_translator_local_translate():
     with (
         patch.object(processor, "get_pref", side_effect=fake_get_pref),
         patch(
-            "reflector.processors.transcript_translator_local.translator_service"
+            "reflector.processors.transcript_translator_marian.translator_service"
         ) as mock_svc,
     ):
         mock_svc.translate.return_value = mock_result
@@ -275,15 +275,15 @@ async def test_transcript_translator_local_translate():
 
 
 @pytest.mark.asyncio
-async def test_transcript_translator_local_no_translation():
+async def test_transcript_translator_marian_no_translation():
     """Verify translator returns None when target language not in result."""
-    from reflector.processors.transcript_translator_local import (
-        TranscriptTranslatorLocalProcessor,
+    from reflector.processors.transcript_translator_marian import (
+        TranscriptTranslatorMarianProcessor,
     )
 
     mock_result = {"text": {"en": "Hello world"}}
 
-    processor = TranscriptTranslatorLocalProcessor()
+    processor = TranscriptTranslatorMarianProcessor()
 
     def fake_get_pref(key, default=None):
         prefs = {"audio:source_language": "en", "audio:target_language": "fr"}
@@ -292,7 +292,7 @@ async def test_transcript_translator_local_no_translation():
     with (
         patch.object(processor, "get_pref", side_effect=fake_get_pref),
         patch(
-            "reflector.processors.transcript_translator_local.translator_service"
+            "reflector.processors.transcript_translator_marian.translator_service"
         ) as mock_svc,
     ):
         mock_svc.translate.return_value = mock_result
@@ -414,9 +414,9 @@ def test_pad_audio_long():
 
 def test_translator_service_resolve_model():
     """Verify model resolution for known and unknown language pairs."""
-    from reflector.processors._local_translator_service import LocalTranslatorService
+    from reflector.processors._marian_translator_service import MarianTranslatorService
 
-    svc = LocalTranslatorService()
+    svc = MarianTranslatorService()
 
     assert svc._resolve_model_name("en", "fr") == "Helsinki-NLP/opus-mt-en-fr"
     assert svc._resolve_model_name("es", "en") == "Helsinki-NLP/opus-mt-es-en"
@@ -430,21 +430,21 @@ def test_translator_service_resolve_model():
 
 def test_diarization_service_singleton():
     """Verify diarization_service is a module-level singleton."""
-    from reflector.processors._local_diarization_service import (
-        LocalDiarizationService,
+    from reflector.processors._pyannote_diarization_service import (
+        PyannoteDiarizationService,
         diarization_service,
     )
 
-    assert isinstance(diarization_service, LocalDiarizationService)
+    assert isinstance(diarization_service, PyannoteDiarizationService)
     assert diarization_service._pipeline is None  # Not loaded until first use
 
 
 def test_translator_service_singleton():
     """Verify translator_service is a module-level singleton."""
-    from reflector.processors._local_translator_service import (
-        LocalTranslatorService,
+    from reflector.processors._marian_translator_service import (
+        MarianTranslatorService,
         translator_service,
     )
 
-    assert isinstance(translator_service, LocalTranslatorService)
+    assert isinstance(translator_service, MarianTranslatorService)
     assert translator_service._pipeline is None  # Not loaded until first use

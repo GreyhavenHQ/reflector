@@ -1,8 +1,8 @@
 """
-Local translation service using MarianMT models.
+MarianMT translation service.
 
 Singleton service that loads HuggingFace MarianMT translation models
-and reuses them across all local translator processor instances.
+and reuses them across all MarianMT translator processor instances.
 
 Ported from gpu/self_hosted/app/services/translator.py for in-process use.
 """
@@ -15,7 +15,7 @@ from transformers import MarianMTModel, MarianTokenizer, pipeline
 logger = logging.getLogger(__name__)
 
 
-class LocalTranslatorService:
+class MarianTranslatorService:
     """MarianMT text translation service for in-process use."""
 
     def __init__(self):
@@ -72,5 +72,5 @@ class LocalTranslatorService:
         return {"text": {source_language: text, target_language: translated}}
 
 
-# Module-level singleton — shared across all local translator processors
-translator_service = LocalTranslatorService()
+# Module-level singleton — shared across all MarianMT translator processors
+translator_service = MarianTranslatorService()

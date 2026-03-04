@@ -254,15 +254,15 @@ Reflector can run completely offline:
 Control where each step happens:
 
 ```yaml
-# All local processing
-TRANSCRIPT_BACKEND=local
-DIARIZATION_BACKEND=local
-TRANSLATION_BACKEND=local
+# All in-process processing
+TRANSCRIPT_BACKEND=whisper
+DIARIZATION_BACKEND=pyannote
+TRANSLATION_BACKEND=marian
 
 # Hybrid approach
-TRANSCRIPT_BACKEND=modal  # Fast GPU processing
-DIARIZATION_BACKEND=local # Sensitive speaker data
-TRANSLATION_BACKEND=modal  # Non-sensitive translation
+TRANSCRIPT_BACKEND=modal    # Fast GPU processing
+DIARIZATION_BACKEND=pyannote # Sensitive speaker data
+TRANSLATION_BACKEND=modal    # Non-sensitive translation
 ```
 
 ### Storage Options

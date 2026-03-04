@@ -6,19 +6,14 @@ import asyncio
 import os
 
 import httpx
-from pydantic import BaseModel
 
 from reflector.hatchet.constants import TIMEOUT_AUDIO
 from reflector.logger import logger
+from reflector.processors.audio_padding import AudioPaddingProcessor, PaddingResponse
 from reflector.processors.audio_padding_auto import AudioPaddingAutoProcessor
 
 
-class PaddingResponse(BaseModel):
-    size: int
-    cancelled: bool = False
-
-
-class AudioPaddingModalProcessor:
+class AudioPaddingModalProcessor(AudioPaddingProcessor):
     """Audio padding processor using Modal.com CPU backend via HTTP."""
 
     def __init__(

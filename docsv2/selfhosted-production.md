@@ -187,7 +187,7 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 | `ADMIN_PASSWORD_HASH` | PBKDF2 hash for password auth | *(unset)* |
 | `WEBRTC_HOST` | IP advertised in WebRTC ICE candidates | Auto-detected (server IP) |
 | `TRANSCRIPT_URL` | Specialized model endpoint | `http://transcription:8000` |
-| `PADDING_BACKEND` | Audio padding backend (`local` or `modal`) | `modal` (selfhosted), `local` (default) |
+| `PADDING_BACKEND` | Audio padding backend (`pyav` or `modal`) | `modal` (selfhosted), `pyav` (default) |
 | `PADDING_URL` | Audio padding endpoint (when `PADDING_BACKEND=modal`) | `http://transcription:8000` |
 | `LLM_URL` | OpenAI-compatible LLM endpoint | Auto-set for Ollama modes |
 | `LLM_API_KEY` | LLM API key | `not-needed` for Ollama |

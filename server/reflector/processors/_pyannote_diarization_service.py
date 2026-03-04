@@ -1,8 +1,8 @@
 """
-Local diarization service using pyannote.audio.
+Pyannote diarization service using pyannote.audio.
 
 Singleton service that loads the pyannote speaker diarization model once
-and reuses it across all local diarization processor instances.
+and reuses it across all pyannote diarization processor instances.
 
 Ported from gpu/self_hosted/app/services/diarizer.py for in-process use.
 """
@@ -71,7 +71,7 @@ def _patch_config(model_dir: Path, cache_dir: Path) -> None:
     logger.info("Patched config.yaml with local model paths")
 
 
-class LocalDiarizationService:
+class PyannoteDiarizationService:
     """Pyannote speaker diarization service for in-process use."""
 
     def __init__(self):
@@ -129,5 +129,5 @@ class LocalDiarizationService:
         return {"diarization": segments}
 
 
-# Module-level singleton — shared across all local diarization processors
-diarization_service = LocalDiarizationService()
+# Module-level singleton — shared across all pyannote diarization processors
+diarization_service = PyannoteDiarizationService()

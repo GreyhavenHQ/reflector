@@ -108,7 +108,7 @@ class Settings(BaseSettings):
     )
 
     # Diarization
-    # backend: modal — HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
+    # backends: modal — HTTP API client, pyannote — in-process pyannote.audio
     DIARIZATION_ENABLED: bool = True
     DIARIZATION_BACKEND: str = "modal"
     DIARIZATION_URL: str | None = None
@@ -119,9 +119,9 @@ class Settings(BaseSettings):
 
     # Audio Padding
     # backends:
-    #   - local: in-process PyAV padding (no HTTP, runs in same process)
+    #   - pyav: in-process PyAV padding (no HTTP, runs in same process)
     #   - modal: HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
-    PADDING_BACKEND: str = "local"
+    PADDING_BACKEND: str = "pyav"
     PADDING_URL: str | None = None
     PADDING_MODAL_API_KEY: str | None = None
 
