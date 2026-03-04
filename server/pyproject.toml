@@ -71,9 +71,11 @@ local = [
     "faster-whisper>=0.10.0",
 ]
 silero-vad = [
-    "silero-vad>=5.1.2",
+    "silero-vad==5.1.2",
     "torch>=2.8.0",
     "torchaudio>=2.8.0",
+    "pyannote.audio==3.4.0",
+    "librosa==0.10.1",
 ]
 
 [tool.uv]

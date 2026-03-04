@@ -4,11 +4,12 @@
 # Single script to configure and launch everything on one server.
 #
 # Usage:
-#   ./scripts/setup-selfhosted.sh <--gpu|--cpu> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASSWORD] [--build]
+#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASSWORD] [--build]
 #
-# Specialized models (pick ONE — required):
-#   --gpu              NVIDIA GPU for transcription/diarization/translation
-#   --cpu              CPU-only for transcription/diarization/translation (slower)
+# ML processing modes (pick ONE — required):
+#   --gpu              NVIDIA GPU container for transcription/diarization/translation
+#   --cpu              In-process CPU processing (no ML container, slower)
+#   --hosted           Remote GPU service URL (no ML container)
 #
 # Local LLM (optional — for summarization & topic detection):
 #   --ollama-gpu       Local Ollama with NVIDIA GPU acceleration
@@ -29,6 +30,7 @@
 #   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy
 #   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --domain reflector.example.com
 #   ./scripts/setup-selfhosted.sh --cpu --ollama-cpu --garage --caddy
+#   ./scripts/setup-selfhosted.sh --hosted --garage --caddy
 #   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --llm-model mistral --garage --caddy
 #   ./scripts/setup-selfhosted.sh --gpu --garage --caddy --password mysecretpass
 #   ./scripts/setup-selfhosted.sh --gpu --garage --caddy
@@ -183,11 +185,14 @@ for i in "${!ARGS[@]}"; do
     arg="${ARGS[$i]}"
     case "$arg" in
         --gpu)
-            [[ -n "$MODEL_MODE" ]] && { err "Cannot combine --gpu and --cpu. Pick one."; exit 1; }
+            [[ -n "$MODEL_MODE" ]] && { err "Cannot combine --gpu, --cpu, and --hosted. Pick one."; exit 1; }
             MODEL_MODE="gpu" ;;
         --cpu)
-            [[ -n "$MODEL_MODE" ]] && { err "Cannot combine --gpu and --cpu. Pick one."; exit 1; }
+            [[ -n "$MODEL_MODE" ]] && { err "Cannot combine --gpu, --cpu, and --hosted. Pick one."; exit 1; }
             MODEL_MODE="cpu" ;;
+        --hosted)
+            [[ -n "$MODEL_MODE" ]] && { err "Cannot combine --gpu, --cpu, and --hosted. Pick one."; exit 1; }
+            MODEL_MODE="hosted" ;;
         --ollama-gpu)
             [[ -n "$OLLAMA_MODE" ]] && { err "Cannot combine --ollama-gpu and --ollama-cpu. Pick one."; exit 1; }
             OLLAMA_MODE="ollama-gpu" ;;
@@ -224,20 +229,21 @@ for i in "${!ARGS[@]}"; do
             SKIP_NEXT=true ;;
         *)
             err "Unknown argument: $arg"
-            err "Usage: $0 <--gpu|--cpu> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASS] [--build]"
+            err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASS] [--build]"
             exit 1
             ;;
     esac
 done
 
 if [[ -z "$MODEL_MODE" ]]; then
-    err "No model mode specified. You must choose --gpu or --cpu."
+    err "No model mode specified. You must choose --gpu, --cpu, or --hosted."
     err ""
-    err "Usage: $0 <--gpu|--cpu> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASS] [--build]"
+    err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASS] [--build]"
     err ""
-    err "Specialized models (required):"
-    err "  --gpu              NVIDIA GPU for transcription/diarization/translation"
-    err "  --cpu              CPU-only (slower but works without GPU)"
+    err "ML processing modes (required):"
+    err "  --gpu              NVIDIA GPU container for transcription/diarization/translation"
+    err "  --cpu              In-process CPU processing (no ML container, slower)"
+    err "  --hosted           Remote GPU service URL (no ML container)"
     err ""
     err "Local LLM (optional):"
     err "  --ollama-gpu       Local Ollama with GPU (for summarization/topics)"
@@ -255,7 +261,9 @@ if [[ -z "$MODEL_MODE" ]]; then
 fi
 
 # Build profiles list — one profile per feature
-COMPOSE_PROFILES=("$MODEL_MODE")
+# Only --gpu needs a compose profile; --cpu and --hosted use in-process/remote backends
+COMPOSE_PROFILES=()
+[[ "$MODEL_MODE" == "gpu" ]] && COMPOSE_PROFILES+=("gpu")
 [[ -n "$OLLAMA_MODE" ]] && COMPOSE_PROFILES+=("$OLLAMA_MODE")
 [[ "$USE_GARAGE" == "true" ]] && COMPOSE_PROFILES+=("garage")
 [[ "$USE_CADDY" == "true" ]] && COMPOSE_PROFILES+=("caddy")
@@ -422,43 +430,102 @@ step_server_env() {
         env_set "$SERVER_ENV" "WEBRTC_HOST" "$PRIMARY_IP"
     fi
 
-    # Specialized models (always via gpu/cpu container aliased as "transcription")
-    env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "modal"
-    env_set "$SERVER_ENV" "TRANSCRIPT_URL" "http://transcription:8000"
-    env_set "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY" "selfhosted"
+    # Specialized models — backend configuration per mode
     env_set "$SERVER_ENV" "DIARIZATION_ENABLED" "true"
-    env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "modal"
-    env_set "$SERVER_ENV" "DIARIZATION_URL" "http://transcription:8000"
-    env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
-    env_set "$SERVER_ENV" "TRANSLATE_URL" "http://transcription:8000"
-    env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
-    env_set "$SERVER_ENV" "PADDING_URL" "http://transcription:8000"
+    case "$MODEL_MODE" in
+        gpu)
+            # GPU container aliased as "transcription" on docker network
+            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "modal"
+            env_set "$SERVER_ENV" "TRANSCRIPT_URL" "http://transcription:8000"
+            env_set "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY" "selfhosted"
+            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "modal"
+            env_set "$SERVER_ENV" "DIARIZATION_URL" "http://transcription:8000"
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
+            env_set "$SERVER_ENV" "TRANSLATE_URL" "http://transcription:8000"
+            env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
+            env_set "$SERVER_ENV" "PADDING_URL" "http://transcription:8000"
+            ok "ML backends: GPU container (modal)"
+            ;;
+        cpu)
+            # In-process local backends — no ML service container needed
+            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "whisper"
+            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "local"
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "local"
+            env_set "$SERVER_ENV" "PADDING_BACKEND" "local"
+            ok "ML backends: in-process CPU (whisper/local)"
+            ;;
+        hosted)
+            # Remote GPU service — user provides URL
+            local gpu_url=""
+            if env_has_key "$SERVER_ENV" "TRANSCRIPT_URL"; then
+                gpu_url=$(env_get "$SERVER_ENV" "TRANSCRIPT_URL")
+            fi
+            if [[ -z "$gpu_url" ]] && [[ -t 0 ]]; then
+                echo ""
+                info "Enter the URL of your remote GPU service (e.g. https://gpu.example.com)"
+                read -rp "  GPU service URL: " gpu_url
+            fi
+            if [[ -z "$gpu_url" ]]; then
+                err "GPU service URL required for --hosted mode."
+                err "Set TRANSCRIPT_URL in server/.env or provide it interactively."
+                exit 1
+            fi
+            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "modal"
+            env_set "$SERVER_ENV" "TRANSCRIPT_URL" "$gpu_url"
+            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "modal"
+            env_set "$SERVER_ENV" "DIARIZATION_URL" "$gpu_url"
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
+            env_set "$SERVER_ENV" "TRANSLATE_URL" "$gpu_url"
+            env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
+            env_set "$SERVER_ENV" "PADDING_URL" "$gpu_url"
+            # API key for remote service
+            local gpu_api_key=""
+            if env_has_key "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY"; then
+                gpu_api_key=$(env_get "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY")
+            fi
+            if [[ -z "$gpu_api_key" ]] && [[ -t 0 ]]; then
+                read -rp "  GPU service API key (or Enter to skip): " gpu_api_key
+            fi
+            if [[ -n "$gpu_api_key" ]]; then
+                env_set "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY" "$gpu_api_key"
+            fi
+            ok "ML backends: remote hosted ($gpu_url)"
+            ;;
+    esac
 
     # HuggingFace token for gated models (pyannote diarization)
-    # Written to root .env so docker compose picks it up for gpu/cpu containers
-    local root_env="$ROOT_DIR/.env"
-    local current_hf_token="${HF_TOKEN:-}"
-    if [[ -f "$root_env" ]] && env_has_key "$root_env" "HF_TOKEN"; then
-        current_hf_token=$(env_get "$root_env" "HF_TOKEN")
-    fi
-    if [[ -z "$current_hf_token" ]]; then
-        echo ""
-        warn "HF_TOKEN not set. Diarization will use a public model fallback."
-        warn "For best results, get a token at https://huggingface.co/settings/tokens"
-        warn "and accept pyannote licenses at https://huggingface.co/pyannote/speaker-diarization-3.1"
-        if [[ -t 0 ]]; then
-            read -rp "  HuggingFace token (or press Enter to skip): " current_hf_token
+    # --gpu: written to root .env (docker compose passes to GPU container)
+    # --cpu: written to both root .env and server/.env (in-process pyannote needs it)
+    # --hosted: not needed (remote service handles its own auth)
+    if [[ "$MODEL_MODE" != "hosted" ]]; then
+        local root_env="$ROOT_DIR/.env"
+        local current_hf_token="${HF_TOKEN:-}"
+        if [[ -f "$root_env" ]] && env_has_key "$root_env" "HF_TOKEN"; then
+            current_hf_token=$(env_get "$root_env" "HF_TOKEN")
         fi
-    fi
-    if [[ -n "$current_hf_token" ]]; then
-        touch "$root_env"
-        env_set "$root_env" "HF_TOKEN" "$current_hf_token"
-        export HF_TOKEN="$current_hf_token"
-        ok "HF_TOKEN configured"
-    else
-        touch "$root_env"
-        env_set "$root_env" "HF_TOKEN" ""
-        ok "HF_TOKEN skipped (using public model fallback)"
+        if [[ -z "$current_hf_token" ]]; then
+            echo ""
+            warn "HF_TOKEN not set. Diarization will use a public model fallback."
+            warn "For best results, get a token at https://huggingface.co/settings/tokens"
+            warn "and accept pyannote licenses at https://huggingface.co/pyannote/speaker-diarization-3.1"
+            if [[ -t 0 ]]; then
+                read -rp "  HuggingFace token (or press Enter to skip): " current_hf_token
+            fi
+        fi
+        if [[ -n "$current_hf_token" ]]; then
+            touch "$root_env"
+            env_set "$root_env" "HF_TOKEN" "$current_hf_token"
+            export HF_TOKEN="$current_hf_token"
+            # In CPU mode, server process needs HF_TOKEN directly
+            if [[ "$MODEL_MODE" == "cpu" ]]; then
+                env_set "$SERVER_ENV" "HF_TOKEN" "$current_hf_token"
+            fi
+            ok "HF_TOKEN configured"
+        else
+            touch "$root_env"
+            env_set "$root_env" "HF_TOKEN" ""
+            ok "HF_TOKEN skipped (using public model fallback)"
+        fi
     fi
 
     # LLM configuration
@@ -799,11 +866,12 @@ CADDYEOF
 step_services() {
     info "Step 6: Starting Docker services"
 
-    # Build GPU/CPU image from source (always needed — no prebuilt image)
-    local build_svc="$MODEL_MODE"
-    info "Building $build_svc image (first build downloads ML models, may take a while)..."
-    compose_cmd build "$build_svc"
-    ok "$build_svc image built"
+    # Build GPU image from source (only for --gpu mode)
+    if [[ "$MODEL_MODE" == "gpu" ]]; then
+        info "Building gpu image (first build downloads ML models, may take a while)..."
+        compose_cmd build gpu
+        ok "gpu image built"
+    fi
 
     # Build or pull backend and frontend images
     if [[ "$BUILD_IMAGES" == "true" ]]; then
@@ -871,25 +939,29 @@ step_services() {
 step_health() {
     info "Step 7: Health checks"
 
-    # Specialized model service (gpu or cpu)
-    local model_svc="$MODEL_MODE"
-
-    info "Waiting for $model_svc service (first start downloads ~1GB of models)..."
-    local model_ok=false
-    for i in $(seq 1 120); do
-        if curl -sf http://localhost:8000/docs > /dev/null 2>&1; then
-            model_ok=true
-            break
+    # Specialized model service (only for --gpu mode)
+    if [[ "$MODEL_MODE" == "gpu" ]]; then
+        info "Waiting for gpu service (first start downloads ~1GB of models)..."
+        local model_ok=false
+        for i in $(seq 1 120); do
+            if curl -sf http://localhost:8000/docs > /dev/null 2>&1; then
+                model_ok=true
+                break
+            fi
+            echo -ne "\r  Waiting for gpu service... ($i/120)"
+            sleep 5
+        done
+        echo ""
+        if [[ "$model_ok" == "true" ]]; then
+            ok "gpu service healthy (transcription + diarization)"
+        else
+            warn "gpu service not ready yet — it will keep loading in the background"
+            warn "Check with: docker compose -f docker-compose.selfhosted.yml logs gpu"
         fi
-        echo -ne "\r  Waiting for $model_svc service... ($i/120)"
-        sleep 5
-    done
-    echo ""
-    if [[ "$model_ok" == "true" ]]; then
-        ok "$model_svc service healthy (transcription + diarization)"
-    else
-        warn "$model_svc service not ready yet — it will keep loading in the background"
-        warn "Check with: docker compose -f docker-compose.selfhosted.yml logs $model_svc"
+    elif [[ "$MODEL_MODE" == "cpu" ]]; then
+        ok "CPU mode — ML processing runs in-process on server/worker (no separate service)"
+    elif [[ "$MODEL_MODE" == "hosted" ]]; then
+        ok "Hosted mode — ML processing via remote GPU service (no local health check)"
     fi
 
     # Ollama (if applicable)

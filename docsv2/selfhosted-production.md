@@ -53,8 +53,11 @@ cd reflector
 # Same but without a domain (self-signed cert, access via IP):
 ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy
 
-# CPU-only (same, but slower):
+# CPU-only (in-process ML, no GPU container):
 ./scripts/setup-selfhosted.sh --cpu --ollama-cpu --garage --caddy
+
+# Remote GPU service (your own hosted GPU, no local ML container):
+./scripts/setup-selfhosted.sh --hosted --garage --caddy
 
 # With password authentication (single admin user):
 ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --password mysecretpass
@@ -65,14 +68,15 @@ cd reflector
 
 That's it. The script generates env files, secrets, starts all containers, waits for health checks, and prints the URL.
 
-## Specialized Models (Required)
+## ML Processing Modes (Required)
 
-Pick `--gpu` or `--cpu`. This determines how **transcription, diarization, translation, and audio padding** run:
+Pick `--gpu`, `--cpu`, or `--hosted`. This determines how **transcription, diarization, translation, and audio padding** run:
 
 | Flag | What it does | Requires |
 |------|-------------|----------|
-| `--gpu` | NVIDIA GPU acceleration for ML models | NVIDIA GPU + drivers + `nvidia-container-toolkit` |
-| `--cpu` | CPU-only (slower but works without GPU) | 8+ cores, 32GB+ RAM recommended |
+| `--gpu` | NVIDIA GPU container for ML models | NVIDIA GPU + drivers + `nvidia-container-toolkit` |
+| `--cpu` | In-process CPU processing on server/worker (no ML container) | 8+ cores, 16GB+ RAM (32GB recommended for large files) |
+| `--hosted` | Remote GPU service URL (no local ML container) | A running GPU service instance (e.g. `gpu/self_hosted/`) |
 
 ## Local LLM (Optional)
 
@@ -130,9 +134,11 @@ Browse all available models at https://ollama.com/library.
 
 - **`--gpu --ollama-gpu`**: Best for servers with NVIDIA GPU. Fully self-contained, no external API keys needed.
 - **`--cpu --ollama-cpu`**: No GPU available but want everything self-contained. Slower but works.
+- **`--hosted --ollama-cpu`**: Remote GPU for ML, local CPU for LLM. Great when you have a separate GPU server.
 - **`--gpu --ollama-cpu`**: GPU for transcription, CPU for LLM. Saves GPU VRAM for ML models.
 - **`--gpu`**: Have NVIDIA GPU but prefer a cloud LLM (faster/better summaries with GPT-4, Claude, etc.).
 - **`--cpu`**: No GPU, prefer cloud LLM. Slowest transcription but best summary quality.
+- **`--hosted`**: Remote GPU, cloud LLM. No local ML at all.
 
 ## Other Optional Flags
 
@@ -160,7 +166,7 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 4. **Generate `www/.env`** — Auto-detects server IP, sets URLs
 5. **Storage setup** — Either initializes Garage (bucket, keys, permissions) or prompts for external S3 credentials
 6. **Caddyfile** — Generates domain-specific (Let's Encrypt) or IP-specific (self-signed) configuration
-7. **Build & start** — Always builds GPU/CPU model image from source. With `--build`, also builds backend and frontend from source; otherwise pulls prebuilt images from the registry
+7. **Build & start** — For `--gpu`, builds the GPU model image from source. For `--cpu` and `--hosted`, no ML container is built. With `--build`, also builds backend and frontend from source; otherwise pulls prebuilt images from the registry
 8. **Auto-detects video platforms** — If `DAILY_API_KEY` is found in `server/.env`, generates `.env.hatchet` (dashboard URL/cookie config), starts Hatchet workflow engine, and generates an API token. If any video platform is configured, enables the Rooms feature
 9. **Health checks** — Waits for each service, pulls Ollama model if needed, warns about missing LLM config
 
@@ -604,10 +610,9 @@ The setup script is idempotent — it won't overwrite existing secrets or env va
           │              │            │
           v              v            v
     ┌───────────┐  ┌─────────┐  ┌─────────┐
-    │transcription│  │postgres │  │  redis  │
-    │(gpu/cpu)  │  │ :5432   │  │ :6379   │
-    │ :8000     │  └─────────┘  └─────────┘
-    └───────────┘
+    │ ML models │  │postgres │  │  redis  │
+    │ (varies)  │  │ :5432   │  │ :6379   │
+    └───────────┘  └─────────┘  └─────────┘
           │
     ┌─────┴─────┐     ┌─────────┐
     │  ollama   │     │ garage  │
@@ -622,6 +627,11 @@ The setup script is idempotent — it won't overwrite existing secrets or env va
     │  │ :8888   │──│  -cpu / -llm  │  │
     │  └─────────┘  └───────────────┘  │
     └───────────────────────────────────┘
+
+ML models box varies by mode:
+  --gpu:    Local GPU container (transcription:8000)
+  --cpu:    In-process on server/worker (no container)
+  --hosted: Remote GPU service (user URL)
 ```
 
 All services communicate over Docker's internal network. Only Caddy (if enabled) exposes ports to the internet. Hatchet services are only started when `DAILY_API_KEY` is configured.
