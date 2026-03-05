@@ -44,7 +44,12 @@ hatchet = HatchetClientManager.get_client()
 track_workflow = hatchet.workflow(name="TrackProcessing", input_validator=TrackInput)
 
 
-@track_workflow.task(execution_timeout=timedelta(seconds=TIMEOUT_AUDIO), retries=3)
+@track_workflow.task(
+    execution_timeout=timedelta(seconds=TIMEOUT_AUDIO),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
+)
 async def pad_track(input: TrackInput, ctx: Context) -> PadTrackResult:
     """Pad single audio track with silence for alignment.
 
@@ -137,7 +142,11 @@ async def pad_track(input: TrackInput, ctx: Context) -> PadTrackResult:
 
 
 @track_workflow.task(
-    parents=[pad_track], execution_timeout=timedelta(seconds=TIMEOUT_HEAVY), retries=3
+    parents=[pad_track],
+    execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 async def transcribe_track(input: TrackInput, ctx: Context) -> TranscribeTrackResult:
     """Transcribe audio track using GPU (Modal.com) or local Whisper."""

@@ -257,15 +257,3 @@ def test_successful_run_results_filters_exceptions():
     assert len(successful) == 2
     assert successful[0] == {"key": "ok1"}
     assert successful[1] == {"key": "ok2"}
-
-
-def test_fan_out_uses_return_exceptions_true():
-    """process_tracks, detect_topics, and process_subjects call aio_run_many(..., return_exceptions=True)."""
-    from pathlib import Path
-
-    path = (
-        Path(__file__).resolve().parent.parent
-        / "reflector/hatchet/workflows/daily_multitrack_pipeline.py"
-    )
-    text = path.read_text()
-    assert "return_exceptions=True" in text

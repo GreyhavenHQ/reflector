@@ -39,6 +39,7 @@ TIMEOUT_MEDIUM = (
     300  # Single LLM calls, waveform generation (5m for slow LLM responses)
 )
 TIMEOUT_LONG = 180  # Action items (larger context LLM)
+TIMEOUT_TITLE = 300  # generate_title (single LLM call; doc: reduce from 600s)
 TIMEOUT_AUDIO = 720  # Audio processing: padding, mixdown (Hatchet execution_timeout)
 TIMEOUT_AUDIO_HTTP = 660  # httpx timeout for pad_track — below 720 so Hatchet doesn't race
 TIMEOUT_HEAVY = 600  # Transcription, fan-out LLM tasks (Hatchet execution_timeout)

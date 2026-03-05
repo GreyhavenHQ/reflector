@@ -34,7 +34,12 @@ padding_workflow = hatchet.workflow(
 )
 
 
-@padding_workflow.task(execution_timeout=timedelta(seconds=TIMEOUT_AUDIO), retries=3)
+@padding_workflow.task(
+    execution_timeout=timedelta(seconds=TIMEOUT_AUDIO),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
+)
 async def pad_track(input: PaddingInput, ctx: Context) -> PadTrackResult:
     """Pad audio track with silence based on WebM container start_time."""
     ctx.log(f"pad_track: track {input.track_index}, s3_key={input.s3_key}")

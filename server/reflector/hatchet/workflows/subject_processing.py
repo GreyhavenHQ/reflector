@@ -13,7 +13,7 @@ from hatchet_sdk.rate_limit import RateLimit
 from pydantic import BaseModel
 
 from reflector.hatchet.client import HatchetClientManager
-from reflector.hatchet.constants import LLM_RATE_LIMIT_KEY, TIMEOUT_MEDIUM
+from reflector.hatchet.constants import LLM_RATE_LIMIT_KEY, TIMEOUT_HEAVY
 from reflector.hatchet.workflows.models import SubjectSummaryResult
 from reflector.logger import logger
 from reflector.processors.summary.prompts import (
@@ -41,8 +41,10 @@ subject_workflow = hatchet.workflow(
 
 
 @subject_workflow.task(
-    execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
-    retries=3,
+    execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
+    retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=60,
     rate_limits=[RateLimit(static_key=LLM_RATE_LIMIT_KEY, units=2)],
 )
 async def generate_detailed_summary(

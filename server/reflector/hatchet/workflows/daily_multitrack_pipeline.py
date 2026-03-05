@@ -45,6 +45,7 @@ from reflector.hatchet.constants import (
     TIMEOUT_LONG,
     TIMEOUT_MEDIUM,
     TIMEOUT_SHORT,
+    TIMEOUT_TITLE,
     TaskName,
 )
 from reflector.hatchet.workflows.models import (
@@ -266,7 +267,10 @@ def with_error_handling(
 
 
 @daily_multitrack_pipeline.task(
-    execution_timeout=timedelta(seconds=TIMEOUT_SHORT), retries=3
+    execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.GET_RECORDING)
 async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
@@ -322,6 +326,8 @@ async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
     parents=[get_recording],
     execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.GET_PARTICIPANTS)
 async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsResult:
@@ -425,6 +431,8 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
     parents=[get_participants],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.PROCESS_TRACKS)
 async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksResult:
@@ -508,7 +516,9 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
 @daily_multitrack_pipeline.task(
     parents=[process_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_AUDIO),
-    retries=3,
+    retries=2,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
     desired_worker_labels={
         "pool": DesiredWorkerLabel(
             value="cpu-heavy",
@@ -620,6 +630,8 @@ async def mixdown_tracks(input: PipelineInput, ctx: Context) -> MixdownResult:
     parents=[mixdown_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.GENERATE_WAVEFORM)
 async def generate_waveform(input: PipelineInput, ctx: Context) -> WaveformResult:
@@ -688,6 +700,8 @@ async def generate_waveform(input: PipelineInput, ctx: Context) -> WaveformResul
     parents=[process_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.DETECT_TOPICS)
 async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
@@ -802,8 +816,10 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
 
 @daily_multitrack_pipeline.task(
     parents=[detect_topics],
-    execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
+    execution_timeout=timedelta(seconds=TIMEOUT_TITLE),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.GENERATE_TITLE)
 async def generate_title(input: PipelineInput, ctx: Context) -> TitleResult:
@@ -868,7 +884,9 @@ async def generate_title(input: PipelineInput, ctx: Context) -> TitleResult:
 @daily_multitrack_pipeline.task(
     parents=[detect_topics],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
-    retries=3,
+    retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.EXTRACT_SUBJECTS)
 async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult:
@@ -947,6 +965,8 @@ async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult
     parents=[extract_subjects],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.PROCESS_SUBJECTS)
 async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubjectsResult:
@@ -999,6 +1019,8 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
     parents=[process_subjects],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.GENERATE_RECAP)
 async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
@@ -1088,6 +1110,8 @@ async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
     parents=[extract_subjects],
     execution_timeout=timedelta(seconds=TIMEOUT_LONG),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.IDENTIFY_ACTION_ITEMS)
 async def identify_action_items(
@@ -1156,6 +1180,8 @@ async def identify_action_items(
     parents=[process_tracks, generate_title, generate_recap, identify_action_items],
     execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=5,
 )
 @with_error_handling(TaskName.FINALIZE)
 async def finalize(input: PipelineInput, ctx: Context) -> FinalizeResult:
@@ -1225,7 +1251,11 @@ async def finalize(input: PipelineInput, ctx: Context) -> FinalizeResult:
 
 
 @daily_multitrack_pipeline.task(
-    parents=[finalize], execution_timeout=timedelta(seconds=TIMEOUT_SHORT), retries=3
+    parents=[finalize],
+    execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.CLEANUP_CONSENT, set_error_status=False)
 async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
@@ -1331,6 +1361,8 @@ async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
     parents=[cleanup_consent],
     execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
     retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.POST_ZULIP, set_error_status=False)
 async def post_zulip(input: PipelineInput, ctx: Context) -> ZulipResult:
@@ -1358,6 +1390,8 @@ async def post_zulip(input: PipelineInput, ctx: Context) -> ZulipResult:
     parents=[cleanup_consent],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
     retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.SEND_WEBHOOK, set_error_status=False)
 async def send_webhook(input: PipelineInput, ctx: Context) -> WebhookResult:
