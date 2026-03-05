@@ -10,6 +10,7 @@ Run before the fix: some tests fail (reproducing the issues).
 Run after the fix: all tests pass.
 """
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -216,26 +217,74 @@ async def test_with_error_handling_set_error_status_false_never_sets_status(
         mock_set_error.assert_not_called()
 
 
+@asynccontextmanager
+async def _noop_db_context():
+    """Async context manager that yields without touching the DB (for unit tests)."""
+    yield None
+
+
 @pytest.mark.asyncio
 async def test_on_failure_task_sets_error_status(
     pipeline_module, mock_input, mock_ctx
 ):
-    """Workflow must have an on_failure handler that sets transcript status to 'error'.
+    """When workflow fails and transcript is not yet 'ended', on_failure sets status to 'error'."""
+    from reflector.hatchet.workflows.daily_multitrack_pipeline import (
+        on_workflow_failure,
+        set_workflow_error_status,
+    )
 
-    Before fix: no on_workflow_failure in module → test fails (AttributeError).
-    After fix: handler exists and sets status when called → PASS.
+    transcript_processing = MagicMock()
+    transcript_processing.status = "processing"
+
+    with patch(
+        "reflector.hatchet.workflows.daily_multitrack_pipeline.fresh_db_connection",
+        _noop_db_context,
+    ):
+        with patch(
+            "reflector.db.transcripts.transcripts_controller.get_by_id",
+            new_callable=AsyncMock,
+            return_value=transcript_processing,
+        ):
+            with patch(
+                "reflector.hatchet.workflows.daily_multitrack_pipeline.set_workflow_error_status",
+                new_callable=AsyncMock,
+            ) as mock_set_error:
+                await on_workflow_failure(mock_input, mock_ctx)
+                mock_set_error.assert_called_once_with(mock_input.transcript_id)
+
+
+@pytest.mark.asyncio
+async def test_on_failure_task_does_not_overwrite_ended(
+    pipeline_module, mock_input, mock_ctx
+):
+    """When workflow fails after finalize (e.g. post_zulip), do not overwrite 'ended' with 'error'.
+
+    cleanup_consent, post_zulip, send_webhook use set_error_status=False; if one fails,
+    on_workflow_failure must not set status to 'error' when transcript is already 'ended'.
     """
     from reflector.hatchet.workflows.daily_multitrack_pipeline import (
         on_workflow_failure,
         set_workflow_error_status,
     )
 
+    transcript_ended = MagicMock()
+    transcript_ended.status = "ended"
+
     with patch(
-        "reflector.hatchet.workflows.daily_multitrack_pipeline.set_workflow_error_status",
-        new_callable=AsyncMock,
-    ) as mock_set_error:
-        await on_workflow_failure(mock_input, mock_ctx)
-        mock_set_error.assert_called_once_with(mock_input.transcript_id)
+        "reflector.hatchet.workflows.daily_multitrack_pipeline.fresh_db_connection",
+        _noop_db_context,
+    ):
+        with patch(
+            "reflector.db.transcripts.transcripts_controller.get_by_id",
+            new_callable=AsyncMock,
+            return_value=transcript_ended,
+        ):
+            with patch(
+                "reflector.hatchet.workflows.daily_multitrack_pipeline.set_workflow_error_status",
+                new_callable=AsyncMock,
+            ) as mock_set_error:
+                await on_workflow_failure(mock_input, mock_ctx)
+                mock_set_error.assert_not_called()
 
 
 # --- Tests for fan-out partial failure (Issue 3: aio_run_many return_exceptions=True) ---

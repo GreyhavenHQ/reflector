@@ -1463,7 +1463,26 @@ async def send_webhook(input: PipelineInput, ctx: Context) -> WebhookResult:
 
 
 async def on_workflow_failure(input: PipelineInput, ctx: Context) -> None:
-    """Run when the workflow is truly dead (all retries exhausted). Sets transcript status to 'error'."""
+    """Run when the workflow is truly dead (all retries exhausted).
+
+    Sets transcript status to 'error' only if it is not already 'ended'.
+    Post-finalize tasks (cleanup_consent, post_zulip, send_webhook) use
+    set_error_status=False; if one of them fails, we must not overwrite
+    the 'ended' status that finalize already set.
+    """
+    async with fresh_db_connection():
+        from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
+
+        transcript = await transcripts_controller.get_by_id(input.transcript_id)
+        if transcript and transcript.status == "ended":
+            logger.info(
+                "[Hatchet] on_workflow_failure: transcript already ended, skipping error status (failure was post-finalize)",
+                transcript_id=input.transcript_id,
+            )
+            ctx.log(
+                "on_workflow_failure: transcript already ended, skipping error status"
+            )
+            return
     await set_workflow_error_status(input.transcript_id)
 
 
