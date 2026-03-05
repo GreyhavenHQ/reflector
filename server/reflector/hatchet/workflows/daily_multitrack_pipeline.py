@@ -27,6 +27,7 @@ from hatchet_sdk import (
     ConcurrencyExpression,
     ConcurrencyLimitStrategy,
     Context,
+    NonRetryableException,
 )
 from hatchet_sdk.labels import DesiredWorkerLabel
 from pydantic import BaseModel
@@ -37,6 +38,7 @@ from reflector.hatchet.broadcast import (
     set_status_and_broadcast,
 )
 from reflector.hatchet.client import HatchetClientManager
+from reflector.hatchet.error_classification import is_non_retryable
 from reflector.hatchet.constants import (
     TIMEOUT_AUDIO,
     TIMEOUT_HEAVY,
@@ -243,8 +245,12 @@ def with_error_handling(
                     error=str(e),
                     exc_info=True,
                 )
-                if set_error_status:
-                    await set_workflow_error_status(input.transcript_id)
+                if is_non_retryable(e):
+                    # Hard fail: stop retries, set error status, fail workflow
+                    if set_error_status:
+                        await set_workflow_error_status(input.transcript_id)
+                    raise NonRetryableException(str(e)) from e
+                # Transient: do not set error status — Hatchet will retry
                 raise
 
         return wrapper  # type: ignore[return-value]
@@ -1378,3 +1384,13 @@ async def send_webhook(input: PipelineInput, ctx: Context) -> WebhookResult:
         except Exception as e:
             ctx.log(f"send_webhook unexpected error, continuing anyway: {e}")
             return WebhookResult(webhook_sent=False)
+
+
+async def on_workflow_failure(input: PipelineInput, ctx: Context) -> None:
+    """Run when the workflow is truly dead (all retries exhausted). Sets transcript status to 'error'."""
+    await set_workflow_error_status(input.transcript_id)
+
+
+@daily_multitrack_pipeline.on_failure_task()
+async def _register_on_workflow_failure(input: PipelineInput, ctx: Context) -> None:
+    await on_workflow_failure(input, ctx)
