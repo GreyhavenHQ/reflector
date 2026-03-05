@@ -30,6 +30,7 @@ def retry(fn):
             "retry_httpx_status_stop",
             (
                 401,  # auth issue
+                402,  # payment required / no credits — needs human action
                 404,  # not found
                 413,  # payload too large
                 418,  # teapot
