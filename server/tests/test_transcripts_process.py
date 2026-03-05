@@ -231,3 +231,81 @@ async def test_dailyco_recording_uses_multitrack_pipeline(client):
             {"s3_key": k} for k in track_keys
         ]
         mock_file_pipeline.delay.assert_not_called()
+
+
+@pytest.mark.usefixtures("setup_database")
+@pytest.mark.asyncio
+async def test_reprocess_error_transcript_passes_force(client):
+    """When transcript status is 'error', reprocess passes force=True to start fresh workflow."""
+    from datetime import datetime, timezone
+
+    from reflector.db.recordings import Recording, recordings_controller
+    from reflector.db.rooms import rooms_controller
+    from reflector.db.transcripts import transcripts_controller
+
+    room = await rooms_controller.add(
+        name="test-room",
+        user_id="test-user",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=False,
+    )
+
+    transcript = await transcripts_controller.add(
+        "",
+        source_kind="room",
+        source_language="en",
+        target_language="en",
+        user_id="test-user",
+        share_mode="public",
+        room_id=room.id,
+    )
+
+    track_keys = ["recordings/test-room/track1.webm"]
+    recording = await recordings_controller.create(
+        Recording(
+            bucket_name="daily-bucket",
+            object_key="recordings/test-room",
+            meeting_id="test-meeting",
+            track_keys=track_keys,
+            recorded_at=datetime.now(timezone.utc),
+        )
+    )
+
+    await transcripts_controller.update(
+        transcript,
+        {
+            "recording_id": recording.id,
+            "status": "error",
+            "workflow_run_id": "old-failed-run",
+        },
+    )
+
+    with (
+        patch(
+            "reflector.services.transcript_process.task_is_scheduled_or_active"
+        ) as mock_celery,
+        patch(
+            "reflector.services.transcript_process.HatchetClientManager"
+        ) as mock_hatchet,
+        patch(
+            "reflector.views.transcripts_process.dispatch_transcript_processing",
+            new_callable=AsyncMock,
+        ) as mock_dispatch,
+    ):
+        mock_celery.return_value = False
+        from hatchet_sdk.clients.rest.models import V1TaskStatus
+
+        mock_hatchet.get_workflow_run_status = AsyncMock(
+            return_value=V1TaskStatus.FAILED
+        )
+        response = await client.post(f"/transcripts/{transcript.id}/process")
+
+    assert response.status_code == 200
+    mock_dispatch.assert_called_once()
+    assert mock_dispatch.call_args.kwargs["force"] is True

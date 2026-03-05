@@ -50,5 +50,8 @@ async def transcript_process(
     if isinstance(config, ProcessError):
         raise HTTPException(status_code=500, detail=config.detail)
     else:
-        await dispatch_transcript_processing(config)
+        # When transcript is in error state, force a new workflow instead of replaying
+        # (replay would re-run from failure point with same conditions and likely fail again)
+        force = transcript.status == "error"
+        await dispatch_transcript_processing(config, force=force)
         return ProcessStatus(status="ok")
