@@ -1,6 +1,6 @@
 """Tests for LLM structured output with astructured_predict + reflection retry"""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel, Field, ValidationError
@@ -250,6 +250,45 @@ class TestNetworkErrorRetries:
 
             # 3 retry attempts
             assert mock_settings.llm.astructured_predict.call_count == 3
+
+
+class TestGetResponseRetries:
+    """Test that get_response() uses the same retry() wrapper for transient errors."""
+
+    @pytest.mark.asyncio
+    async def test_get_response_retries_on_connection_error(self, test_settings):
+        """Test that get_response retries on ConnectionError and returns on success."""
+        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+
+        mock_instance = MagicMock()
+        mock_instance.aget_response = AsyncMock(
+            side_effect=[
+                ConnectionError("Connection refused"),
+                "  Summary text  ",
+            ]
+        )
+
+        with patch("reflector.llm.TreeSummarize", return_value=mock_instance):
+            result = await llm.get_response("Prompt", ["text"])
+
+        assert result == "Summary text"
+        assert mock_instance.aget_response.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_get_response_exhausts_retries(self, test_settings):
+        """Test that get_response raises RetryException after retry attempts exceeded."""
+        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+
+        mock_instance = MagicMock()
+        mock_instance.aget_response = AsyncMock(
+            side_effect=ConnectionError("Connection refused")
+        )
+
+        with patch("reflector.llm.TreeSummarize", return_value=mock_instance):
+            with pytest.raises(RetryException, match="Retry attempts exceeded"):
+                await llm.get_response("Prompt", ["text"])
+
+        assert mock_instance.aget_response.call_count == 3
 
 
 class TestTextsInclusion:
