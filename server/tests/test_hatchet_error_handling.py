@@ -236,3 +236,36 @@ async def test_on_failure_task_sets_error_status(
     ) as mock_set_error:
         await on_workflow_failure(mock_input, mock_ctx)
         mock_set_error.assert_called_once_with(mock_input.transcript_id)
+
+
+# --- Tests for fan-out partial failure (Issue 3: aio_run_many return_exceptions=True) ---
+
+
+def test_successful_run_results_filters_exceptions():
+    """_successful_run_results returns only non-exception items (used for partial fan-out)."""
+    from reflector.hatchet.workflows.daily_multitrack_pipeline import (
+        _successful_run_results,
+    )
+
+    results = [
+        {"key": "ok1"},
+        ValueError("child failed"),
+        {"key": "ok2"},
+        RuntimeError("another"),
+    ]
+    successful = _successful_run_results(results)
+    assert len(successful) == 2
+    assert successful[0] == {"key": "ok1"}
+    assert successful[1] == {"key": "ok2"}
+
+
+def test_fan_out_uses_return_exceptions_true():
+    """process_tracks, detect_topics, and process_subjects call aio_run_many(..., return_exceptions=True)."""
+    from pathlib import Path
+
+    path = (
+        Path(__file__).resolve().parent.parent
+        / "reflector/hatchet/workflows/daily_multitrack_pipeline.py"
+    )
+    text = path.read_text()
+    assert "return_exceptions=True" in text

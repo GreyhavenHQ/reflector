@@ -218,6 +218,13 @@ def make_audio_progress_logger(
 R = TypeVar("R")
 
 
+def _successful_run_results(
+    results: list[dict[str, Any] | BaseException],
+) -> list[dict[str, Any]]:
+    """Return only successful (non-exception) results from aio_run_many(return_exceptions=True)."""
+    return [r for r in results if not isinstance(r, BaseException)]
+
+
 def with_error_handling(
     step_name: TaskName, set_error_status: bool = True
 ) -> Callable[
@@ -441,7 +448,7 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
         for i, track in enumerate(input.tracks)
     ]
 
-    results = await track_workflow.aio_run_many(bulk_runs)
+    results = await track_workflow.aio_run_many(bulk_runs, return_exceptions=True)
 
     target_language = participants_result.target_language
 
@@ -449,7 +456,16 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
     padded_tracks = []
     created_padded_files = set()
 
-    for result in results:
+    for i, result in enumerate(results):
+        if isinstance(result, BaseException):
+            logger.warning(
+                "[Hatchet] process_tracks: track workflow failed, skipping",
+                transcript_id=input.transcript_id,
+                track_index=i,
+                error=str(result),
+            )
+            ctx.log(f"process_tracks: track {i} failed ({result}), skipping")
+            continue
         transcribe_result = TranscribeTrackResult(**result[TaskName.TRANSCRIBE_TRACK])
         track_words.append(transcribe_result.words)
 
@@ -466,6 +482,11 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
         if pad_result.size > 0:
             storage_path = f"file_pipeline_hatchet/{input.transcript_id}/tracks/padded_{pad_result.track_index}.webm"
             created_padded_files.add(storage_path)
+
+    if not _successful_run_results(results) and results:
+        raise ValueError(
+            f"All {len(results)} track workflows failed; no transcript produced"
+        )
 
     all_words = [word for words in track_words for word in words]
     all_words.sort(key=lambda w: w.start)
@@ -728,11 +749,22 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
         for chunk in chunks
     ]
 
-    results = await topic_chunk_workflow.aio_run_many(bulk_runs)
+    results = await topic_chunk_workflow.aio_run_many(bulk_runs, return_exceptions=True)
 
-    topic_chunks = [
-        TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC]) for result in results
-    ]
+    topic_chunks: list[TopicChunkResult] = []
+    for i, result in enumerate(results):
+        if isinstance(result, BaseException):
+            logger.warning(
+                "[Hatchet] detect_topics: chunk workflow failed, skipping",
+                transcript_id=input.transcript_id,
+                chunk_index=i,
+                error=str(result),
+            )
+            ctx.log(f"detect_topics: chunk {i} failed ({result}), skipping")
+            continue
+        topic_chunks.append(
+            TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC])
+        )
 
     async with fresh_db_connection():
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
@@ -941,12 +973,22 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
         for i, subject in enumerate(subjects)
     ]
 
-    results = await subject_workflow.aio_run_many(bulk_runs)
+    results = await subject_workflow.aio_run_many(bulk_runs, return_exceptions=True)
 
-    subject_summaries = [
-        SubjectSummaryResult(**result[TaskName.GENERATE_DETAILED_SUMMARY])
-        for result in results
-    ]
+    subject_summaries: list[SubjectSummaryResult] = []
+    for i, result in enumerate(results):
+        if isinstance(result, BaseException):
+            logger.warning(
+                "[Hatchet] process_subjects: subject workflow failed, skipping",
+                transcript_id=input.transcript_id,
+                subject_index=i,
+                error=str(result),
+            )
+            ctx.log(f"process_subjects: subject {i} failed ({result}), skipping")
+            continue
+        subject_summaries.append(
+            SubjectSummaryResult(**result[TaskName.GENERATE_DETAILED_SUMMARY])
+        )
 
     ctx.log(f"process_subjects complete: {len(subject_summaries)} summaries")
 
