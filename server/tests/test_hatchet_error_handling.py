@@ -20,7 +20,6 @@ from hatchet_sdk import NonRetryableException
 from reflector.hatchet.error_classification import is_non_retryable
 from reflector.llm import LLMParseError
 
-
 # --- Tests for is_non_retryable() (pass once error_classification exists) ---
 
 
@@ -62,7 +61,9 @@ def test_is_non_retryable_returns_false_for_http_503():
     """HTTP 503 is transient; retries are useful."""
     resp = MagicMock()
     resp.status_code = 503
-    err = httpx.HTTPStatusError("Service Unavailable", request=MagicMock(), response=resp)
+    err = httpx.HTTPStatusError(
+        "Service Unavailable", request=MagicMock(), response=resp
+    )
     assert is_non_retryable(err) is False
 
 
@@ -139,7 +140,6 @@ async def test_with_error_handling_transient_does_not_set_error_status(
     """
     from reflector.hatchet.workflows.daily_multitrack_pipeline import (
         TaskName,
-        set_workflow_error_status,
         with_error_handling,
     )
 
@@ -170,7 +170,6 @@ async def test_with_error_handling_hard_fail_raises_non_retryable_and_sets_statu
     """
     from reflector.hatchet.workflows.daily_multitrack_pipeline import (
         TaskName,
-        set_workflow_error_status,
         with_error_handling,
     )
 
@@ -224,13 +223,10 @@ async def _noop_db_context():
 
 
 @pytest.mark.asyncio
-async def test_on_failure_task_sets_error_status(
-    pipeline_module, mock_input, mock_ctx
-):
+async def test_on_failure_task_sets_error_status(pipeline_module, mock_input, mock_ctx):
     """When workflow fails and transcript is not yet 'ended', on_failure sets status to 'error'."""
     from reflector.hatchet.workflows.daily_multitrack_pipeline import (
         on_workflow_failure,
-        set_workflow_error_status,
     )
 
     transcript_processing = MagicMock()
@@ -264,7 +260,6 @@ async def test_on_failure_task_does_not_overwrite_ended(
     """
     from reflector.hatchet.workflows.daily_multitrack_pipeline import (
         on_workflow_failure,
-        set_workflow_error_status,
     )
 
     transcript_ended = MagicMock()

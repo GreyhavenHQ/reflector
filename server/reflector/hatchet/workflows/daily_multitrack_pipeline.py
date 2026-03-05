@@ -38,7 +38,6 @@ from reflector.hatchet.broadcast import (
     set_status_and_broadcast,
 )
 from reflector.hatchet.client import HatchetClientManager
-from reflector.hatchet.error_classification import is_non_retryable
 from reflector.hatchet.constants import (
     TIMEOUT_AUDIO,
     TIMEOUT_HEAVY,
@@ -48,6 +47,7 @@ from reflector.hatchet.constants import (
     TIMEOUT_TITLE,
     TaskName,
 )
+from reflector.hatchet.error_classification import is_non_retryable
 from reflector.hatchet.workflows.models import (
     ActionItemsResult,
     ConsentResult,
@@ -776,9 +776,7 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
             )
             ctx.log(f"detect_topics: chunk {i} failed ({result}), skipping")
             continue
-        topic_chunks.append(
-            TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC])
-        )
+        topic_chunks.append(TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC]))
 
     async with fresh_db_connection():
         transcript = await transcripts_controller.get_by_id(input.transcript_id)

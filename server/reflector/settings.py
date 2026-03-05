@@ -55,7 +55,9 @@ class Settings(BaseSettings):
     WHISPER_FILE_MODEL: str = "tiny"
     TRANSCRIPT_URL: str | None = None
     TRANSCRIPT_TIMEOUT: int = 90
-    TRANSCRIPT_FILE_TIMEOUT: int = 540  # Below Hatchet TIMEOUT_HEAVY (600) to avoid timeout race
+    TRANSCRIPT_FILE_TIMEOUT: int = (
+        540  # Below Hatchet TIMEOUT_HEAVY (600) to avoid timeout race
+    )
 
     # Audio Transcription: modal backend
     TRANSCRIPT_MODAL_API_KEY: str | None = None
