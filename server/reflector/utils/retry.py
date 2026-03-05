@@ -59,8 +59,9 @@ def retry(fn):
                 result = await fn(*args, **kwargs)
                 if isinstance(result, Response):
                     result.raise_for_status()
-                if result:
-                    return result
+                # Return any result including falsy (e.g. "" from get_response);
+                # only retry on exception, not on empty string.
+                return result
             except HTTPStatusError as e:
                 retry_logger.exception(e)
                 status_code = e.response.status_code

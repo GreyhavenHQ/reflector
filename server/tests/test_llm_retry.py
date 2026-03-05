@@ -290,6 +290,24 @@ class TestGetResponseRetries:
 
         assert mock_instance.aget_response.call_count == 3
 
+    @pytest.mark.asyncio
+    async def test_get_response_returns_empty_string_without_retry(self, test_settings):
+        """Empty or whitespace-only LLM response must return '' and not raise RetryException.
+
+        retry() must return falsy results (e.g. '' from get_response) instead of
+        treating them as 'no result' and retrying until RetryException.
+        """
+        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+
+        mock_instance = MagicMock()
+        mock_instance.aget_response = AsyncMock(return_value="   \n  ")  # strip() -> ""
+
+        with patch("reflector.llm.TreeSummarize", return_value=mock_instance):
+            result = await llm.get_response("Prompt", ["text"])
+
+        assert result == ""
+        assert mock_instance.aget_response.call_count == 1
+
 
 class TestTextsInclusion:
     """Test that texts parameter is included in the prompt sent to astructured_predict"""
