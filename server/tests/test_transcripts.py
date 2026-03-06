@@ -111,6 +111,26 @@ async def test_transcript_get_update_title(authenticated_client, client):
 
 
 @pytest.mark.asyncio
+async def test_set_status_emits_status_event_and_updates_transcript(client):
+    """set_status adds a STATUS event and updates the transcript status (broadcast for WebSocket)."""
+    response = await client.post("/transcripts", json={"name": "Status test"})
+    assert response.status_code == 200
+    transcript_id = response.json()["id"]
+
+    transcript = await transcripts_controller.get_by_id(transcript_id)
+    assert transcript is not None
+    assert transcript.status == "idle"
+
+    event = await transcripts_controller.set_status(transcript_id, "processing")
+    assert event is not None
+    assert event.event == "STATUS"
+    assert event.data.get("value") == "processing"
+
+    updated = await transcripts_controller.get_by_id(transcript_id)
+    assert updated.status == "processing"
+
+
+@pytest.mark.asyncio
 async def test_transcripts_list_anonymous(client):
     # XXX this test is a bit fragile, as it depends on the storage which
     #     is shared between tests
@@ -233,3 +253,43 @@ async def test_transcript_get_returns_null_room_name_when_no_room(
     assert response.status_code == 200
     assert response.json()["room_id"] is None
     assert response.json()["room_name"] is None
+
+
+@pytest.mark.asyncio
+async def test_transcripts_list_filtered_by_room_id(authenticated_client, client):
+    """GET /transcripts?room_id=X returns only transcripts for that room."""
+    # Use same user as authenticated_client (conftest uses "randomuserid")
+    user_id = "randomuserid"
+    room = await rooms_controller.add(
+        name="room-for-list-filter",
+        user_id=user_id,
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=False,
+        webhook_url="",
+        webhook_secret="",
+    )
+    in_room = await transcripts_controller.add(
+        name="in-room",
+        source_kind="file",
+        room_id=room.id,
+        user_id=user_id,
+    )
+    other = await transcripts_controller.add(
+        name="no-room",
+        source_kind="file",
+        room_id=None,
+        user_id=user_id,
+    )
+
+    response = await client.get("/transcripts", params={"room_id": room.id})
+    assert response.status_code == 200
+    items = response.json()["items"]
+    ids = [t["id"] for t in items]
+    assert in_room.id in ids
+    assert other.id not in ids

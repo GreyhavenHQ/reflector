@@ -14,6 +14,7 @@ import {
 } from "../../lib/apiHooks";
 import { useAuth } from "../../lib/AuthProvider";
 import { parseNonEmptyString } from "../../lib/utils";
+import { getReconnectDelayMs, MAX_RETRIES } from "./webSocketReconnect";
 
 type TranscriptWsEvent =
   operations["v1_transcript_get_websocket_events"]["responses"][200]["content"]["application/json"];
@@ -338,7 +339,6 @@ export const useWebSockets = (transcriptId: string | null): UseWebSockets => {
     if (!transcriptId) return;
     const tsId = parseNonEmptyString(transcriptId);
 
-    const MAX_RETRIES = 10;
     const url = `${WEBSOCKET_URL}/v1/transcripts/${transcriptId}/events`;
     let ws: WebSocket | null = null;
     let retryCount = 0;
@@ -472,7 +472,7 @@ export const useWebSockets = (transcriptId: string | null): UseWebSockets => {
         if (normalCodes.includes(event.code)) return;
 
         if (retryCount < MAX_RETRIES) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+          const delay = getReconnectDelayMs(retryCount);
           console.log(
             `WebSocket reconnecting in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`,
           );
