@@ -50,6 +50,15 @@ async def test_retry_httpx(httpx_mock):
 
 
 @pytest.mark.asyncio
+async def test_retry_402_stops_by_default(httpx_mock):
+    """402 (payment required / no credits) is in default retry_httpx_status_stop — do not retry."""
+    httpx_mock.add_response(status_code=402, json={"error": "insufficient_credits"})
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(RetryHTTPException):
+            await retry(client.get)("https://test_url", retry_timeout=5)
+
+
+@pytest.mark.asyncio
 async def test_retry_normal():
     left = 3
 

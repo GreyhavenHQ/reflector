@@ -30,6 +30,7 @@ def retry(fn):
             "retry_httpx_status_stop",
             (
                 401,  # auth issue
+                402,  # payment required / no credits — needs human action
                 404,  # not found
                 413,  # payload too large
                 418,  # teapot
@@ -58,8 +59,9 @@ def retry(fn):
                 result = await fn(*args, **kwargs)
                 if isinstance(result, Response):
                     result.raise_for_status()
-                if result:
-                    return result
+                # Return any result including falsy (e.g. "" from get_response);
+                # only retry on exception, not on empty string.
+                return result
             except HTTPStatusError as e:
                 retry_logger.exception(e)
                 status_code = e.response.status_code

@@ -65,10 +65,25 @@ class LLM:
     async def get_response(
         self, prompt: str, texts: list[str], tone_name: str | None = None
     ) -> str:
-        """Get a text response using TreeSummarize for non-function-calling models"""
-        summarizer = TreeSummarize(verbose=False)
-        response = await summarizer.aget_response(prompt, texts, tone_name=tone_name)
-        return str(response).strip()
+        """Get a text response using TreeSummarize for non-function-calling models.
+
+        Uses the same retry() wrapper as get_structured_response for transient
+        network errors (connection, timeout, OSError) with exponential backoff.
+        """
+
+        async def _call():
+            summarizer = TreeSummarize(verbose=False)
+            response = await summarizer.aget_response(
+                prompt, texts, tone_name=tone_name
+            )
+            return str(response).strip()
+
+        return await retry(_call)(
+            retry_attempts=3,
+            retry_backoff_interval=1.0,
+            retry_backoff_max=30.0,
+            retry_ignore_exc_types=(ConnectionError, TimeoutError, OSError),
+        )
 
     async def get_structured_response(
         self,

@@ -27,6 +27,7 @@ from hatchet_sdk import (
     ConcurrencyExpression,
     ConcurrencyLimitStrategy,
     Context,
+    NonRetryableException,
 )
 from hatchet_sdk.labels import DesiredWorkerLabel
 from pydantic import BaseModel
@@ -43,8 +44,10 @@ from reflector.hatchet.constants import (
     TIMEOUT_LONG,
     TIMEOUT_MEDIUM,
     TIMEOUT_SHORT,
+    TIMEOUT_TITLE,
     TaskName,
 )
+from reflector.hatchet.error_classification import is_non_retryable
 from reflector.hatchet.workflows.models import (
     ActionItemsResult,
     ConsentResult,
@@ -216,6 +219,13 @@ def make_audio_progress_logger(
 R = TypeVar("R")
 
 
+def _successful_run_results(
+    results: list[dict[str, Any] | BaseException],
+) -> list[dict[str, Any]]:
+    """Return only successful (non-exception) results from aio_run_many(return_exceptions=True)."""
+    return [r for r in results if not isinstance(r, BaseException)]
+
+
 def with_error_handling(
     step_name: TaskName, set_error_status: bool = True
 ) -> Callable[
@@ -243,8 +253,12 @@ def with_error_handling(
                     error=str(e),
                     exc_info=True,
                 )
-                if set_error_status:
-                    await set_workflow_error_status(input.transcript_id)
+                if is_non_retryable(e):
+                    # Hard fail: stop retries, set error status, fail workflow
+                    if set_error_status:
+                        await set_workflow_error_status(input.transcript_id)
+                    raise NonRetryableException(str(e)) from e
+                # Transient: do not set error status — Hatchet will retry
                 raise
 
         return wrapper  # type: ignore[return-value]
@@ -253,7 +267,10 @@ def with_error_handling(
 
 
 @daily_multitrack_pipeline.task(
-    execution_timeout=timedelta(seconds=TIMEOUT_SHORT), retries=3
+    execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.GET_RECORDING)
 async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
@@ -309,6 +326,8 @@ async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
     parents=[get_recording],
     execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.GET_PARTICIPANTS)
 async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsResult:
@@ -412,6 +431,8 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
     parents=[get_participants],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.PROCESS_TRACKS)
 async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksResult:
@@ -435,7 +456,7 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
         for i, track in enumerate(input.tracks)
     ]
 
-    results = await track_workflow.aio_run_many(bulk_runs)
+    results = await track_workflow.aio_run_many(bulk_runs, return_exceptions=True)
 
     target_language = participants_result.target_language
 
@@ -443,7 +464,18 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
     padded_tracks = []
     created_padded_files = set()
 
-    for result in results:
+    for i, result in enumerate(results):
+        if isinstance(result, BaseException):
+            logger.error(
+                "[Hatchet] process_tracks: track workflow failed, failing step",
+                transcript_id=input.transcript_id,
+                track_index=i,
+                error=str(result),
+            )
+            ctx.log(f"process_tracks: track {i} failed ({result}), failing step")
+            raise ValueError(
+                f"Track {i} workflow failed after retries: {result!s}"
+            ) from result
         transcribe_result = TranscribeTrackResult(**result[TaskName.TRANSCRIBE_TRACK])
         track_words.append(transcribe_result.words)
 
@@ -481,7 +513,9 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
 @daily_multitrack_pipeline.task(
     parents=[process_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_AUDIO),
-    retries=3,
+    retries=2,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
     desired_worker_labels={
         "pool": DesiredWorkerLabel(
             value="cpu-heavy",
@@ -593,6 +627,8 @@ async def mixdown_tracks(input: PipelineInput, ctx: Context) -> MixdownResult:
     parents=[mixdown_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.GENERATE_WAVEFORM)
 async def generate_waveform(input: PipelineInput, ctx: Context) -> WaveformResult:
@@ -661,6 +697,8 @@ async def generate_waveform(input: PipelineInput, ctx: Context) -> WaveformResul
     parents=[process_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.DETECT_TOPICS)
 async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
@@ -722,11 +760,22 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
         for chunk in chunks
     ]
 
-    results = await topic_chunk_workflow.aio_run_many(bulk_runs)
+    results = await topic_chunk_workflow.aio_run_many(bulk_runs, return_exceptions=True)
 
-    topic_chunks = [
-        TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC]) for result in results
-    ]
+    topic_chunks: list[TopicChunkResult] = []
+    for i, result in enumerate(results):
+        if isinstance(result, BaseException):
+            logger.error(
+                "[Hatchet] detect_topics: chunk workflow failed, failing step",
+                transcript_id=input.transcript_id,
+                chunk_index=i,
+                error=str(result),
+            )
+            ctx.log(f"detect_topics: chunk {i} failed ({result}), failing step")
+            raise ValueError(
+                f"Topic chunk {i} workflow failed after retries: {result!s}"
+            ) from result
+        topic_chunks.append(TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC]))
 
     async with fresh_db_connection():
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
@@ -764,8 +813,10 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
 
 @daily_multitrack_pipeline.task(
     parents=[detect_topics],
-    execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
+    execution_timeout=timedelta(seconds=TIMEOUT_TITLE),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.GENERATE_TITLE)
 async def generate_title(input: PipelineInput, ctx: Context) -> TitleResult:
@@ -830,7 +881,9 @@ async def generate_title(input: PipelineInput, ctx: Context) -> TitleResult:
 @daily_multitrack_pipeline.task(
     parents=[detect_topics],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
-    retries=3,
+    retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.EXTRACT_SUBJECTS)
 async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult:
@@ -909,6 +962,8 @@ async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult
     parents=[extract_subjects],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=30,
 )
 @with_error_handling(TaskName.PROCESS_SUBJECTS)
 async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubjectsResult:
@@ -935,12 +990,24 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
         for i, subject in enumerate(subjects)
     ]
 
-    results = await subject_workflow.aio_run_many(bulk_runs)
+    results = await subject_workflow.aio_run_many(bulk_runs, return_exceptions=True)
 
-    subject_summaries = [
-        SubjectSummaryResult(**result[TaskName.GENERATE_DETAILED_SUMMARY])
-        for result in results
-    ]
+    subject_summaries: list[SubjectSummaryResult] = []
+    for i, result in enumerate(results):
+        if isinstance(result, BaseException):
+            logger.error(
+                "[Hatchet] process_subjects: subject workflow failed, failing step",
+                transcript_id=input.transcript_id,
+                subject_index=i,
+                error=str(result),
+            )
+            ctx.log(f"process_subjects: subject {i} failed ({result}), failing step")
+            raise ValueError(
+                f"Subject {i} workflow failed after retries: {result!s}"
+            ) from result
+        subject_summaries.append(
+            SubjectSummaryResult(**result[TaskName.GENERATE_DETAILED_SUMMARY])
+        )
 
     ctx.log(f"process_subjects complete: {len(subject_summaries)} summaries")
 
@@ -951,6 +1018,8 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
     parents=[process_subjects],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.GENERATE_RECAP)
 async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
@@ -1040,6 +1109,8 @@ async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
     parents=[extract_subjects],
     execution_timeout=timedelta(seconds=TIMEOUT_LONG),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.IDENTIFY_ACTION_ITEMS)
 async def identify_action_items(
@@ -1108,6 +1179,8 @@ async def identify_action_items(
     parents=[process_tracks, generate_title, generate_recap, identify_action_items],
     execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
     retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=5,
 )
 @with_error_handling(TaskName.FINALIZE)
 async def finalize(input: PipelineInput, ctx: Context) -> FinalizeResult:
@@ -1177,7 +1250,11 @@ async def finalize(input: PipelineInput, ctx: Context) -> FinalizeResult:
 
 
 @daily_multitrack_pipeline.task(
-    parents=[finalize], execution_timeout=timedelta(seconds=TIMEOUT_SHORT), retries=3
+    parents=[finalize],
+    execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
+    retries=3,
+    backoff_factor=2.0,
+    backoff_max_seconds=10,
 )
 @with_error_handling(TaskName.CLEANUP_CONSENT, set_error_status=False)
 async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
@@ -1283,6 +1360,8 @@ async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
     parents=[cleanup_consent],
     execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
     retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.POST_ZULIP, set_error_status=False)
 async def post_zulip(input: PipelineInput, ctx: Context) -> ZulipResult:
@@ -1310,6 +1389,8 @@ async def post_zulip(input: PipelineInput, ctx: Context) -> ZulipResult:
     parents=[cleanup_consent],
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
     retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
 )
 @with_error_handling(TaskName.SEND_WEBHOOK, set_error_status=False)
 async def send_webhook(input: PipelineInput, ctx: Context) -> WebhookResult:
@@ -1378,3 +1459,32 @@ async def send_webhook(input: PipelineInput, ctx: Context) -> WebhookResult:
         except Exception as e:
             ctx.log(f"send_webhook unexpected error, continuing anyway: {e}")
             return WebhookResult(webhook_sent=False)
+
+
+async def on_workflow_failure(input: PipelineInput, ctx: Context) -> None:
+    """Run when the workflow is truly dead (all retries exhausted).
+
+    Sets transcript status to 'error' only if it is not already 'ended'.
+    Post-finalize tasks (cleanup_consent, post_zulip, send_webhook) use
+    set_error_status=False; if one of them fails, we must not overwrite
+    the 'ended' status that finalize already set.
+    """
+    async with fresh_db_connection():
+        from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
+
+        transcript = await transcripts_controller.get_by_id(input.transcript_id)
+        if transcript and transcript.status == "ended":
+            logger.info(
+                "[Hatchet] on_workflow_failure: transcript already ended, skipping error status (failure was post-finalize)",
+                transcript_id=input.transcript_id,
+            )
+            ctx.log(
+                "on_workflow_failure: transcript already ended, skipping error status"
+            )
+            return
+    await set_workflow_error_status(input.transcript_id)
+
+
+@daily_multitrack_pipeline.on_failure_task()
+async def _register_on_workflow_failure(input: PipelineInput, ctx: Context) -> None:
+    await on_workflow_failure(input, ctx)

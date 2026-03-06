@@ -7,7 +7,7 @@ import os
 
 import httpx
 
-from reflector.hatchet.constants import TIMEOUT_AUDIO
+from reflector.hatchet.constants import TIMEOUT_AUDIO_HTTP
 from reflector.logger import logger
 from reflector.processors.audio_padding import AudioPaddingProcessor, PaddingResponse
 from reflector.processors.audio_padding_auto import AudioPaddingAutoProcessor
@@ -60,7 +60,7 @@ class AudioPaddingModalProcessor(AudioPaddingProcessor):
             headers["Authorization"] = f"Bearer {self.modal_api_key}"
 
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT_AUDIO) as client:
+            async with httpx.AsyncClient(timeout=TIMEOUT_AUDIO_HTTP) as client:
                 response = await client.post(
                     url,
                     headers=headers,

@@ -50,7 +50,9 @@ topic_chunk_workflow = hatchet.workflow(
 
 @topic_chunk_workflow.task(
     execution_timeout=timedelta(seconds=TIMEOUT_MEDIUM),
-    retries=3,
+    retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=60,
     rate_limits=[RateLimit(static_key=LLM_RATE_LIMIT_KEY, units=1)],
 )
 async def detect_chunk_topic(input: TopicChunkInput, ctx: Context) -> TopicChunkResult:
