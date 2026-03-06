@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/GreyhavenHQ/reflector/compare/v0.38.0...v0.38.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* pin hatchet sdk version ([#903](https://github.com/GreyhavenHQ/reflector/issues/903)) ([504ca74](https://github.com/GreyhavenHQ/reflector/commit/504ca74184211eda9020d0b38ba7bd2b55d09991))
+
 ## [0.38.0](https://github.com/GreyhavenHQ/reflector/compare/v0.37.0...v0.38.0) (2026-03-06)
 
 
