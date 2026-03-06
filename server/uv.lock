@@ -1326,7 +1326,7 @@ wheels = [
 
 [[package]]
 name = "hatchet-sdk"
-version = "1.27.0"
+version = "1.22.16"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1338,12 +1338,11 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dateutil" },
     { name = "tenacity" },
-    { name = "typing-inspection" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/02/e8bcc42654f03af3a39f9319d21fc42ab36abca9514cee275c04b2810186/hatchet_sdk-1.27.0.tar.gz", hash = "sha256:c312a83c8e6c13040cc2512a6ed7e60085af2496587a2dbd5c18a62d84217cb8", size = 246838, upload-time = "2026-02-27T18:21:40.236Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/6c/c35395e5f77fb0fa20eaab615d2982fc0c995d1f310ee837ef5581a0aca8/hatchet_sdk-1.22.16.tar.gz", hash = "sha256:60d0065a533cabb7635e23ede954b53d4742184e7970171518ceb1d9a7d3872f", size = 232395, upload-time = "2026-02-05T14:52:14.536Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/5b/3c2a8b6908a68d42489d903c41fa460cd6d61e07a27252737fcec8d97b31/hatchet_sdk-1.27.0-py3-none-any.whl", hash = "sha256:3cea10e68d3551881588ec941b50f0e383855b191eb79905ee57ee806b08430b", size = 574642, upload-time = "2026-02-27T18:21:37.611Z" },
+    { url = "https://files.pythonhosted.org/packages/85/93/e84b468bb8ac13dbb6f7f29f886763ede48dd9895094077b394d310ff77c/hatchet_sdk-1.22.16-py3-none-any.whl", hash = "sha256:7f5daae20791675a7425bf2ea0571a2febb76af21d466715248f6729393916cf", size = 554652, upload-time = "2026-02-05T14:52:12.464Z" },
 ]
 
 [[package]]
@@ -3407,7 +3406,7 @@ requires-dist = [
     { name = "databases", extras = ["aiosqlite", "asyncpg"], specifier = ">=0.7.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.100.1" },
     { name = "fastapi-pagination", specifier = ">=0.14.2" },
-    { name = "hatchet-sdk", specifier = ">=0.47.0" },
+    { name = "hatchet-sdk", specifier = "==1.22.16" },
     { name = "httpx", specifier = ">=0.24.1" },
     { name = "icalendar", specifier = ">=6.0.0" },
     { name = "jsonschema", specifier = ">=4.23.0" },
