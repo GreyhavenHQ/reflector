@@ -671,7 +671,9 @@ async def test_on_title_does_not_overwrite_user_set_title():
     controller = "reflector.pipelines.main_live_pipeline.transcripts_controller"
     with patch(f"{controller}.get_by_id", new_callable=AsyncMock) as mock_get:
         with patch(f"{controller}.update", new_callable=AsyncMock) as mock_update:
-            with patch(f"{controller}.append_event", new_callable=AsyncMock) as mock_append:
+            with patch(
+                f"{controller}.append_event", new_callable=AsyncMock
+            ) as mock_append:
                 with patch(f"{controller}.transaction") as mock_txn:
                     mock_get.return_value = transcript_with_title
                     mock_append.return_value = None
@@ -683,7 +685,9 @@ async def test_on_title_does_not_overwrite_user_set_title():
                     mock_txn.return_value = noop_txn()
 
                     pipeline = PipelineMainFile(transcript_id=transcript_id)
-                    await pipeline.on_title(TranscriptFinalTitle(title="Generated title"))
+                    await pipeline.on_title(
+                        TranscriptFinalTitle(title="Generated title")
+                    )
 
                     mock_get.assert_called_once()
                     mock_update.assert_not_called()
