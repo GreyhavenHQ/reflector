@@ -282,11 +282,11 @@ async def test_on_failure_task_does_not_overwrite_ended(
                 mock_set_error.assert_not_called()
 
 
-# --- Tests for fan-out partial failure (Issue 3: aio_run_many return_exceptions=True) ---
+# --- Tests for fan-out helper (_successful_run_results) ---
 
 
 def test_successful_run_results_filters_exceptions():
-    """_successful_run_results returns only non-exception items (used for partial fan-out)."""
+    """_successful_run_results returns only non-exception items from aio_run_many(return_exceptions=True)."""
     from reflector.hatchet.workflows.daily_multitrack_pipeline import (
         _successful_run_results,
     )

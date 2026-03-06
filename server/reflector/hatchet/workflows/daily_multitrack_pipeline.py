@@ -466,14 +466,16 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
 
     for i, result in enumerate(results):
         if isinstance(result, BaseException):
-            logger.warning(
-                "[Hatchet] process_tracks: track workflow failed, skipping",
+            logger.error(
+                "[Hatchet] process_tracks: track workflow failed, failing step",
                 transcript_id=input.transcript_id,
                 track_index=i,
                 error=str(result),
             )
-            ctx.log(f"process_tracks: track {i} failed ({result}), skipping")
-            continue
+            ctx.log(f"process_tracks: track {i} failed ({result}), failing step")
+            raise ValueError(
+                f"Track {i} workflow failed after retries: {result!s}"
+            ) from result
         transcribe_result = TranscribeTrackResult(**result[TaskName.TRANSCRIBE_TRACK])
         track_words.append(transcribe_result.words)
 
@@ -490,11 +492,6 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
         if pad_result.size > 0:
             storage_path = f"file_pipeline_hatchet/{input.transcript_id}/tracks/padded_{pad_result.track_index}.webm"
             created_padded_files.add(storage_path)
-
-    if not _successful_run_results(results) and results:
-        raise ValueError(
-            f"All {len(results)} track workflows failed; no transcript produced"
-        )
 
     all_words = [word for words in track_words for word in words]
     all_words.sort(key=lambda w: w.start)
@@ -768,14 +765,16 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
     topic_chunks: list[TopicChunkResult] = []
     for i, result in enumerate(results):
         if isinstance(result, BaseException):
-            logger.warning(
-                "[Hatchet] detect_topics: chunk workflow failed, skipping",
+            logger.error(
+                "[Hatchet] detect_topics: chunk workflow failed, failing step",
                 transcript_id=input.transcript_id,
                 chunk_index=i,
                 error=str(result),
             )
-            ctx.log(f"detect_topics: chunk {i} failed ({result}), skipping")
-            continue
+            ctx.log(f"detect_topics: chunk {i} failed ({result}), failing step")
+            raise ValueError(
+                f"Topic chunk {i} workflow failed after retries: {result!s}"
+            ) from result
         topic_chunks.append(TopicChunkResult(**result[TaskName.DETECT_CHUNK_TOPIC]))
 
     async with fresh_db_connection():
@@ -996,14 +995,16 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
     subject_summaries: list[SubjectSummaryResult] = []
     for i, result in enumerate(results):
         if isinstance(result, BaseException):
-            logger.warning(
-                "[Hatchet] process_subjects: subject workflow failed, skipping",
+            logger.error(
+                "[Hatchet] process_subjects: subject workflow failed, failing step",
                 transcript_id=input.transcript_id,
                 subject_index=i,
                 error=str(result),
             )
-            ctx.log(f"process_subjects: subject {i} failed ({result}), skipping")
-            continue
+            ctx.log(f"process_subjects: subject {i} failed ({result}), failing step")
+            raise ValueError(
+                f"Subject {i} workflow failed after retries: {result!s}"
+            ) from result
         subject_summaries.append(
             SubjectSummaryResult(**result[TaskName.GENERATE_DETAILED_SUMMARY])
         )
