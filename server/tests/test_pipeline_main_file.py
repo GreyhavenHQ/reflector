@@ -5,6 +5,7 @@ This test verifies the complete file processing pipeline without mocking much,
 ensuring all processors are correctly invoked and the happy path works correctly.
 """
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -651,3 +652,39 @@ async def test_pipeline_file_process_no_audio_file(
     # This should fail when trying to open the file with av
     with pytest.raises(Exception):
         await pipeline.process(non_existent_path)
+
+
+@pytest.mark.asyncio
+async def test_on_title_does_not_overwrite_user_set_title():
+    """When transcript already has a title, on_title does not call update."""
+    from reflector.db.transcripts import Transcript, TranscriptFinalTitle
+    from reflector.pipelines.main_file_pipeline import PipelineMainFile
+
+    transcript_id = str(uuid4())
+    transcript_with_title = Transcript(
+        id=transcript_id,
+        name="test",
+        source_kind="file",
+        title="User set title",
+    )
+
+    controller = "reflector.pipelines.main_live_pipeline.transcripts_controller"
+    with patch(f"{controller}.get_by_id", new_callable=AsyncMock) as mock_get:
+        with patch(f"{controller}.update", new_callable=AsyncMock) as mock_update:
+            with patch(f"{controller}.append_event", new_callable=AsyncMock) as mock_append:
+                with patch(f"{controller}.transaction") as mock_txn:
+                    mock_get.return_value = transcript_with_title
+                    mock_append.return_value = None
+
+                    @asynccontextmanager
+                    async def noop_txn():
+                        yield
+
+                    mock_txn.return_value = noop_txn()
+
+                    pipeline = PipelineMainFile(transcript_id=transcript_id)
+                    await pipeline.on_title(TranscriptFinalTitle(title="Generated title"))
+
+                    mock_get.assert_called_once()
+                    mock_update.assert_not_called()
+                    mock_append.assert_called_once()
