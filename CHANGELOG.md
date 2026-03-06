@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.38.0](https://github.com/GreyhavenHQ/reflector/compare/v0.37.0...v0.38.0) (2026-03-06)
+
+
+### Features
+
+* 3-mode selfhosted refactoring (--gpu, --cpu, --hosted) + audio token auth fallback ([#896](https://github.com/GreyhavenHQ/reflector/issues/896)) ([a682846](https://github.com/GreyhavenHQ/reflector/commit/a6828466456407c808302e9eb8dc4b4f0614dd6f))
+
+
+### Bug Fixes
+
+* improve hatchet workflow reliability ([#900](https://github.com/GreyhavenHQ/reflector/issues/900)) ([c155f66](https://github.com/GreyhavenHQ/reflector/commit/c155f669825e8e2a6e929821a1ef0bd94237dc11))
+
 ## [0.37.0](https://github.com/GreyhavenHQ/reflector/compare/v0.36.0...v0.37.0) (2026-03-03)
 
 
