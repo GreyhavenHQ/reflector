@@ -5,7 +5,12 @@ from reflector.db.transcripts import transcripts_controller
 
 
 @pytest.mark.asyncio
-async def test_transcript_create(client):
+async def test_transcript_create(monkeypatch, client):
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "test"})
     assert response.status_code == 200
     assert response.json()["name"] == "test"
@@ -111,8 +116,15 @@ async def test_transcript_get_update_title(authenticated_client, client):
 
 
 @pytest.mark.asyncio
-async def test_set_status_emits_status_event_and_updates_transcript(client):
+async def test_set_status_emits_status_event_and_updates_transcript(
+    monkeypatch, client
+):
     """set_status adds a STATUS event and updates the transcript status (broadcast for WebSocket)."""
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "Status test"})
     assert response.status_code == 200
     transcript_id = response.json()["id"]

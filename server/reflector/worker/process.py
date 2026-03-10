@@ -132,7 +132,7 @@ async def process_recording(bucket_name: str, object_key: str):
             target_language="en",
             user_id=room.user_id,
             recording_id=recording.id,
-            share_mode="public",
+            share_mode="semi-private",
             meeting_id=meeting.id,
             room_id=room.id,
         )
@@ -343,7 +343,7 @@ async def _process_multitrack_recording_inner(
             target_language="en",
             user_id=room.user_id,
             recording_id=recording.id,
-            share_mode="public",
+            share_mode="semi-private",
             meeting_id=meeting.id,
             room_id=room.id,
         )

@@ -1,8 +1,13 @@
 import pytest
 
+from reflector.settings import settings
+
 
 @pytest.mark.asyncio
-async def test_transcript_create_default_translation(client):
+async def test_transcript_create_default_translation(monkeypatch, client):
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "test en"})
     assert response.status_code == 200
     assert response.json()["name"] == "test en"
@@ -18,7 +23,10 @@ async def test_transcript_create_default_translation(client):
 
 
 @pytest.mark.asyncio
-async def test_transcript_create_en_fr_translation(client):
+async def test_transcript_create_en_fr_translation(monkeypatch, client):
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post(
         "/transcripts", json={"name": "test en/fr", "target_language": "fr"}
     )
@@ -36,7 +44,10 @@ async def test_transcript_create_en_fr_translation(client):
 
 
 @pytest.mark.asyncio
-async def test_transcript_create_fr_en_translation(client):
+async def test_transcript_create_fr_en_translation(monkeypatch, client):
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post(
         "/transcripts", json={"name": "test fr/en", "source_language": "fr"}
     )

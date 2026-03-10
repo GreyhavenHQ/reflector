@@ -340,8 +340,13 @@ async def test_transcript_formats_with_overlapping_speakers_multitrack():
 
 
 @pytest.mark.asyncio
-async def test_api_transcript_format_text(client):
+async def test_api_transcript_format_text(monkeypatch, client):
     """Test GET /transcripts/{id} with transcript_format=text."""
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "Test transcript"})
     assert response.status_code == 200
     tid = response.json()["id"]
@@ -390,8 +395,13 @@ async def test_api_transcript_format_text(client):
 
 
 @pytest.mark.asyncio
-async def test_api_transcript_format_text_timestamped(client):
+async def test_api_transcript_format_text_timestamped(monkeypatch, client):
     """Test GET /transcripts/{id} with transcript_format=text-timestamped."""
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "Test transcript"})
     assert response.status_code == 200
     tid = response.json()["id"]
@@ -441,8 +451,13 @@ async def test_api_transcript_format_text_timestamped(client):
 
 
 @pytest.mark.asyncio
-async def test_api_transcript_format_webvtt_named(client):
+async def test_api_transcript_format_webvtt_named(monkeypatch, client):
     """Test GET /transcripts/{id} with transcript_format=webvtt-named."""
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "Test transcript"})
     assert response.status_code == 200
     tid = response.json()["id"]
@@ -491,8 +506,13 @@ async def test_api_transcript_format_webvtt_named(client):
 
 
 @pytest.mark.asyncio
-async def test_api_transcript_format_json(client):
+async def test_api_transcript_format_json(monkeypatch, client):
     """Test GET /transcripts/{id} with transcript_format=json."""
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "Test transcript"})
     assert response.status_code == 200
     tid = response.json()["id"]
@@ -544,8 +564,13 @@ async def test_api_transcript_format_json(client):
 
 
 @pytest.mark.asyncio
-async def test_api_transcript_format_default_is_text(client):
+async def test_api_transcript_format_default_is_text(monkeypatch, client):
     """Test GET /transcripts/{id} defaults to text format."""
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     response = await client.post("/transcripts", json={"name": "Test transcript"})
     assert response.status_code == 200
     tid = response.json()["id"]
@@ -654,12 +679,18 @@ async def test_api_topics_endpoint_multitrack_segmentation(client):
 
 
 @pytest.mark.asyncio
-async def test_api_topics_endpoint_non_multitrack_segmentation(client):
+async def test_api_topics_endpoint_non_multitrack_segmentation(monkeypatch, client):
     """Test GET /transcripts/{id}/topics uses default segmentation for non-multitrack.
 
     Ensures backward compatibility - transcripts without multitrack recordings
     should continue using the default speaker-change-based segmentation.
     """
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
+
     from reflector.db.transcripts import (
         TranscriptParticipant,
         TranscriptTopic,

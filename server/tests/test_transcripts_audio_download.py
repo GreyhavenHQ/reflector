@@ -5,10 +5,13 @@ import pytest
 
 
 @pytest.fixture
-async def fake_transcript(tmpdir, client):
+async def fake_transcript(tmpdir, client, monkeypatch):
     from reflector.settings import settings
     from reflector.views.transcripts import transcripts_controller
 
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     settings.DATA_DIR = Path(tmpdir)
 
     # create a transcript

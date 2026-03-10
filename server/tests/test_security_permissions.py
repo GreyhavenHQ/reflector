@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import pytest
+from conftest import authenticated_client_ctx
 from httpx_ws import aconnect_ws
 from uvicorn import Config, Server
 
@@ -382,3 +383,451 @@ async def test_audio_mp3_requires_token_for_owned_transcript(
     )
     resp2 = await client.get(f"/transcripts/{t.id}/audio/mp3", params={"token": token})
     assert resp2.status_code == 200
+
+
+# ======================================================================
+# Auth guards: anonymous blocked when PUBLIC_MODE=False
+# ======================================================================
+
+
+@pytest.mark.asyncio
+async def test_anonymous_cannot_create_transcript_when_not_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    resp = await client.post("/transcripts", json={"name": "anon-test"})
+    assert resp.status_code == 401, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_cannot_process_transcript_when_not_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="process-test",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="public",
+    )
+
+    resp = await client.post(f"/transcripts/{t.id}/process")
+    assert resp.status_code == 401, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_cannot_upload_when_not_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="upload-test",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="public",
+    )
+
+    # Minimal multipart upload
+    resp = await client.post(
+        f"/transcripts/{t.id}/record/upload",
+        params={"chunk_number": 0, "total_chunks": 1},
+        files={"chunk": ("test.mp3", b"fake-audio", "audio/mpeg")},
+    )
+    assert resp.status_code == 401, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_cannot_webrtc_record_when_not_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="webrtc-test",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="public",
+    )
+
+    resp = await client.post(
+        f"/transcripts/{t.id}/record/webrtc",
+        json={"sdp": "v=0\r\n", "type": "offer"},
+    )
+    assert resp.status_code == 401, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_cannot_start_meeting_recording_when_not_public(
+    client, monkeypatch
+):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    room = await rooms_controller.add(
+        name="recording-auth-test",
+        user_id="owner-rec",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=True,
+        webhook_url="",
+        webhook_secret="",
+    )
+
+    meeting = await meetings_controller.create(
+        id="meeting-rec-test",
+        room_name="recording-auth-test",
+        room_url="room-url",
+        host_room_url="host-url",
+        start_date=Room.model_fields["created_at"].default_factory(),
+        end_date=Room.model_fields["created_at"].default_factory(),
+        room=room,
+    )
+
+    resp = await client.post(
+        f"/meetings/{meeting.id}/recordings/start",
+        json={"type": "cloud", "instanceId": "00000000-0000-0000-0000-000000000001"},
+    )
+    assert resp.status_code == 401, resp.text
+
+
+# ======================================================================
+# Public mode: anonymous IS allowed when PUBLIC_MODE=True
+# ======================================================================
+
+
+@pytest.mark.asyncio
+async def test_anonymous_can_create_transcript_when_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    resp = await client.post("/transcripts", json={"name": "anon-public-test"})
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_can_list_transcripts_when_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    resp = await client.get("/transcripts")
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_can_read_public_transcript(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    t = await transcripts_controller.add(
+        name="readable-test",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="public",
+    )
+
+    resp = await client.get(f"/transcripts/{t.id}")
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_can_upload_when_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    t = await transcripts_controller.add(
+        name="upload-public-test",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="public",
+    )
+
+    resp = await client.post(
+        f"/transcripts/{t.id}/record/upload",
+        params={"chunk_number": 0, "total_chunks": 2},
+        files={"chunk": ("test.mp3", b"fake-audio", "audio/mpeg")},
+    )
+    # Chunk 0 of 2 won't trigger av.open validation, so should succeed with "ok"
+    # The key assertion: auth did NOT block us (no 401)
+    assert resp.status_code != 401, f"Should not get 401 in public mode: {resp.text}"
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_can_start_meeting_recording_when_public(client, monkeypatch):
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    room = await rooms_controller.add(
+        name="recording-public-test",
+        user_id="owner-pub",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=True,
+        webhook_url="",
+        webhook_secret="",
+    )
+
+    meeting = await meetings_controller.create(
+        id="meeting-pub-test",
+        room_name="recording-public-test",
+        room_url="room-url",
+        host_room_url="host-url",
+        start_date=Room.model_fields["created_at"].default_factory(),
+        end_date=Room.model_fields["created_at"].default_factory(),
+        room=room,
+    )
+
+    resp = await client.post(
+        f"/meetings/{meeting.id}/recordings/start",
+        json={"type": "cloud", "instanceId": "00000000-0000-0000-0000-000000000002"},
+    )
+    # Should not be 401 (may fail for other reasons like no Daily API, but auth passes)
+    assert resp.status_code != 401, f"Should not get 401 in public mode: {resp.text}"
+
+
+# ======================================================================
+# Authenticated user vs private data (own transcripts)
+# Authenticated owner should be able to create, read, and process
+# their own private transcripts even when PUBLIC_MODE=False
+# ======================================================================
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_create_transcript_private_mode(client, monkeypatch):
+    """Authenticated user can create transcripts even when PUBLIC_MODE=False."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    async with authenticated_client_ctx():
+        resp = await client.post("/transcripts", json={"name": "auth-private-create"})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["user_id"] == "randomuserid"
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_read_own_private_transcript(client, monkeypatch):
+    """Authenticated owner can read their own private transcript."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    # Create transcript owned by "randomuserid"
+    t = await transcripts_controller.add(
+        name="auth-private-read",
+        source_kind=SourceKind.LIVE,
+        user_id="randomuserid",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get(f"/transcripts/{t.id}")
+        assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_authenticated_cannot_read_others_private_transcript(client, monkeypatch):
+    """Authenticated user cannot read another user's private transcript."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    # Create transcript owned by someone else
+    t = await transcripts_controller.add(
+        name="other-private",
+        source_kind=SourceKind.LIVE,
+        user_id="other-owner",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get(f"/transcripts/{t.id}")
+        assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_process_own_private_transcript(client, monkeypatch):
+    """Authenticated owner can trigger processing on their own private transcript."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="auth-private-process",
+        source_kind=SourceKind.LIVE,
+        user_id="randomuserid",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.post(f"/transcripts/{t.id}/process")
+        # Should pass auth (may fail for other reasons like validation, but not 401/403)
+        assert resp.status_code not in (401, 403), resp.text
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_upload_to_own_private_transcript(client, monkeypatch):
+    """Authenticated owner can upload audio to their own private transcript."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="auth-private-upload",
+        source_kind=SourceKind.LIVE,
+        user_id="randomuserid",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.post(
+            f"/transcripts/{t.id}/record/upload",
+            params={"chunk_number": 0, "total_chunks": 2},
+            files={"chunk": ("test.mp3", b"fake-audio", "audio/mpeg")},
+        )
+        # Auth passes, chunk accepted (not final chunk so no av validation)
+        assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_webrtc_own_private_transcript(client, monkeypatch):
+    """Authenticated owner can start WebRTC recording on their own private transcript."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="auth-private-webrtc",
+        source_kind=SourceKind.LIVE,
+        user_id="randomuserid",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.post(
+            f"/transcripts/{t.id}/record/webrtc",
+            json={"sdp": "v=0\r\n", "type": "offer"},
+        )
+        # Auth passes (may fail for other reasons like RTC setup, but not 401/403)
+        assert resp.status_code not in (401, 403), resp.text
+
+
+# ======================================================================
+# Authenticated user vs semi-private data (other user's transcripts)
+# Any authenticated user should be able to READ semi-private transcripts
+# but NOT write to them (upload, process) since they don't own them
+# ======================================================================
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_read_others_semi_private_transcript(
+    client, monkeypatch
+):
+    """Any authenticated user can read a semi-private transcript (link sharing)."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    # Create transcript owned by someone else with semi-private share mode
+    t = await transcripts_controller.add(
+        name="semi-private-readable",
+        source_kind=SourceKind.LIVE,
+        user_id="other-owner",
+        share_mode="semi-private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get(f"/transcripts/{t.id}")
+        assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_cannot_read_semi_private_transcript(client, monkeypatch):
+    """Anonymous user cannot read a semi-private transcript."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="semi-private-blocked",
+        source_kind=SourceKind.LIVE,
+        user_id="some-owner",
+        share_mode="semi-private",
+    )
+
+    resp = await client.get(f"/transcripts/{t.id}")
+    assert resp.status_code == 403, resp.text
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_list_own_transcripts_private_mode(client, monkeypatch):
+    """Authenticated user can list their own transcripts when PUBLIC_MODE=False."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    await transcripts_controller.add(
+        name="my-transcript",
+        source_kind=SourceKind.LIVE,
+        user_id="randomuserid",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get("/transcripts")
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        assert len(items) >= 1
+        # All returned transcripts should belong to the user or be in shared rooms
+        for item in items:
+            assert item["user_id"] == "randomuserid" or item.get("room_id") is not None
+
+
+@pytest.mark.asyncio
+async def test_authenticated_cannot_list_others_private_transcripts(
+    client, monkeypatch
+):
+    """Authenticated user should NOT see another user's private transcripts in the list."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    await transcripts_controller.add(
+        name="hidden-from-others",
+        source_kind=SourceKind.LIVE,
+        user_id="secret-owner",
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get("/transcripts")
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        # Should not contain transcripts owned by "secret-owner"
+        for item in items:
+            assert (
+                item.get("user_id") != "secret-owner"
+            ), f"Leaked private transcript: {item['id']}"
+
+
+@pytest.mark.asyncio
+async def test_authenticated_can_start_meeting_recording_private_mode(
+    client, monkeypatch
+):
+    """Authenticated user can start recording in non-public mode."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    room = await rooms_controller.add(
+        name="auth-recording-test",
+        user_id="randomuserid",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=True,
+        webhook_url="",
+        webhook_secret="",
+    )
+
+    meeting = await meetings_controller.create(
+        id="meeting-auth-rec",
+        room_name="auth-recording-test",
+        room_url="room-url",
+        host_room_url="host-url",
+        start_date=Room.model_fields["created_at"].default_factory(),
+        end_date=Room.model_fields["created_at"].default_factory(),
+        room=room,
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.post(
+            f"/meetings/{meeting.id}/recordings/start",
+            json={
+                "type": "cloud",
+                "instanceId": "00000000-0000-0000-0000-000000000003",
+            },
+        )
+        # Auth passes (may fail for Daily API reasons, but not 401)
+        assert resp.status_code != 401, resp.text

@@ -15,6 +15,7 @@ from reflector.services.transcript_process import (
     prepare_transcript_processing,
     validate_transcript_for_processing,
 )
+from reflector.settings import settings
 
 router = APIRouter()
 
@@ -28,6 +29,9 @@ async def transcript_process(
     transcript_id: str,
     user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ) -> ProcessStatus:
+    if not user and not settings.PUBLIC_MODE:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     user_id = user["sub"] if user else None
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
