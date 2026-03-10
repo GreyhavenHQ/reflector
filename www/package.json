@@ -10,7 +10,8 @@
     "lint": "next lint",
     "format": "prettier --write .",
     "openapi": "openapi-typescript http://127.0.0.1:1250/openapi.json -o ./app/reflector-api.d.ts",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.33.0",
