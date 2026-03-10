@@ -789,6 +789,162 @@ async def test_authenticated_cannot_list_others_private_transcripts(
             ), f"Leaked private transcript: {item['id']}"
 
 
+# ======================================================================
+# Anonymous-created transcripts (user_id=None)
+# These transcripts bypass share_mode checks entirely in get_by_id_for_http.
+# They should always be accessible to everyone regardless of PUBLIC_MODE
+# or share_mode setting, because there is no owner to restrict access.
+# ======================================================================
+
+
+@pytest.mark.asyncio
+async def test_anonymous_transcript_accessible_when_public_mode_true(
+    client, monkeypatch
+):
+    """Anonymous transcript (user_id=None) is accessible even with default private share_mode
+    when PUBLIC_MODE=True."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    t = await transcripts_controller.add(
+        name="anon-transcript-public-mode",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="private",  # share_mode is irrelevant for user_id=None
+    )
+
+    resp = await client.get(f"/transcripts/{t.id}")
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_transcript_accessible_when_public_mode_false(
+    client, monkeypatch
+):
+    """Anonymous transcript (user_id=None) is accessible by authenticated users
+    even when PUBLIC_MODE=False. The transcript has no owner, so share_mode is bypassed."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="anon-transcript-private-mode",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get(f"/transcripts/{t.id}")
+        assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_anonymous_transcript_accessible_regardless_of_share_mode(
+    client, monkeypatch
+):
+    """Anonymous transcripts (user_id=None) are accessible regardless of share_mode value.
+    Tests all three share modes to confirm the user_id=None bypass works consistently."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    for mode in ("private", "semi-private", "public"):
+        t = await transcripts_controller.add(
+            name=f"anon-share-{mode}",
+            source_kind=SourceKind.LIVE,
+            user_id=None,
+            share_mode=mode,
+        )
+
+        resp = await client.get(f"/transcripts/{t.id}")
+        assert resp.status_code == 200, f"Failed for share_mode={mode}: {resp.text}"
+
+
+@pytest.mark.asyncio
+async def test_anonymous_transcript_readable_by_different_authenticated_user(
+    client, monkeypatch
+):
+    """An authenticated user can read anonymous transcripts (user_id=None) even with
+    private share_mode, because the no-owner bypass applies."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="anon-read-by-auth-user",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="private",
+    )
+
+    async with authenticated_client_ctx():
+        resp = await client.get(f"/transcripts/{t.id}")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["user_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_anonymous_transcript_in_list_when_public_mode(client, monkeypatch):
+    """Anonymous transcripts appear in the transcript list when PUBLIC_MODE=True."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
+    t = await transcripts_controller.add(
+        name="anon-in-list",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="private",
+    )
+
+    resp = await client.get("/transcripts")
+    assert resp.status_code == 200, resp.text
+    ids = [item["id"] for item in resp.json()["items"]]
+    assert t.id in ids, "Anonymous transcript should appear in the public list"
+
+
+@pytest.mark.asyncio
+async def test_anonymous_transcript_audio_accessible(client, monkeypatch, tmpdir):
+    """Anonymous transcript audio (mp3) is accessible without authentication
+    because user_id=None bypasses share_mode checks."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+    monkeypatch.setattr(settings, "DATA_DIR", Path(tmpdir).as_posix())
+
+    t = await transcripts_controller.add(
+        name="anon-audio-access",
+        source_kind=SourceKind.LIVE,
+        user_id=None,
+        share_mode="private",
+    )
+
+    tr = await transcripts_controller.get_by_id(t.id)
+    await transcripts_controller.update(tr, {"status": "ended"})
+
+    # Copy fixture audio to transcript path
+    audio_path = Path(__file__).parent / "records" / "test_mathieu_hello.mp3"
+    tr.audio_mp3_filename.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(audio_path, tr.audio_mp3_filename)
+
+    resp = await client.get(f"/transcripts/{t.id}/audio/mp3")
+    assert (
+        resp.status_code == 200
+    ), f"Anonymous transcript audio should be accessible: {resp.text}"
+
+
+@pytest.mark.asyncio
+async def test_owned_transcript_not_accessible_by_anon_when_not_public(
+    client, monkeypatch
+):
+    """Contrast test: owned transcript with private share_mode is NOT accessible
+    to anonymous users when PUBLIC_MODE=False. This confirms that the user_id=None
+    bypass only applies to anonymous transcripts, not to all transcripts."""
+    monkeypatch.setattr(settings, "PUBLIC_MODE", False)
+
+    t = await transcripts_controller.add(
+        name="owned-private-contrast",
+        source_kind=SourceKind.LIVE,
+        user_id="some-owner",
+        share_mode="private",
+    )
+
+    resp = await client.get(f"/transcripts/{t.id}")
+    assert (
+        resp.status_code == 403
+    ), f"Owned private transcript should be denied to anonymous: {resp.text}"
+
+
 @pytest.mark.asyncio
 async def test_authenticated_can_start_meeting_recording_private_mode(
     client, monkeypatch
