@@ -348,6 +348,9 @@ async def transcripts_create(
     info: CreateTranscript,
     user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ):
+    if not user and not settings.PUBLIC_MODE:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     user_id = user["sub"] if user else None
     transcript = await transcripts_controller.add(
         info.name,

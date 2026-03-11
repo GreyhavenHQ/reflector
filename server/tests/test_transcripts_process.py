@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from reflector.settings import settings
+
 
 @pytest.fixture
 async def app_lifespan():
@@ -36,7 +38,11 @@ async def test_transcript_process(
     dummy_file_diarization,
     dummy_storage,
     client,
+    monkeypatch,
 ):
+    # public mode: this test uses an anonymous client; allow anonymous transcript creation
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
     # create a transcript
     response = await client.post("/transcripts", json={"name": "test"})
     assert response.status_code == 200
@@ -106,12 +112,17 @@ async def test_transcript_process(
 
 @pytest.mark.usefixtures("setup_database")
 @pytest.mark.asyncio
-async def test_whereby_recording_uses_file_pipeline(client):
+async def test_whereby_recording_uses_file_pipeline(monkeypatch, client):
     """Test that Whereby recordings (bucket_name but no track_keys) use file pipeline"""
     from datetime import datetime, timezone
 
     from reflector.db.recordings import Recording, recordings_controller
     from reflector.db.transcripts import transcripts_controller
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
 
     # Create transcript with Whereby recording (has bucket_name, no track_keys)
     transcript = await transcripts_controller.add(
@@ -157,13 +168,18 @@ async def test_whereby_recording_uses_file_pipeline(client):
 
 @pytest.mark.usefixtures("setup_database")
 @pytest.mark.asyncio
-async def test_dailyco_recording_uses_multitrack_pipeline(client):
+async def test_dailyco_recording_uses_multitrack_pipeline(monkeypatch, client):
     """Test that Daily.co recordings (bucket_name + track_keys) use multitrack pipeline"""
     from datetime import datetime, timezone
 
     from reflector.db.recordings import Recording, recordings_controller
     from reflector.db.rooms import rooms_controller
     from reflector.db.transcripts import transcripts_controller
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
 
     room = await rooms_controller.add(
         name="test-room",
@@ -235,13 +251,18 @@ async def test_dailyco_recording_uses_multitrack_pipeline(client):
 
 @pytest.mark.usefixtures("setup_database")
 @pytest.mark.asyncio
-async def test_reprocess_error_transcript_passes_force(client):
+async def test_reprocess_error_transcript_passes_force(monkeypatch, client):
     """When transcript status is 'error', reprocess passes force=True to start fresh workflow."""
     from datetime import datetime, timezone
 
     from reflector.db.recordings import Recording, recordings_controller
     from reflector.db.rooms import rooms_controller
     from reflector.db.transcripts import transcripts_controller
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
 
     room = await rooms_controller.add(
         name="test-room",

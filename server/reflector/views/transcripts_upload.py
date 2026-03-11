@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import reflector.auth as auth
 from reflector.db.transcripts import SourceKind, transcripts_controller
 from reflector.pipelines.main_file_pipeline import task_pipeline_file_process
+from reflector.settings import settings
 
 router = APIRouter()
 
@@ -23,6 +24,9 @@ async def transcript_record_upload(
     chunk: UploadFile,
     user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ):
+    if not user and not settings.PUBLIC_MODE:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     user_id = user["sub"] if user else None
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id

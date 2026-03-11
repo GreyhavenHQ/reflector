@@ -550,7 +550,7 @@ def reset_hatchet_client():
 
 
 @pytest.fixture
-async def fake_transcript_with_topics(tmpdir, client):
+async def fake_transcript_with_topics(tmpdir, client, monkeypatch):
     import shutil
     from pathlib import Path
 
@@ -559,6 +559,9 @@ async def fake_transcript_with_topics(tmpdir, client):
     from reflector.settings import settings
     from reflector.views.transcripts import transcripts_controller
 
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     settings.DATA_DIR = Path(tmpdir)
 
     # create a transcript

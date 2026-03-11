@@ -16,6 +16,7 @@ from reflector.db.meetings import (
 )
 from reflector.db.rooms import rooms_controller
 from reflector.logger import logger
+from reflector.settings import settings
 from reflector.utils.string import NonEmptyString
 from reflector.video_platforms.factory import create_platform_client
 
@@ -89,15 +90,17 @@ class StartRecordingRequest(BaseModel):
 
 @router.post("/meetings/{meeting_id}/recordings/start")
 async def start_recording(
-    meeting_id: NonEmptyString, body: StartRecordingRequest
+    meeting_id: NonEmptyString,
+    body: StartRecordingRequest,
+    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ) -> dict[str, Any]:
     """Start cloud or raw-tracks recording via Daily.co REST API.
 
     Both cloud and raw-tracks are started via REST API to bypass enable_recording limitation of allowing only 1 recording at a time.
     Uses different instanceIds for cloud vs raw-tracks (same won't work)
-
-    Note: No authentication required - anonymous users supported. TODO this is a DOS vector
     """
+    if not user and not settings.PUBLIC_MODE:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     meeting = await meetings_controller.get_by_id(meeting_id)
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")

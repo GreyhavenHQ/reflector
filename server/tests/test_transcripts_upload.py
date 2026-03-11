@@ -16,7 +16,13 @@ async def test_transcript_upload_file(
     dummy_file_diarization,
     dummy_storage,
     client,
+    monkeypatch,
 ):
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
     # create a transcript
     response = await client.post("/transcripts", json={"name": "test"})
     assert response.status_code == 200

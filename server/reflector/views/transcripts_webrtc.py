@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 import reflector.auth as auth
 from reflector.db.transcripts import transcripts_controller
+from reflector.settings import settings
 
 from .rtc_offer import RtcOffer, rtc_offer_base
 
@@ -17,6 +18,9 @@ async def transcript_record_webrtc(
     request: Request,
     user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ):
+    if not user and not settings.PUBLIC_MODE:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     user_id = user["sub"] if user else None
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id

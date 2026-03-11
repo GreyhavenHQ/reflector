@@ -133,10 +133,17 @@ async def test_transcript_rtc_and_websocket(
     fake_mp3_upload,
     appserver,
     client,
+    monkeypatch,
 ):
     # goal: start the server, exchange RTC, receive websocket events
     # because of that, we need to start the server in a thread
     # to be able to connect with aiortc
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
+
     server, host, port = appserver
 
     # create a transcript
@@ -298,11 +305,18 @@ async def test_transcript_rtc_and_websocket_and_fr(
     fake_mp3_upload,
     appserver,
     client,
+    monkeypatch,
 ):
     # goal: start the server, exchange RTC, receive websocket events
     # because of that, we need to start the server in a thread
     # to be able to connect with aiortc
     # with target french language
+    from reflector.settings import settings
+
+    monkeypatch.setattr(
+        settings, "PUBLIC_MODE", True
+    )  # public mode: allow anonymous transcript creation for this test
+
     server, host, port = appserver
 
     # create a transcript
