@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from reflector.settings import settings
+
 
 @pytest.fixture
 async def app_lifespan():
@@ -36,7 +38,11 @@ async def test_transcript_process(
     dummy_file_diarization,
     dummy_storage,
     client,
+    monkeypatch,
 ):
+    # public mode: this test uses an anonymous client; allow anonymous transcript creation
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
+
     # create a transcript
     response = await client.post("/transcripts", json={"name": "test"})
     assert response.status_code == 200
