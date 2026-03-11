@@ -41,8 +41,7 @@ async def transcript_assign_speaker(
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
-    if transcript.user_id is not None and transcript.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    transcripts_controller.check_can_mutate(transcript, user_id)
 
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
@@ -121,8 +120,7 @@ async def transcript_merge_speaker(
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
-    if transcript.user_id is not None and transcript.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    transcripts_controller.check_can_mutate(transcript, user_id)
 
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")

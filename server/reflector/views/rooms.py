@@ -17,7 +17,6 @@ from reflector.db.rooms import rooms_controller
 from reflector.redis_cache import RedisAsyncLock
 from reflector.schemas.platform import Platform
 from reflector.services.ics_sync import ics_sync_service
-from reflector.settings import settings
 from reflector.utils.url import add_query_param
 from reflector.video_platforms.factory import create_platform_client
 from reflector.worker.webhook import test_webhook
@@ -178,11 +177,10 @@ router = APIRouter()
 
 @router.get("/rooms", response_model=Page[RoomDetails])
 async def rooms_list(
-    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+    user: Annotated[
+        Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
+    ],
 ) -> list[RoomDetails]:
-    if not user and not settings.PUBLIC_MODE:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
     user_id = user["sub"] if user else None
 
     paginated = await apaginate(

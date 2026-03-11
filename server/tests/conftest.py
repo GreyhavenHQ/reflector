@@ -437,6 +437,8 @@ async def ws_manager_in_memory(monkeypatch):
 
     try:
         fastapi_app.dependency_overrides[auth.current_user_optional] = lambda: None
+        # current_user_optional_if_public_mode is NOT overridden here so the real
+        # implementation runs and enforces the PUBLIC_MODE check during tests.
     except Exception:
         pass
 
@@ -491,37 +493,39 @@ async def authenticated_client2():
 @asynccontextmanager
 async def authenticated_client_ctx():
     from reflector.app import app
-    from reflector.auth import current_user, current_user_optional
+    from reflector.auth import (
+        current_user,
+        current_user_optional,
+        current_user_optional_if_public_mode,
+    )
 
-    app.dependency_overrides[current_user] = lambda: {
-        "sub": "randomuserid",
-        "email": "test@mail.com",
-    }
-    app.dependency_overrides[current_user_optional] = lambda: {
-        "sub": "randomuserid",
-        "email": "test@mail.com",
-    }
+    _user = lambda: {"sub": "randomuserid", "email": "test@mail.com"}
+    app.dependency_overrides[current_user] = _user
+    app.dependency_overrides[current_user_optional] = _user
+    app.dependency_overrides[current_user_optional_if_public_mode] = _user
     yield
     del app.dependency_overrides[current_user]
     del app.dependency_overrides[current_user_optional]
+    del app.dependency_overrides[current_user_optional_if_public_mode]
 
 
 @asynccontextmanager
 async def authenticated_client2_ctx():
     from reflector.app import app
-    from reflector.auth import current_user, current_user_optional
+    from reflector.auth import (
+        current_user,
+        current_user_optional,
+        current_user_optional_if_public_mode,
+    )
 
-    app.dependency_overrides[current_user] = lambda: {
-        "sub": "randomuserid2",
-        "email": "test@mail.com",
-    }
-    app.dependency_overrides[current_user_optional] = lambda: {
-        "sub": "randomuserid2",
-        "email": "test@mail.com",
-    }
+    _user = lambda: {"sub": "randomuserid2", "email": "test@mail.com"}
+    app.dependency_overrides[current_user] = _user
+    app.dependency_overrides[current_user_optional] = _user
+    app.dependency_overrides[current_user_optional_if_public_mode] = _user
     yield
     del app.dependency_overrides[current_user]
     del app.dependency_overrides[current_user_optional]
+    del app.dependency_overrides[current_user_optional_if_public_mode]
 
 
 @pytest.fixture(scope="session")

@@ -150,6 +150,16 @@ async def current_user_optional(
     return await _authenticate_user(jwt_token, api_key)
 
 
+async def current_user_optional_if_public_mode(
+    jwt_token: Annotated[Optional[str], Depends(oauth2_scheme)],
+    api_key: Annotated[Optional[str], Depends(api_key_header)],
+) -> Optional[UserInfo]:
+    user = await _authenticate_user(jwt_token, api_key)
+    if user is None and not settings.PUBLIC_MODE:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
 # --- WebSocket auth (same pattern as auth_jwt.py) ---
 def parse_ws_bearer_token(
     websocket: "WebSocket",
