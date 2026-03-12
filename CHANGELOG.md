@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.38.2](https://github.com/GreyhavenHQ/reflector/compare/v0.38.1...v0.38.2) (2026-03-12)
+
+
+### Bug Fixes
+
+* add auth guards to prevent anonymous access to write endpoints in non-public mode ([#907](https://github.com/GreyhavenHQ/reflector/issues/907)) ([cf6e867](https://github.com/GreyhavenHQ/reflector/commit/cf6e867cf12c42411e5a7412f6ec44eee8351665))
+* add tests that check some of the issues are already fixed ([#905](https://github.com/GreyhavenHQ/reflector/issues/905)) ([b53c8da](https://github.com/GreyhavenHQ/reflector/commit/b53c8da3981c394bdab08504b45d25f62c35495a))
+
 ## [0.38.1](https://github.com/GreyhavenHQ/reflector/compare/v0.38.0...v0.38.1) (2026-03-06)
 
 
