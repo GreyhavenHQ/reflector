@@ -62,8 +62,7 @@ async def transcript_add_participant(
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
-    if transcript.user_id is not None and transcript.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    transcripts_controller.check_can_mutate(transcript, user_id)
 
     # ensure the speaker is unique
     if participant.speaker is not None and transcript.participants is not None:
@@ -109,8 +108,7 @@ async def transcript_update_participant(
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
-    if transcript.user_id is not None and transcript.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    transcripts_controller.check_can_mutate(transcript, user_id)
 
     # ensure the speaker is unique
     for p in transcript.participants:
@@ -148,7 +146,6 @@ async def transcript_delete_participant(
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
-    if transcript.user_id is not None and transcript.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    transcripts_controller.check_can_mutate(transcript, user_id)
     await transcripts_controller.delete_participant(transcript, participant_id)
     return DeletionStatus(status="ok")

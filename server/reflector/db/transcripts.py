@@ -697,6 +697,18 @@ class TranscriptController:
             return False
         return user_id and transcript.user_id == user_id
 
+    @staticmethod
+    def check_can_mutate(transcript: Transcript, user_id: str | None) -> None:
+        """
+        Raises HTTP 403 if the user cannot mutate the transcript.
+
+        Policy:
+        - Anonymous transcripts (user_id is None) are editable by anyone
+        - Owned transcripts can only be mutated by their owner
+        """
+        if transcript.user_id is not None and transcript.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
     @asynccontextmanager
     async def transaction(self):
         """

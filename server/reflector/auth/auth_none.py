@@ -21,6 +21,11 @@ def current_user_optional():
     return None
 
 
+def current_user_optional_if_public_mode():
+    # auth_none means no authentication at all — always public
+    return None
+
+
 def parse_ws_bearer_token(websocket):
     return None, None
 

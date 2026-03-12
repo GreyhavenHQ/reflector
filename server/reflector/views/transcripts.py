@@ -263,16 +263,15 @@ class SearchResponse(BaseModel):
 
 @router.get("/transcripts", response_model=Page[GetTranscriptMinimal])
 async def transcripts_list(
-    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+    user: Annotated[
+        Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
+    ],
     source_kind: SourceKind | None = None,
     room_id: str | None = None,
     search_term: str | None = None,
     change_seq_from: int | None = None,
     sort_by: Literal["created_at", "change_seq"] | None = None,
 ):
-    if not user and not settings.PUBLIC_MODE:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
     user_id = user["sub"] if user else None
 
     # Default behavior preserved: sort_by=None → "-created_at"
@@ -307,13 +306,10 @@ async def transcripts_search(
     from_datetime: SearchFromDatetimeParam = None,
     to_datetime: SearchToDatetimeParam = None,
     user: Annotated[
-        Optional[auth.UserInfo], Depends(auth.current_user_optional)
+        Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
     ] = None,
 ):
     """Full-text search across transcript titles and content."""
-    if not user and not settings.PUBLIC_MODE:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
     user_id = user["sub"] if user else None
 
     if from_datetime and to_datetime and from_datetime > to_datetime:
@@ -346,11 +342,10 @@ async def transcripts_search(
 @router.post("/transcripts", response_model=GetTranscriptWithParticipants)
 async def transcripts_create(
     info: CreateTranscript,
-    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+    user: Annotated[
+        Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
+    ],
 ):
-    if not user and not settings.PUBLIC_MODE:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
     user_id = user["sub"] if user else None
     transcript = await transcripts_controller.add(
         info.name,

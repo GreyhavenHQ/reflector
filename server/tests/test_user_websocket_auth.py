@@ -141,33 +141,19 @@ async def test_user_ws_accepts_valid_token_and_receives_events(appserver_ws_user
         await asyncio.sleep(0.2)
 
         # Emit an event to the user's room via a standard HTTP action
+        # Use a real HTTP request to the server with the JWT token so that
+        # current_user_optional_if_public_mode is exercised without dependency overrides
         from httpx import AsyncClient
 
-        from reflector.app import app
-        from reflector.auth import current_user, current_user_optional
-
-        # Override auth dependencies so HTTP request is performed as the same user
-        # Use the internal user.id (not the Authentik UID)
-        app.dependency_overrides[current_user] = lambda: {
-            "sub": user.id,
-            "email": "user-abc@example.com",
-        }
-        app.dependency_overrides[current_user_optional] = lambda: {
-            "sub": user.id,
-            "email": "user-abc@example.com",
-        }
-
-        # Use in-memory client (global singleton makes it share ws_manager)
-        async with AsyncClient(app=app, base_url=f"http://{host}:{port}/v1") as ac:
-            # Create a transcript as this user so that the server publishes TRANSCRIPT_CREATED to user room
-            resp = await ac.post("/transcripts", json={"name": "WS Test"})
+        async with AsyncClient(base_url=f"http://{host}:{port}/v1") as ac:
+            resp = await ac.post(
+                "/transcripts",
+                json={"name": "WS Test"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
             assert resp.status_code == 200
 
         # Receive the published event
         msg = await ws.receive_json()
         assert msg["event"] == "TRANSCRIPT_CREATED"
         assert "id" in msg["data"]
-
-        # Clean overrides
-        del app.dependency_overrides[current_user]
-        del app.dependency_overrides[current_user_optional]
