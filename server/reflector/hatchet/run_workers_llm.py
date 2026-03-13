@@ -10,6 +10,8 @@ from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.workflows.daily_multitrack_pipeline import (
     daily_multitrack_pipeline,
 )
+from reflector.hatchet.workflows.file_pipeline import file_pipeline
+from reflector.hatchet.workflows.live_post_pipeline import live_post_pipeline
 from reflector.hatchet.workflows.subject_processing import subject_workflow
 from reflector.hatchet.workflows.topic_chunk_processing import topic_chunk_workflow
 from reflector.hatchet.workflows.track_processing import track_workflow
@@ -47,6 +49,8 @@ def main():
         },
         workflows=[
             daily_multitrack_pipeline,
+            file_pipeline,
+            live_post_pipeline,
             topic_chunk_workflow,
             subject_workflow,
             track_workflow,

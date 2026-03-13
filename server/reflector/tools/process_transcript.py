@@ -11,10 +11,8 @@ Usage:
 import argparse
 import asyncio
 import sys
-import time
 from typing import Callable
 
-from celery.result import AsyncResult
 from hatchet_sdk.clients.rest.models import V1TaskStatus
 
 import reflector._warnings_filter  # noqa: F401 -- side effect: suppress pydantic validate_default warning
@@ -39,7 +37,7 @@ async def process_transcript_inner(
     on_validation: Callable[[ValidationResult], None],
     on_preprocess: Callable[[PrepareResult], None],
     force: bool = False,
-) -> AsyncResult | None:
+) -> None:
     validation = await validate_transcript_for_processing(transcript)
     on_validation(validation)
     config = await prepare_transcript_processing(validation)
@@ -87,56 +85,39 @@ async def process_transcript(
             elif isinstance(config, FileProcessingConfig):
                 print(f"Dispatching file pipeline", file=sys.stderr)
 
-        result = await process_transcript_inner(
+        await process_transcript_inner(
             transcript,
             on_validation=on_validation,
             on_preprocess=on_preprocess,
             force=force,
         )
 
-        if result is None:
-            # Hatchet workflow dispatched
-            if sync:
-                # Re-fetch transcript to get workflow_run_id
-                transcript = await transcripts_controller.get_by_id(transcript_id)
-                if not transcript or not transcript.workflow_run_id:
-                    print("Error: workflow_run_id not found", file=sys.stderr)
+        if sync:
+            # Re-fetch transcript to get workflow_run_id
+            transcript = await transcripts_controller.get_by_id(transcript_id)
+            if not transcript or not transcript.workflow_run_id:
+                print("Error: workflow_run_id not found", file=sys.stderr)
+                sys.exit(1)
+
+            print("Waiting for Hatchet workflow...", file=sys.stderr)
+            while True:
+                status = await HatchetClientManager.get_workflow_run_status(
+                    transcript.workflow_run_id
+                )
+                print(f"  Status: {status.value}", file=sys.stderr)
+
+                if status == V1TaskStatus.COMPLETED:
+                    print("Workflow completed successfully", file=sys.stderr)
+                    break
+                elif status in (V1TaskStatus.FAILED, V1TaskStatus.CANCELLED):
+                    print(f"Workflow failed: {status}", file=sys.stderr)
                     sys.exit(1)
 
-                print("Waiting for Hatchet workflow...", file=sys.stderr)
-                while True:
-                    status = await HatchetClientManager.get_workflow_run_status(
-                        transcript.workflow_run_id
-                    )
-                    print(f"  Status: {status.value}", file=sys.stderr)
-
-                    if status == V1TaskStatus.COMPLETED:
-                        print("Workflow completed successfully", file=sys.stderr)
-                        break
-                    elif status in (V1TaskStatus.FAILED, V1TaskStatus.CANCELLED):
-                        print(f"Workflow failed: {status}", file=sys.stderr)
-                        sys.exit(1)
-
-                    await asyncio.sleep(5)
-            else:
-                print(
-                    "Task dispatched (use --sync to wait for completion)",
-                    file=sys.stderr,
-                )
-        elif sync:
-            print("Waiting for task completion...", file=sys.stderr)
-            while not result.ready():
-                print(f"  Status: {result.state}", file=sys.stderr)
-                time.sleep(5)
-
-            if result.successful():
-                print("Task completed successfully", file=sys.stderr)
-            else:
-                print(f"Task failed: {result.result}", file=sys.stderr)
-                sys.exit(1)
+                await asyncio.sleep(5)
         else:
             print(
-                "Task dispatched (use --sync to wait for completion)", file=sys.stderr
+                "Task dispatched (use --sync to wait for completion)",
+                file=sys.stderr,
             )
 
     finally:
