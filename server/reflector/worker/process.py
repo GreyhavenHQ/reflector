@@ -25,7 +25,6 @@ from reflector.db.transcripts import (
     transcripts_controller,
 )
 from reflector.hatchet.client import HatchetClientManager
-from reflector.pipelines.main_file_pipeline import task_pipeline_file_process
 from reflector.pipelines.main_live_pipeline import asynctask
 from reflector.pipelines.topic_processing import EmptyPipeline
 from reflector.processors import AudioFileWriterProcessor
@@ -163,7 +162,14 @@ async def process_recording(bucket_name: str, object_key: str):
 
     await transcripts_controller.update(transcript, {"status": "uploaded"})
 
-    task_pipeline_file_process.delay(transcript_id=transcript.id)
+    await HatchetClientManager.start_workflow(
+        "FilePipeline",
+        {
+            "transcript_id": str(transcript.id),
+            "room_id": str(room.id) if room else None,
+        },
+        additional_metadata={"transcript_id": str(transcript.id)},
+    )
 
 
 @shared_task

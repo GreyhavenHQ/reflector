@@ -26,6 +26,21 @@ class TaskName(StrEnum):
     DETECT_CHUNK_TOPIC = "detect_chunk_topic"
     GENERATE_DETAILED_SUMMARY = "generate_detailed_summary"
 
+    # File pipeline tasks
+    EXTRACT_AUDIO = "extract_audio"
+    UPLOAD_AUDIO = "upload_audio"
+    TRANSCRIBE = "transcribe"
+    DIARIZE = "diarize"
+    ASSEMBLE_TRANSCRIPT = "assemble_transcript"
+    GENERATE_SUMMARIES = "generate_summaries"
+
+    # Live post-processing pipeline tasks
+    WAVEFORM = "waveform"
+    CONVERT_MP3 = "convert_mp3"
+    UPLOAD_MP3 = "upload_mp3"
+    REMOVE_UPLOAD = "remove_upload"
+    FINAL_SUMMARIES = "final_summaries"
+
 
 # Rate limit key for LLM API calls (shared across all LLM-calling tasks)
 LLM_RATE_LIMIT_KEY = "llm"

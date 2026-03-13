@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from typing import Literal, Union, assert_never
 
 import celery
-from celery.result import AsyncResult
 from hatchet_sdk.clients.rest.exceptions import ApiException, NotFoundException
 from hatchet_sdk.clients.rest.models import V1TaskStatus
 
@@ -18,7 +17,6 @@ from reflector.db.recordings import recordings_controller
 from reflector.db.transcripts import Transcript, transcripts_controller
 from reflector.hatchet.client import HatchetClientManager
 from reflector.logger import logger
-from reflector.pipelines.main_file_pipeline import task_pipeline_file_process
 from reflector.utils.string import NonEmptyString
 
 
@@ -105,11 +103,8 @@ async def validate_transcript_for_processing(
     ):
         return ValidationNotReady(detail="Recording is not ready for processing")
 
-    # Check Celery tasks
+    # Check Celery tasks (multitrack still uses Celery for some paths)
     if task_is_scheduled_or_active(
-        "reflector.pipelines.main_file_pipeline.task_pipeline_file_process",
-        transcript_id=transcript.id,
-    ) or task_is_scheduled_or_active(
         "reflector.pipelines.main_multitrack_pipeline.task_pipeline_multitrack_process",
         transcript_id=transcript.id,
     ):
@@ -175,11 +170,8 @@ async def prepare_transcript_processing(validation: ValidationOk) -> PrepareResu
 
 async def dispatch_transcript_processing(
     config: ProcessingConfig, force: bool = False
-) -> AsyncResult | None:
-    """Dispatch transcript processing to appropriate backend (Hatchet or Celery).
-
-    Returns AsyncResult for Celery tasks, None for Hatchet workflows.
-    """
+) -> None:
+    """Dispatch transcript processing to Hatchet workflow engine."""
     if isinstance(config, MultitrackProcessingConfig):
         # Multitrack processing always uses Hatchet (no Celery fallback)
         # First check if we can replay (outside transaction since it's read-only)
@@ -275,7 +267,21 @@ async def dispatch_transcript_processing(
         return None
 
     elif isinstance(config, FileProcessingConfig):
-        return task_pipeline_file_process.delay(transcript_id=config.transcript_id)
+        # File processing uses Hatchet workflow
+        workflow_id = await HatchetClientManager.start_workflow(
+            workflow_name="FilePipeline",
+            input_data={"transcript_id": config.transcript_id},
+            additional_metadata={"transcript_id": config.transcript_id},
+        )
+
+        transcript = await transcripts_controller.get_by_id(config.transcript_id)
+        if transcript:
+            await transcripts_controller.update(
+                transcript, {"workflow_run_id": workflow_id}
+            )
+
+        logger.info("File pipeline dispatched via Hatchet", workflow_id=workflow_id)
+        return None
     else:
         assert_never(config)
 

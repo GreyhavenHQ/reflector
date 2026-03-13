@@ -150,20 +150,25 @@ async def test_whereby_recording_uses_file_pipeline(monkeypatch, client):
 
     with (
         patch(
-            "reflector.services.transcript_process.task_pipeline_file_process"
-        ) as mock_file_pipeline,
+            "reflector.services.transcript_process.task_is_scheduled_or_active",
+            return_value=False,
+        ),
         patch(
             "reflector.services.transcript_process.HatchetClientManager"
         ) as mock_hatchet,
     ):
+        mock_hatchet.start_workflow = AsyncMock(return_value="test-workflow-id")
+
         response = await client.post(f"/transcripts/{transcript.id}/process")
 
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
 
-        # Whereby recordings should use file pipeline, not Hatchet
-        mock_file_pipeline.delay.assert_called_once_with(transcript_id=transcript.id)
-        mock_hatchet.start_workflow.assert_not_called()
+        # Whereby recordings should use Hatchet FilePipeline
+        mock_hatchet.start_workflow.assert_called_once()
+        call_kwargs = mock_hatchet.start_workflow.call_args.kwargs
+        assert call_kwargs["workflow_name"] == "FilePipeline"
+        assert call_kwargs["input_data"]["transcript_id"] == transcript.id
 
 
 @pytest.mark.usefixtures("setup_database")
@@ -224,8 +229,9 @@ async def test_dailyco_recording_uses_multitrack_pipeline(monkeypatch, client):
 
     with (
         patch(
-            "reflector.services.transcript_process.task_pipeline_file_process"
-        ) as mock_file_pipeline,
+            "reflector.services.transcript_process.task_is_scheduled_or_active",
+            return_value=False,
+        ),
         patch(
             "reflector.services.transcript_process.HatchetClientManager"
         ) as mock_hatchet,
@@ -237,7 +243,7 @@ async def test_dailyco_recording_uses_multitrack_pipeline(monkeypatch, client):
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
 
-        # Daily.co multitrack recordings should use Hatchet workflow
+        # Daily.co multitrack recordings should use Hatchet DiarizationPipeline
         mock_hatchet.start_workflow.assert_called_once()
         call_kwargs = mock_hatchet.start_workflow.call_args.kwargs
         assert call_kwargs["workflow_name"] == "DiarizationPipeline"
@@ -246,7 +252,6 @@ async def test_dailyco_recording_uses_multitrack_pipeline(monkeypatch, client):
         assert call_kwargs["input_data"]["tracks"] == [
             {"s3_key": k} for k in track_keys
         ]
-        mock_file_pipeline.delay.assert_not_called()
 
 
 @pytest.mark.usefixtures("setup_database")

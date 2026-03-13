@@ -7,7 +7,6 @@ import asyncio
 import json
 import shutil
 import sys
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Tuple
 from urllib.parse import unquote, urlparse
@@ -15,10 +14,8 @@ from urllib.parse import unquote, urlparse
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 
 from reflector.db.transcripts import SourceKind, TranscriptTopic, transcripts_controller
+from reflector.hatchet.client import HatchetClientManager
 from reflector.logger import logger
-from reflector.pipelines.main_file_pipeline import (
-    task_pipeline_file_process as task_pipeline_file_process,
-)
 from reflector.pipelines.main_live_pipeline import pipeline_post as live_pipeline_post
 from reflector.pipelines.main_live_pipeline import (
     pipeline_process as live_pipeline_process,
@@ -237,29 +234,22 @@ async def process_live_pipeline(
     # assert documented behaviour: after process, the pipeline isn't ended. this is the reason of calling pipeline_post
     assert pre_final_transcript.status != "ended"
 
-    # at this point, diarization is running but we have no access to it. run diarization in parallel - one will hopefully win after polling
-    result = live_pipeline_post(transcript_id=transcript_id)
-
-    # result.ready() blocks even without await; it mutates result also
-    while not result.ready():
-        print(f"Status: {result.state}")
-        time.sleep(2)
+    # Trigger post-processing via Hatchet (fire-and-forget)
+    await live_pipeline_post(transcript_id=transcript_id)
+    print("Live post-processing pipeline triggered via Hatchet", file=sys.stderr)
 
 
 async def process_file_pipeline(
     transcript_id: TranscriptId,
 ):
-    """Process audio/video file using the optimized file pipeline"""
+    """Process audio/video file using the optimized file pipeline via Hatchet"""
 
-    # task_pipeline_file_process is a Celery task, need to use .delay() for async execution
-    result = task_pipeline_file_process.delay(transcript_id=transcript_id)
-
-    # Wait for the Celery task to complete
-    while not result.ready():
-        print(f"File pipeline status: {result.state}", file=sys.stderr)
-        time.sleep(2)
-
-    logger.info("File pipeline processing complete")
+    await HatchetClientManager.start_workflow(
+        "FilePipeline",
+        {"transcript_id": str(transcript_id)},
+        additional_metadata={"transcript_id": str(transcript_id)},
+    )
+    print("File pipeline triggered via Hatchet", file=sys.stderr)
 
 
 async def process(
@@ -293,7 +283,16 @@ async def process(
 
         await handler(transcript_id)
 
-        await extract_result_from_entry(transcript_id, output_path)
+        if pipeline == "file":
+            # File pipeline is async via Hatchet — results not available immediately.
+            # Use reflector.tools.process_transcript with --sync for polling.
+            print(
+                f"File pipeline dispatched for transcript {transcript_id}. "
+                f"Results will be available once the Hatchet workflow completes.",
+                file=sys.stderr,
+            )
+        else:
+            await extract_result_from_entry(transcript_id, output_path)
     finally:
         await database.disconnect()
 
