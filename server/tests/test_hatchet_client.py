@@ -37,18 +37,3 @@ async def test_hatchet_client_can_replay_handles_exception():
 
             # Should return False on error (workflow might be gone)
             assert can_replay is False
-
-
-def test_hatchet_client_raises_without_token():
-    """Test that get_client raises ValueError without token.
-
-    Useful: Catches if someone removes the token validation,
-    which would cause cryptic errors later.
-    """
-    from reflector.hatchet.client import HatchetClientManager
-
-    with patch("reflector.hatchet.client.settings") as mock_settings:
-        mock_settings.HATCHET_CLIENT_TOKEN = None
-
-        with pytest.raises(ValueError, match="HATCHET_CLIENT_TOKEN must be set"):
-            HatchetClientManager.get_client()

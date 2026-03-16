@@ -51,6 +51,9 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
       # WebRTC: fixed UDP port range for ICE candidates (mapped above)
       WEBRTC_PORT_RANGE: "51000-51100"
+      # Hatchet workflow engine (always-on for processing pipelines)
+      HATCHET_CLIENT_SERVER_URL: ${HATCHET_CLIENT_SERVER_URL:-http://hatchet:8888}
+      HATCHET_CLIENT_HOST_PORT: ${HATCHET_CLIENT_HOST_PORT:-hatchet:7077}
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,6 +78,9 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       # ML backend config comes from env_file (server/.env), set per-mode by setup script
       HF_TOKEN: ${HF_TOKEN:-}
+      # Hatchet workflow engine (always-on for processing pipelines)
+      HATCHET_CLIENT_SERVER_URL: ${HATCHET_CLIENT_SERVER_URL:-http://hatchet:8888}
+      HATCHET_CLIENT_HOST_PORT: ${HATCHET_CLIENT_HOST_PORT:-hatchet:7077}
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,6 +132,8 @@ services:
   redis:
     image: redis:7.2-alpine
     restart: unless-stopped
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -301,20 +309,20 @@ services:
       - server
 
   # ===========================================================
-  # Hatchet + Daily.co workers (optional — for Daily.co multitrack processing)
-  # Auto-enabled when DAILY_API_KEY is configured in server/r
+  # Hatchet workflow engine + workers
+  # Required for all processing pipelines (file, live, Daily.co multitrack).
+  # Always-on — every selfhosted deployment needs Hatchet.
   # ===========================================================
 
   hatchet:
     image: ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest
-    profiles: [dailyco]
     restart: on-failure
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "8888:8888"
-      - "7078:7077"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:7078:7077"
     env_file:
       - ./.env.hatchet
     environment:
@@ -363,7 +371,6 @@ services:
       context: ./server
       dockerfile: Dockerfile
     image: monadicalsas/reflector-backend:latest
-    profiles: [dailyco]
     restart: unless-stopped
     env_file:
       - ./server/.env

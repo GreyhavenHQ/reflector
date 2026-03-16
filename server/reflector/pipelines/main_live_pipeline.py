@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from typing import Generic
 
 import av
-from celery import chord, current_task, group, shared_task
+from celery import current_task, shared_task
 from pydantic import BaseModel
 from structlog import BoundLogger as Logger
 
@@ -397,7 +397,9 @@ class PipelineMainLive(PipelineMainBase):
         # when the pipeline ends, connect to the post pipeline
         logger.info("Pipeline main live ended", transcript_id=self.transcript_id)
         logger.info("Scheduling pipeline main post", transcript_id=self.transcript_id)
-        pipeline_post(transcript_id=self.transcript_id)
+        transcript = await transcripts_controller.get_by_id(self.transcript_id)
+        room_id = transcript.room_id if transcript else None
+        await pipeline_post(transcript_id=self.transcript_id, room_id=room_id)
 
 
 class PipelineMainDiarization(PipelineMainBase[AudioDiarizationInput]):
@@ -792,29 +794,20 @@ async def task_pipeline_post_to_zulip(*, transcript_id: str):
     await pipeline_post_to_zulip(transcript_id=transcript_id)
 
 
-def pipeline_post(*, transcript_id: str):
+async def pipeline_post(*, transcript_id: str, room_id: str | None = None):
     """
-    Run the post pipeline
+    Run the post pipeline via Hatchet.
     """
-    chain_mp3_and_diarize = (
-        task_pipeline_waveform.si(transcript_id=transcript_id)
-        | task_pipeline_convert_to_mp3.si(transcript_id=transcript_id)
-        | task_pipeline_upload_mp3.si(transcript_id=transcript_id)
-        | task_pipeline_remove_upload.si(transcript_id=transcript_id)
-        | task_pipeline_diarization.si(transcript_id=transcript_id)
-        | task_cleanup_consent.si(transcript_id=transcript_id)
-    )
-    chain_title_preview = task_pipeline_title.si(transcript_id=transcript_id)
-    chain_final_summaries = task_pipeline_final_summaries.si(
-        transcript_id=transcript_id
-    )
+    from reflector.hatchet.client import HatchetClientManager  # noqa: PLC0415
 
-    chain = chord(
-        group(chain_mp3_and_diarize, chain_title_preview),
-        chain_final_summaries,
-    ) | task_pipeline_post_to_zulip.si(transcript_id=transcript_id)
-
-    return chain.delay()
+    await HatchetClientManager.start_workflow(
+        "LivePostProcessingPipeline",
+        {
+            "transcript_id": str(transcript_id),
+            "room_id": str(room_id) if room_id else None,
+        },
+        additional_metadata={"transcript_id": str(transcript_id)},
+    )
 
 
 @get_transcript

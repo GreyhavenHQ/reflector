@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 import reflector.auth as auth
 from reflector.db.transcripts import SourceKind, transcripts_controller
-from reflector.pipelines.main_file_pipeline import task_pipeline_file_process
+from reflector.hatchet.client import HatchetClientManager
 
 router = APIRouter()
 
@@ -95,7 +95,14 @@ async def transcript_record_upload(
         transcript, {"status": "uploaded", "source_kind": SourceKind.FILE}
     )
 
-    # launch a background task to process the file
-    task_pipeline_file_process.delay(transcript_id=transcript_id)
+    # launch Hatchet workflow to process the file
+    workflow_id = await HatchetClientManager.start_workflow(
+        "FilePipeline",
+        {"transcript_id": str(transcript_id)},
+        additional_metadata={"transcript_id": str(transcript_id)},
+    )
+
+    # Save workflow_run_id for duplicate detection and status polling
+    await transcripts_controller.update(transcript, {"workflow_run_id": workflow_id})
 
     return UploadStatus(status="ok")
