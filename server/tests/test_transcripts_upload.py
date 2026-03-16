@@ -1,12 +1,7 @@
-import asyncio
-import time
-
 import pytest
 
 
 @pytest.mark.usefixtures("setup_database")
-@pytest.mark.usefixtures("celery_session_app")
-@pytest.mark.usefixtures("celery_session_worker")
 @pytest.mark.asyncio
 async def test_transcript_upload_file(
     tmpdir,
@@ -17,6 +12,7 @@ async def test_transcript_upload_file(
     dummy_storage,
     client,
     monkeypatch,
+    mock_hatchet_client,
 ):
     from reflector.settings import settings
 
@@ -43,27 +39,16 @@ async def test_transcript_upload_file(
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
-    # wait the processing to finish (max 1 minute)
-    timeout_seconds = 60
-    start_time = time.monotonic()
-    while (time.monotonic() - start_time) < timeout_seconds:
-        # fetch the transcript and check if it is ended
-        resp = await client.get(f"/transcripts/{tid}")
-        assert resp.status_code == 200
-        if resp.json()["status"] in ("ended", "error"):
-            break
-        await asyncio.sleep(1)
-    else:
-        return pytest.fail(f"Processing timed out after {timeout_seconds} seconds")
+    # Verify Hatchet workflow was dispatched for file processing
+    from reflector.hatchet.client import HatchetClientManager
 
-    # check the transcript is ended
-    transcript = resp.json()
-    assert transcript["status"] == "ended"
-    assert transcript["short_summary"] == "LLM SHORT SUMMARY"
-    assert transcript["title"] == "Llm Title"
+    HatchetClientManager.start_workflow.assert_called_once_with(
+        "FilePipeline",
+        {"transcript_id": tid},
+        additional_metadata={"transcript_id": tid},
+    )
 
-    # check topics and transcript
-    response = await client.get(f"/transcripts/{tid}/topics")
-    assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert "Hello world. How are you today?" in response.json()[0]["transcript"]
+    # Verify transcript status was updated to "uploaded"
+    resp = await client.get(f"/transcripts/{tid}")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "uploaded"

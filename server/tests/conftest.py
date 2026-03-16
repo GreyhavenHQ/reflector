@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -538,18 +538,59 @@ def fake_mp3_upload():
 
 
 @pytest.fixture(autouse=True)
-def reset_hatchet_client():
-    """Reset HatchetClientManager singleton before and after each test.
+def mock_hatchet_client():
+    """Mock HatchetClientManager for all tests.
 
-    This ensures test isolation - each test starts with a fresh client state.
-    The fixture is autouse=True so it applies to all tests automatically.
+    Prevents tests from connecting to a real Hatchet server. The dummy token
+    in [tool.pytest_env] prevents the import-time ValueError, but the SDK
+    would still try to connect when get_client() is called. This fixture
+    mocks get_client to return a MagicMock and start_workflow to return a
+    dummy workflow ID.
     """
     from reflector.hatchet.client import HatchetClientManager
 
-    # Reset before test
     HatchetClientManager.reset()
-    yield
-    # Reset after test to clean up
+
+    mock_client = MagicMock()
+    mock_client.workflow.return_value = MagicMock()
+
+    with (
+        patch.object(
+            HatchetClientManager,
+            "get_client",
+            return_value=mock_client,
+        ),
+        patch.object(
+            HatchetClientManager,
+            "start_workflow",
+            new_callable=AsyncMock,
+            return_value="mock-workflow-id",
+        ),
+        patch.object(
+            HatchetClientManager,
+            "get_workflow_run_status",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            HatchetClientManager,
+            "can_replay",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch.object(
+            HatchetClientManager,
+            "cancel_workflow",
+            new_callable=AsyncMock,
+        ),
+        patch.object(
+            HatchetClientManager,
+            "replay_workflow",
+            new_callable=AsyncMock,
+        ),
+    ):
+        yield mock_client
+
     HatchetClientManager.reset()
 
 

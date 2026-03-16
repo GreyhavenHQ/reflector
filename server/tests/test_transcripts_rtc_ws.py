@@ -2,6 +2,10 @@
 # FIXME test status of transcript
 # FIXME test websocket connection after RTC is finished still send the full events
 # FIXME try with locked session, RTC should not work
+# TODO: add integration tests for post-processing (LivePostPipeline) with a real
+#       Hatchet instance. These tests currently only cover the live pipeline.
+#       Post-processing events (WAVEFORM, FINAL_*, DURATION, STATUS=ended, mp3)
+#       are now dispatched via Hatchet and tested in test_hatchet_live_post_pipeline.py.
 
 import asyncio
 import json
@@ -49,7 +53,7 @@ class ThreadedUvicorn:
 
 
 @pytest.fixture
-def appserver(tmpdir, setup_database, celery_session_app, celery_session_worker):
+def appserver(tmpdir, setup_database):
     import threading
 
     from reflector.app import app
@@ -119,8 +123,6 @@ def appserver(tmpdir, setup_database, celery_session_app, celery_session_worker)
 
 
 @pytest.mark.usefixtures("setup_database")
-@pytest.mark.usefixtures("celery_session_app")
-@pytest.mark.usefixtures("celery_session_worker")
 @pytest.mark.asyncio
 async def test_transcript_rtc_and_websocket(
     tmpdir,
@@ -134,6 +136,7 @@ async def test_transcript_rtc_and_websocket(
     appserver,
     client,
     monkeypatch,
+    mock_hatchet_client,
 ):
     # goal: start the server, exchange RTC, receive websocket events
     # because of that, we need to start the server in a thread
@@ -208,35 +211,30 @@ async def test_transcript_rtc_and_websocket(
     stream_client.channel.send(json.dumps({"cmd": "STOP"}))
     await stream_client.stop()
 
-    # wait the processing to finish
-    timeout = 120
+    # Wait for live pipeline to flush (it dispatches post-processing to Hatchet)
+    timeout = 30
     while True:
-        # fetch the transcript and check if it is ended
         resp = await client.get(f"/transcripts/{tid}")
         assert resp.status_code == 200
-        if resp.json()["status"] in ("ended", "error"):
+        if resp.json()["status"] in ("processing", "ended", "error"):
             break
         await asyncio.sleep(1)
         timeout -= 1
         if timeout < 0:
-            raise TimeoutError("Timeout while waiting for transcript to be ended")
-
-    if resp.json()["status"] != "ended":
-        raise TimeoutError("Transcript processing failed")
+            raise TimeoutError("Timeout waiting for live pipeline to finish")
 
     # stop websocket task
     websocket_task.cancel()
 
-    # check events
+    # check live pipeline events
     assert len(events) > 0
     from pprint import pprint
 
     pprint(events)
 
-    # get events list
     eventnames = [e["event"] for e in events]
 
-    # check events
+    # Live pipeline produces TRANSCRIPT and TOPIC events during RTC
     assert "TRANSCRIPT" in eventnames
     ev = events[eventnames.index("TRANSCRIPT")]
     assert ev["data"]["text"].startswith("Hello world.")
@@ -249,50 +247,18 @@ async def test_transcript_rtc_and_websocket(
     assert ev["data"]["transcript"].startswith("Hello world.")
     assert ev["data"]["timestamp"] == 0.0
 
-    assert "FINAL_LONG_SUMMARY" in eventnames
-    ev = events[eventnames.index("FINAL_LONG_SUMMARY")]
-    assert ev["data"]["long_summary"] == "LLM LONG SUMMARY"
-
-    assert "FINAL_SHORT_SUMMARY" in eventnames
-    ev = events[eventnames.index("FINAL_SHORT_SUMMARY")]
-    assert ev["data"]["short_summary"] == "LLM SHORT SUMMARY"
-
-    assert "FINAL_TITLE" in eventnames
-    ev = events[eventnames.index("FINAL_TITLE")]
-    assert ev["data"]["title"] == "Llm Title"
-
-    assert "WAVEFORM" in eventnames
-    ev = events[eventnames.index("WAVEFORM")]
-    assert isinstance(ev["data"]["waveform"], list)
-    assert len(ev["data"]["waveform"]) >= 250
-    waveform_resp = await client.get(f"/transcripts/{tid}/audio/waveform")
-    assert waveform_resp.status_code == 200
-    assert waveform_resp.headers["content-type"] == "application/json"
-    assert isinstance(waveform_resp.json()["data"], list)
-    assert len(waveform_resp.json()["data"]) >= 250
-
-    # check status order
+    # Live pipeline status progression
     statuses = [e["data"]["value"] for e in events if e["event"] == "STATUS"]
+    assert "recording" in statuses
+    assert "processing" in statuses
     assert statuses.index("recording") < statuses.index("processing")
-    assert statuses.index("processing") < statuses.index("ended")
 
-    # ensure the last event received is ended
-    assert events[-1]["event"] == "STATUS"
-    assert events[-1]["data"]["value"] == "ended"
-
-    # check on the latest response that the audio duration is > 0
-    assert resp.json()["duration"] > 0
-    assert "DURATION" in eventnames
-
-    # check that audio/mp3 is available
-    audio_resp = await client.get(f"/transcripts/{tid}/audio/mp3")
-    assert audio_resp.status_code == 200
-    assert audio_resp.headers["Content-Type"] == "audio/mpeg"
+    # Post-processing (WAVEFORM, FINAL_*, DURATION, mp3, STATUS=ended) is now
+    # dispatched to Hatchet via LivePostPipeline — not tested here.
+    # See test_hatchet_live_post_pipeline.py for post-processing tests.
 
 
 @pytest.mark.usefixtures("setup_database")
-@pytest.mark.usefixtures("celery_session_app")
-@pytest.mark.usefixtures("celery_session_worker")
 @pytest.mark.asyncio
 async def test_transcript_rtc_and_websocket_and_fr(
     tmpdir,
@@ -306,6 +272,7 @@ async def test_transcript_rtc_and_websocket_and_fr(
     appserver,
     client,
     monkeypatch,
+    mock_hatchet_client,
 ):
     # goal: start the server, exchange RTC, receive websocket events
     # because of that, we need to start the server in a thread
@@ -382,42 +349,34 @@ async def test_transcript_rtc_and_websocket_and_fr(
     # instead of waiting a long time, we just send a STOP
     stream_client.channel.send(json.dumps({"cmd": "STOP"}))
 
-    # wait the processing to finish
     await asyncio.sleep(2)
 
     await stream_client.stop()
 
-    # wait the processing to finish
-    timeout = 120
+    # Wait for live pipeline to flush
+    timeout = 30
     while True:
-        # fetch the transcript and check if it is ended
         resp = await client.get(f"/transcripts/{tid}")
         assert resp.status_code == 200
-        if resp.json()["status"] == "ended":
+        if resp.json()["status"] in ("processing", "ended", "error"):
             break
         await asyncio.sleep(1)
         timeout -= 1
         if timeout < 0:
-            raise TimeoutError("Timeout while waiting for transcript to be ended")
-
-    if resp.json()["status"] != "ended":
-        raise TimeoutError("Transcript processing failed")
-
-    await asyncio.sleep(2)
+            raise TimeoutError("Timeout waiting for live pipeline to finish")
 
     # stop websocket task
     websocket_task.cancel()
 
-    # check events
+    # check live pipeline events
     assert len(events) > 0
     from pprint import pprint
 
     pprint(events)
 
-    # get events list
     eventnames = [e["event"] for e in events]
 
-    # check events
+    # Live pipeline produces TRANSCRIPT with translation
     assert "TRANSCRIPT" in eventnames
     ev = events[eventnames.index("TRANSCRIPT")]
     assert ev["data"]["text"].startswith("Hello world.")
@@ -430,23 +389,11 @@ async def test_transcript_rtc_and_websocket_and_fr(
     assert ev["data"]["transcript"].startswith("Hello world.")
     assert ev["data"]["timestamp"] == 0.0
 
-    assert "FINAL_LONG_SUMMARY" in eventnames
-    ev = events[eventnames.index("FINAL_LONG_SUMMARY")]
-    assert ev["data"]["long_summary"] == "LLM LONG SUMMARY"
-
-    assert "FINAL_SHORT_SUMMARY" in eventnames
-    ev = events[eventnames.index("FINAL_SHORT_SUMMARY")]
-    assert ev["data"]["short_summary"] == "LLM SHORT SUMMARY"
-
-    assert "FINAL_TITLE" in eventnames
-    ev = events[eventnames.index("FINAL_TITLE")]
-    assert ev["data"]["title"] == "Llm Title"
-
-    # check status order
+    # Live pipeline status progression
     statuses = [e["data"]["value"] for e in events if e["event"] == "STATUS"]
+    assert "recording" in statuses
+    assert "processing" in statuses
     assert statuses.index("recording") < statuses.index("processing")
-    assert statuses.index("processing") < statuses.index("ended")
 
-    # ensure the last event received is ended
-    assert events[-1]["event"] == "STATUS"
-    assert events[-1]["data"]["value"] == "ended"
+    # Post-processing (FINAL_*, STATUS=ended) is now dispatched to Hatchet
+    # via LivePostPipeline — not tested here.
