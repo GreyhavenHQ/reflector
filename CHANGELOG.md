@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.39.0](https://github.com/GreyhavenHQ/reflector/compare/v0.38.2...v0.39.0) (2026-03-18)
+
+
+### Features
+
+* migrate file and live post-processing pipelines from Celery to Hatchet workflow engine ([#911](https://github.com/GreyhavenHQ/reflector/issues/911)) ([37a1f01](https://github.com/GreyhavenHQ/reflector/commit/37a1f0185057dd43b68df2b12bb08d3b18e28d34))
+
+
+### Bug Fixes
+
+* integration tests runner in CI ([#919](https://github.com/GreyhavenHQ/reflector/issues/919)) ([1e396ca](https://github.com/GreyhavenHQ/reflector/commit/1e396ca0ca91bc9d2645ddfc63a1576469491faa))
+* latest vulns ([#915](https://github.com/GreyhavenHQ/reflector/issues/915)) ([a9200d3](https://github.com/GreyhavenHQ/reflector/commit/a9200d35bf856f65f24a4f34931ebe0d75ad0382))
+
 ## [0.38.2](https://github.com/GreyhavenHQ/reflector/compare/v0.38.1...v0.38.2) (2026-03-12)
 
 
