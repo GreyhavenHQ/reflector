@@ -1,0 +1,139 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      llm_model:
+        description: "LLM model name (overrides LLM_MODEL secret)"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start infrastructure services
+        working-directory: server/tests
+        env:
+          LLM_URL: ${{ secrets.LLM_URL }}
+          LLM_MODEL: ${{ inputs.llm_model || secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          docker compose -f docker-compose.integration.yml up -d --build postgres redis garage hatchet mock-daily
+
+      - name: Set up Garage bucket and keys
+        working-directory: server/tests
+        run: |
+          GARAGE="docker compose -f docker-compose.integration.yml exec -T garage /garage"
+          GARAGE_KEY_ID="GK0123456789abcdef01234567" # gitleaks:allow
+          GARAGE_KEY_SECRET="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" # gitleaks:allow
+
+          echo "Waiting for Garage to be healthy..."
+          for i in $(seq 1 60); do
+            if $GARAGE stats &>/dev/null; then break; fi
+            sleep 2
+          done
+
+          echo "Setting up Garage..."
+          NODE_ID=$($GARAGE node id -q 2>&1 | tr -d '[:space:]')
+          LAYOUT_STATUS=$($GARAGE layout show 2>&1 || true)
+          if echo "$LAYOUT_STATUS" | grep -q "No nodes"; then
+            $GARAGE layout assign "$NODE_ID" -c 1G -z dc1
+            $GARAGE layout apply --version 1
+          fi
+
+          $GARAGE bucket info reflector-media &>/dev/null || $GARAGE bucket create reflector-media
+          if ! $GARAGE key info reflector-test &>/dev/null; then
+            $GARAGE key import --yes "$GARAGE_KEY_ID" "$GARAGE_KEY_SECRET"
+            $GARAGE key rename "$GARAGE_KEY_ID" reflector-test
+          fi
+          $GARAGE bucket allow reflector-media --read --write --key reflector-test
+
+      - name: Wait for Hatchet and generate API token
+        working-directory: server/tests
+        run: |
+          echo "Waiting for Hatchet to be healthy..."
+          for i in $(seq 1 90); do
+            if docker compose -f docker-compose.integration.yml exec -T hatchet curl -sf http://localhost:8888/api/live &>/dev/null; then
+              echo "Hatchet is ready."
+              break
+            fi
+            sleep 2
+          done
+
+          echo "Generating Hatchet API token..."
+          HATCHET_OUTPUT=$(docker compose -f docker-compose.integration.yml exec -T hatchet \
+            /hatchet-admin token create --config /config --name integration-test 2>&1)
+          HATCHET_TOKEN=$(echo "$HATCHET_OUTPUT" | grep -o 'eyJ[A-Za-z0-9_.\-]*')
+          if [ -z "$HATCHET_TOKEN" ]; then
+            echo "ERROR: Failed to extract Hatchet JWT token"
+            exit 1
+          fi
+          echo "HATCHET_CLIENT_TOKEN=${HATCHET_TOKEN}" >> $GITHUB_ENV
+
+      - name: Start backend services
+        working-directory: server/tests
+        env:
+          LLM_URL: ${{ secrets.LLM_URL }}
+          LLM_MODEL: ${{ inputs.llm_model || secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Export garage and hatchet credentials for backend services
+          export GARAGE_KEY_ID="${{ env.GARAGE_KEY_ID }}"
+          export GARAGE_KEY_SECRET="${{ env.GARAGE_KEY_SECRET }}"
+          export HATCHET_CLIENT_TOKEN="${{ env.HATCHET_CLIENT_TOKEN }}"
+
+          docker compose -f docker-compose.integration.yml up -d \
+            server worker hatchet-worker-cpu hatchet-worker-llm test-runner
+
+      - name: Wait for server health check
+        working-directory: server/tests
+        run: |
+          echo "Waiting for server to be healthy..."
+          for i in $(seq 1 60); do
+            if docker compose -f docker-compose.integration.yml exec -T test-runner \
+              curl -sf http://server:1250/health &>/dev/null; then
+              echo "Server is ready."
+              break
+            fi
+            sleep 3
+          done
+
+      - name: Run DB migrations
+        working-directory: server/tests
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T server \
+            uv run alembic upgrade head
+
+      - name: Run integration tests
+        working-directory: server/tests
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T test-runner \
+            uv run pytest tests/integration/ -v -x
+
+      - name: Collect logs on failure
+        if: failure()
+        working-directory: server/tests
+        run: |
+          docker compose -f docker-compose.integration.yml logs --tail=500 > integration-logs.txt 2>&1
+
+      - name: Upload logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-logs
+          path: server/tests/integration-logs.txt
+          retention-days: 7
+
+      - name: Teardown
+        if: always()
+        working-directory: server/tests
+        run: |
+          docker compose -f docker-compose.integration.yml down -v --remove-orphans

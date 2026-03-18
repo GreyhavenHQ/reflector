@@ -25,3 +25,4 @@ www/.env.production
 opencode.json
 
 vibedocs/
+server/tests/integration/logs/
