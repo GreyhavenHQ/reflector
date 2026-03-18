@@ -307,7 +307,9 @@ async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
     ctx.log(
         f"get_recording: calling Daily.co API for recording_id={input.recording_id}..."
     )
-    async with DailyApiClient(api_key=settings.DAILY_API_KEY) as client:
+    async with DailyApiClient(
+        api_key=settings.DAILY_API_KEY, base_url=settings.DAILY_API_URL
+    ) as client:
         recording = await client.get_recording(input.recording_id)
     ctx.log(f"get_recording: Daily.co API returned successfully")
 
@@ -374,7 +376,9 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
             settings.DAILY_API_KEY, "DAILY_API_KEY is required"
         )
 
-        async with DailyApiClient(api_key=daily_api_key) as client:
+        async with DailyApiClient(
+            api_key=daily_api_key, base_url=settings.DAILY_API_URL
+        ) as client:
             participants = await client.get_meeting_participants(mtg_session_id)
 
         id_to_name = {}

@@ -180,6 +180,7 @@ class Settings(BaseSettings):
     )
 
     # Daily.co integration
+    DAILY_API_URL: str = "https://api.daily.co/v1"
     DAILY_API_KEY: str | None = None
     DAILY_WEBHOOK_SECRET: str | None = None
     DAILY_SUBDOMAIN: str | None = None

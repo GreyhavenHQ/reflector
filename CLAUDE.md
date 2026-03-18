@@ -160,6 +160,21 @@ All endpoints prefixed `/v1/`:
 - **Frontend**: No current test suite - opportunities for Jest/React Testing Library
 - **Coverage**: Backend maintains test coverage reports in `htmlcov/`
 
+### Integration Tests (DO NOT run unless explicitly asked)
+
+There are end-to-end integration tests in `server/tests/integration/` that spin up the full stack (PostgreSQL, Redis, Hatchet, Garage, mock-daily, server, workers) via Docker Compose and exercise real processing pipelines. These tests are:
+
+- `test_file_pipeline.py` — File upload → FilePipeline
+- `test_live_pipeline.py` — WebRTC stream → LivePostPipeline
+- `test_multitrack_pipeline.py` — Multitrack → DailyMultitrackPipeline
+
+**Important:**
+- These tests are **excluded** from normal `uv run pytest` runs via `--ignore=tests/integration` in pyproject.toml.
+- Do **NOT** run them as part of verification, code review, or general testing unless the user explicitly asks.
+- They require Docker, external LLM credentials, and HuggingFace token — they cannot run in a regular test environment.
+- To run locally: `./scripts/run-integration-tests.sh` (requires env vars: `LLM_URL`, `LLM_API_KEY`, `HF_TOKEN`).
+- In CI: triggered manually via the "Integration Tests" GitHub Actions workflow (`workflow_dispatch`).
+
 ## GPU Processing
 
 Modal.com integration for scalable ML processing:
