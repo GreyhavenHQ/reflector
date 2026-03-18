@@ -3,18 +3,10 @@ name: Integration Tests
 on:
   workflow_dispatch:
     inputs:
-      llm_url:
-        description: "External LLM endpoint (OpenAI-compatible)"
-        required: true
-        type: string
       llm_model:
-        description: "LLM model name"
+        description: "LLM model name (overrides LLM_MODEL secret)"
         required: false
-        default: "gpt-4o-mini"
-        type: string
-      llm_api_key:
-        description: "API key for LLM"
-        required: true
+        default: ""
         type: string
 
 jobs:
@@ -28,9 +20,9 @@ jobs:
       - name: Start infrastructure services
         working-directory: server/tests
         env:
-          LLM_URL: ${{ inputs.llm_url }}
-          LLM_MODEL: ${{ inputs.llm_model }}
-          LLM_API_KEY: ${{ inputs.llm_api_key }}
+          LLM_URL: ${{ secrets.LLM_URL }}
+          LLM_MODEL: ${{ inputs.llm_model || secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           docker compose -f docker-compose.integration.yml up -d --build postgres redis garage hatchet mock-daily
@@ -88,9 +80,9 @@ jobs:
       - name: Start backend services
         working-directory: server/tests
         env:
-          LLM_URL: ${{ inputs.llm_url }}
-          LLM_MODEL: ${{ inputs.llm_model }}
-          LLM_API_KEY: ${{ inputs.llm_api_key }}
+          LLM_URL: ${{ secrets.LLM_URL }}
+          LLM_MODEL: ${{ inputs.llm_model || secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           # Export garage and hatchet credentials for backend services
