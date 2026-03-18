@@ -93,7 +93,7 @@ services:
   garage:
     image: dxflrs/garage:v1.1.0
     volumes:
-      - ../../data/garage.toml:/etc/garage.toml:ro
+      - ./integration/garage.toml:/etc/garage.toml:ro
     healthcheck:
       test: ["CMD", "/garage", "stats"]
       interval: 5s
