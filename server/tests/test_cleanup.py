@@ -76,8 +76,10 @@ async def test_cleanup_old_public_data_deletes_old_anonymous_transcripts():
     assert result["transcripts_deleted"] == 1
     assert result["errors"] == []
 
-    # Verify old anonymous transcript was deleted
-    assert await transcripts_controller.get_by_id(old_transcript.id) is None
+    # Verify old anonymous transcript was soft-deleted
+    old = await transcripts_controller.get_by_id(old_transcript.id)
+    assert old is not None
+    assert old.deleted_at is not None
 
     # Verify new anonymous transcript still exists
     assert await transcripts_controller.get_by_id(new_transcript.id) is not None
@@ -150,15 +152,17 @@ async def test_cleanup_deletes_associated_meeting_and_recording():
     assert result["recordings_deleted"] == 1
     assert result["errors"] == []
 
-    # Verify transcript was deleted
-    assert await transcripts_controller.get_by_id(old_transcript.id) is None
+    # Verify transcript was soft-deleted
+    old = await transcripts_controller.get_by_id(old_transcript.id)
+    assert old is not None
+    assert old.deleted_at is not None
 
-    # Verify meeting was deleted
+    # Verify meeting was hard-deleted (cleanup deletes meetings directly)
     query = meetings.select().where(meetings.c.id == meeting_id)
     meeting_result = await get_database().fetch_one(query)
     assert meeting_result is None
 
-    # Verify recording was deleted
+    # Verify recording was hard-deleted (cleanup deletes recordings directly)
     assert await recordings_controller.get_by_id(recording.id) is None
 
 

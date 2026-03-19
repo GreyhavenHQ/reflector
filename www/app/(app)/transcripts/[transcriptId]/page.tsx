@@ -5,10 +5,11 @@ import useWaveform from "../useWaveform";
 import useMp3 from "../useMp3";
 import { TopicList } from "./_components/TopicList";
 import { Topic } from "../webSocketTypes";
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState, useCallback, use } from "react";
 import FinalSummary from "./finalSummary";
 import TranscriptTitle from "../transcriptTitle";
 import Player from "../player";
+import VideoPlayer from "../videoPlayer";
 import { useWebSockets } from "../useWebSockets";
 import { useRouter } from "next/navigation";
 import { parseNonEmptyString } from "../../../lib/utils";
@@ -55,6 +56,21 @@ export default function TranscriptDetails(details: TranscriptDetails) {
   const useActiveTopic = useState<Topic | null>(null);
   const [finalSummaryElement, setFinalSummaryElement] =
     useState<HTMLDivElement | null>(null);
+
+  const hasCloudVideo = !!transcript.data?.has_cloud_video;
+  const [videoExpanded, setVideoExpanded] = useState(false);
+  const [videoNewBadge, setVideoNewBadge] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !localStorage.getItem(`video-seen-${transcriptId}`);
+  });
+
+  const handleVideoToggle = useCallback(() => {
+    setVideoExpanded((prev) => !prev);
+    if (videoNewBadge) {
+      setVideoNewBadge(false);
+      localStorage.setItem(`video-seen-${transcriptId}`, "1");
+    }
+  }, [videoNewBadge, transcriptId]);
 
   useEffect(() => {
     if (!waiting || !transcript.data) return;
@@ -156,8 +172,14 @@ export default function TranscriptDetails(details: TranscriptDetails) {
         <Grid
           templateColumns={{ base: "minmax(0, 1fr)", md: "repeat(2, 1fr)" }}
           templateRows={{
-            base: "auto minmax(0, 1fr) minmax(0, 1fr)",
-            md: "auto minmax(0, 1fr)",
+            base:
+              hasCloudVideo && videoExpanded
+                ? "auto auto minmax(0, 1fr) minmax(0, 1fr)"
+                : "auto minmax(0, 1fr) minmax(0, 1fr)",
+            md:
+              hasCloudVideo && videoExpanded
+                ? "auto auto minmax(0, 1fr)"
+                : "auto minmax(0, 1fr)",
           }}
           gap={4}
           gridRowGap={2}
@@ -180,6 +202,10 @@ export default function TranscriptDetails(details: TranscriptDetails) {
                   transcript={transcript.data || null}
                   topics={topics.topics}
                   finalSummaryElement={finalSummaryElement}
+                  hasCloudVideo={hasCloudVideo}
+                  videoExpanded={videoExpanded}
+                  onVideoToggle={handleVideoToggle}
+                  videoNewBadge={videoNewBadge}
                 />
               </Flex>
               {mp3.audioDeleted && (
@@ -190,6 +216,16 @@ export default function TranscriptDetails(details: TranscriptDetails) {
               )}
             </Flex>
           </GridItem>
+          {hasCloudVideo && videoExpanded && (
+            <GridItem colSpan={{ base: 1, md: 2 }}>
+              <VideoPlayer
+                transcriptId={transcriptId}
+                duration={transcript.data?.cloud_video_duration ?? null}
+                expanded={videoExpanded}
+                onClose={() => setVideoExpanded(false)}
+              />
+            </GridItem>
+          )}
           <TopicList
             topics={topics.topics || []}
             useActiveTopic={useActiveTopic}

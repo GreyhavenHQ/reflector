@@ -16,6 +16,7 @@ from pydantic import (
 
 import reflector.auth as auth
 from reflector.db import get_database
+from reflector.db.meetings import meetings_controller
 from reflector.db.recordings import recordings_controller
 from reflector.db.rooms import rooms_controller
 from reflector.db.search import (
@@ -112,6 +113,8 @@ class GetTranscriptMinimal(BaseModel):
     room_name: str | None = None
     audio_deleted: bool | None = None
     change_seq: int | None = None
+    has_cloud_video: bool = False
+    cloud_video_duration: int | None = None
 
 
 class TranscriptParticipantWithEmail(TranscriptParticipant):
@@ -501,6 +504,14 @@ async def transcript_get(
                 )
             )
 
+    has_cloud_video = False
+    cloud_video_duration = None
+    if transcript.meeting_id:
+        meeting = await meetings_controller.get_by_id(transcript.meeting_id)
+        if meeting and meeting.daily_composed_video_s3_key:
+            has_cloud_video = True
+            cloud_video_duration = meeting.daily_composed_video_duration
+
     base_data = {
         "id": transcript.id,
         "user_id": transcript.user_id,
@@ -524,6 +535,8 @@ async def transcript_get(
         "audio_deleted": transcript.audio_deleted,
         "change_seq": transcript.change_seq,
         "participants": participants,
+        "has_cloud_video": has_cloud_video,
+        "cloud_video_duration": cloud_video_duration,
     }
 
     if transcript_format == "text":

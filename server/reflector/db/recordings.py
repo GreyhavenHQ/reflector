@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 import sqlalchemy as sa
@@ -24,6 +24,7 @@ recordings = sa.Table(
     ),
     sa.Column("meeting_id", sa.String),
     sa.Column("track_keys", sa.JSON, nullable=True),
+    sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     sa.Index("idx_recording_meeting_id", "meeting_id"),
 )
 
@@ -40,6 +41,7 @@ class Recording(BaseModel):
     # track_keys can be empty list [] if recording finished but no audio was captured (silence/muted)
     # None means not a multitrack recording, [] means multitrack with no tracks
     track_keys: list[str] | None = None
+    deleted_at: datetime | None = None
 
     @property
     def is_multitrack(self) -> bool:
@@ -69,7 +71,11 @@ class RecordingController:
         return Recording(**result) if result else None
 
     async def remove_by_id(self, id: str) -> None:
-        query = recordings.delete().where(recordings.c.id == id)
+        query = (
+            recordings.update()
+            .where(recordings.c.id == id)
+            .values(deleted_at=datetime.now(timezone.utc))
+        )
         await get_database().execute(query)
 
     async def set_meeting_id(
@@ -114,6 +120,7 @@ class RecordingController:
             .where(
                 recordings.c.bucket_name == bucket_name,
                 recordings.c.track_keys.isnot(None),
+                recordings.c.deleted_at.is_(None),
                 or_(
                     transcripts.c.id.is_(None),
                     transcripts.c.status == "error",

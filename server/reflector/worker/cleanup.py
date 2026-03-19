@@ -90,7 +90,9 @@ async def cleanup_old_transcripts(
 ):
     """Delete old anonymous transcripts and their associated recordings/meetings."""
     query = transcripts.select().where(
-        (transcripts.c.created_at < cutoff_date) & (transcripts.c.user_id.is_(None))
+        (transcripts.c.created_at < cutoff_date)
+        & (transcripts.c.user_id.is_(None))
+        & (transcripts.c.deleted_at.is_(None))
     )
     old_transcripts = await db.fetch_all(query)
 

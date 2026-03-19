@@ -104,6 +104,12 @@ async def process_recording(bucket_name: str, object_key: str):
     room = await rooms_controller.get_by_id(meeting.room_id)
 
     recording = await recordings_controller.get_by_object_key(bucket_name, object_key)
+    if recording and recording.deleted_at is not None:
+        logger.info(
+            "Skipping soft-deleted recording",
+            recording_id=recording.id,
+        )
+        return
     if not recording:
         recording = await recordings_controller.create(
             Recording(
@@ -115,6 +121,13 @@ async def process_recording(bucket_name: str, object_key: str):
         )
 
     transcript = await transcripts_controller.get_by_recording_id(recording.id)
+    if transcript and transcript.deleted_at is not None:
+        logger.info(
+            "Skipping soft-deleted transcript for recording",
+            recording_id=recording.id,
+            transcript_id=transcript.id,
+        )
+        return
     if transcript:
         await transcripts_controller.update(
             transcript,
@@ -262,6 +275,13 @@ async def _process_multitrack_recording_inner(
     # Check if recording already exists (reprocessing path)
     recording = await recordings_controller.get_by_id(recording_id)
 
+    if recording and recording.deleted_at is not None:
+        logger.info(
+            "Skipping soft-deleted recording",
+            recording_id=recording_id,
+        )
+        return
+
     if recording and recording.meeting_id:
         # Reprocessing: recording exists with meeting already linked
         meeting = await meetings_controller.get_by_id(recording.meeting_id)
@@ -341,6 +361,13 @@ async def _process_multitrack_recording_inner(
         )
 
     transcript = await transcripts_controller.get_by_recording_id(recording.id)
+    if transcript and transcript.deleted_at is not None:
+        logger.info(
+            "Skipping soft-deleted transcript for recording",
+            recording_id=recording.id,
+            transcript_id=transcript.id,
+        )
+        return
     if not transcript:
         transcript = await transcripts_controller.add(
             "",
