@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -392,15 +393,22 @@ class MeetingController:
         # If was_null=False, the WHERE clause prevented the update
         return was_null
 
+    @asynccontextmanager
+    async def transaction(self):
+        """A context manager for database transaction."""
+        async with get_database().transaction(isolation="serializable"):
+            yield
+
     async def add_email_recipient(self, meeting_id: str, email: str) -> list[str]:
         """Add an email to the meeting's email_recipients list (no duplicates)."""
-        meeting = await self.get_by_id(meeting_id)
-        if not meeting:
-            raise ValueError(f"Meeting {meeting_id} not found")
-        current = meeting.email_recipients or []
-        if email not in current:
-            current.append(email)
-            await self.update_meeting(meeting_id, email_recipients=current)
+        async with self.transaction():
+            meeting = await self.get_by_id(meeting_id)
+            if not meeting:
+                raise ValueError(f"Meeting {meeting_id} not found")
+            current = meeting.email_recipients or []
+            if email not in current:
+                current.append(email)
+                await self.update_meeting(meeting_id, email_recipients=current)
         return current
 
     async def increment_num_clients(self, meeting_id: str) -> None:
