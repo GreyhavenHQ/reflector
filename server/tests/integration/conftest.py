@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 SERVER_URL = os.environ.get("SERVER_URL", "http://server:1250")
 GARAGE_ENDPOINT = os.environ.get("GARAGE_ENDPOINT", "http://garage:3900")
+MAILPIT_URL = os.environ.get("MAILPIT_URL", "http://mailpit:8025")
 DATABASE_URL = os.environ.get(
     "DATABASE_URL_ASYNC",
     os.environ.get(
@@ -114,3 +115,44 @@ async def _poll_transcript_status(
 def poll_transcript_status():
     """Returns the poll_transcript_status async helper function."""
     return _poll_transcript_status
+
+
+@pytest_asyncio.fixture
+async def mailpit_client():
+    """HTTP client for Mailpit API — query captured emails."""
+    async with httpx.AsyncClient(
+        base_url=MAILPIT_URL,
+        timeout=httpx.Timeout(10.0),
+    ) as client:
+        # Clear inbox before each test
+        await client.delete("/api/v1/messages")
+        yield client
+
+
+async def _poll_mailpit_messages(
+    mailpit: httpx.AsyncClient,
+    to_email: str,
+    max_wait: int = 30,
+    interval: int = 2,
+) -> list[dict]:
+    """
+    Poll Mailpit API until at least one message is delivered to the given address.
+    Returns the list of matching messages.
+    """
+    elapsed = 0
+    while elapsed < max_wait:
+        resp = await mailpit.get("/api/v1/messages", params={"query": f"to:{to_email}"})
+        resp.raise_for_status()
+        data = resp.json()
+        messages = data.get("messages", [])
+        if messages:
+            return messages
+        await asyncio.sleep(interval)
+        elapsed += interval
+    raise TimeoutError(f"No email delivered to {to_email} within {max_wait}s")
+
+
+@pytest_asyncio.fixture
+def poll_mailpit_messages():
+    """Returns the poll_mailpit_messages async helper function."""
+    return _poll_mailpit_messages

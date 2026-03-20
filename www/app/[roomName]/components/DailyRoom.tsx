@@ -22,6 +22,8 @@ import DailyIframe, {
 import type { components } from "../../reflector-api";
 import { useAuth } from "../../lib/AuthProvider";
 import { useConsentDialog } from "../../lib/consent";
+import { useEmailTranscriptDialog } from "../../lib/emailTranscript";
+import { featureEnabled } from "../../lib/features";
 import {
   useRoomJoinMeeting,
   useMeetingStartRecording,
@@ -37,6 +39,7 @@ import { useUuidV5 } from "react-uuid-hook";
 
 const CONSENT_BUTTON_ID = "recording-consent";
 const RECORDING_INDICATOR_ID = "recording-indicator";
+const EMAIL_TRANSCRIPT_BUTTON_ID = "email-transcript";
 
 // Namespace UUID for UUIDv5 generation of raw-tracks instanceIds
 // DO NOT CHANGE: Breaks instanceId determinism across deployments
@@ -209,6 +212,12 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
   const showConsentModalRef = useRef(showConsentModal);
   showConsentModalRef.current = showConsentModal;
 
+  const { showEmailModal } = useEmailTranscriptDialog({
+    meetingId: assertMeetingId(meeting.id),
+  });
+  const showEmailModalRef = useRef(showEmailModal);
+  showEmailModalRef.current = showEmailModal;
+
   useEffect(() => {
     if (authLastUserId === undefined || !meeting?.id || !roomName) return;
 
@@ -241,6 +250,9 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
     (ev: DailyEventObjectCustomButtonClick) => {
       if (ev.button_id === CONSENT_BUTTON_ID) {
         showConsentModalRef.current();
+      }
+      if (ev.button_id === EMAIL_TRANSCRIPT_BUTTON_ID) {
+        showEmailModalRef.current();
       }
     },
     [
@@ -319,6 +331,10 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
     () => new URL("/recording-icon.svg", window.location.origin),
     [],
   );
+  const emailIconUrl = useMemo(
+    () => new URL("/email-icon.svg", window.location.origin),
+    [],
+  );
 
   const [frame, { setCustomTrayButton }] = useFrame(container, {
     onLeftMeeting: handleLeave,
@@ -370,6 +386,20 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
         : null,
     );
   }, [showConsentButton, recordingIconUrl, setCustomTrayButton]);
+
+  useEffect(() => {
+    const show = featureEnabled("emailTranscript");
+    setCustomTrayButton(
+      EMAIL_TRANSCRIPT_BUTTON_ID,
+      show
+        ? {
+            iconPath: emailIconUrl.href,
+            label: "Email Transcript",
+            tooltip: "Get transcript emailed to you",
+          }
+        : null,
+    );
+  }, [emailIconUrl, setCustomTrayButton]);
 
   if (authLastUserId === undefined) {
     return (

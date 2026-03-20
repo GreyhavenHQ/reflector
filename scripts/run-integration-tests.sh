@@ -13,13 +13,24 @@
 # Optional:
 #   LLM_MODEL    — Model name (default: qwen2.5:14b)
 #
+# Flags:
+#   --build      — Rebuild backend Docker images (server, workers, test-runner)
+#
 # Usage:
 #   export LLM_URL="https://api.openai.com/v1"
 #   export LLM_API_KEY="sk-..."
 #   export HF_TOKEN="hf_..."
 #   ./scripts/run-integration-tests.sh
+#   ./scripts/run-integration-tests.sh --build   # rebuild backend images
 #
 set -euo pipefail
+
+BUILD_FLAG=""
+for arg in "$@"; do
+    case "$arg" in
+        --build) BUILD_FLAG="--build" ;;
+    esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -66,7 +77,7 @@ trap cleanup EXIT
 
 # ── Step 1: Build and start infrastructure ──────────────────────────────────
 info "Building and starting infrastructure services..."
-$COMPOSE up -d --build postgres redis garage hatchet mock-daily
+$COMPOSE up -d --build postgres redis garage hatchet mock-daily mailpit
 
 # ── Step 2: Set up Garage (S3 bucket + keys) ───────────────────────────────
 wait_for "Garage" "$COMPOSE exec -T garage /garage stats" 60
@@ -116,7 +127,7 @@ ok "Hatchet token generated"
 
 # ── Step 4: Start backend services ──────────────────────────────────────────
 info "Starting backend services..."
-$COMPOSE up -d server worker hatchet-worker-cpu hatchet-worker-llm test-runner
+$COMPOSE up -d $BUILD_FLAG server worker hatchet-worker-cpu hatchet-worker-llm test-runner
 
 # ── Step 5: Wait for server + run migrations ────────────────────────────────
 wait_for "Server" "$COMPOSE exec -T test-runner curl -sf http://server:1250/health" 60

@@ -643,6 +643,16 @@ export function useMeetingAudioConsent() {
   });
 }
 
+export function useMeetingAddEmailRecipient() {
+  const { setError } = useError();
+
+  return $api.useMutation("post", "/v1/meetings/{meeting_id}/email-recipient", {
+    onError: (error) => {
+      setError(error as Error, "There was an error adding the email");
+    },
+  });
+}
+
 export function useMeetingDeactivate() {
   const { setError } = useError();
   const queryClient = useQueryClient();

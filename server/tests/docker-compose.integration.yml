@@ -40,6 +40,11 @@ x-backend-env: &backend-env
   # Garage S3 credentials — hardcoded test keys, containers are ephemeral
   TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID: GK0123456789abcdef01234567 # gitleaks:allow
   TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" # gitleaks:allow
+  # Email / SMTP — Mailpit captures emails without sending
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  SMTP_FROM_EMAIL: test@reflector.local
+  SMTP_USE_TLS: "false"
   # NOTE: DAILYCO_STORAGE_AWS_* intentionally NOT set — forces fallback to
   # get_transcripts_storage() which has ENDPOINT_URL pointing at Garage.
   # Setting them would bypass the endpoint and generate presigned URLs for AWS.
@@ -101,6 +106,14 @@ services:
       retries: 10
       start_period: 5s
 
+  mailpit:
+    image: axllent/mailpit:latest
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025/api/v1/messages"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   mock-daily:
     build:
       context: .
@@ -130,6 +143,8 @@ services:
       garage:
         condition: service_healthy
       mock-daily:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     volumes:
       - server_data:/app/data
@@ -194,6 +209,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://reflector:reflector@postgres:5432/reflector
       SERVER_URL: http://server:1250
       GARAGE_ENDPOINT: http://garage:3900
+      MAILPIT_URL: http://mailpit:8025
     depends_on:
       server:
         condition: service_started

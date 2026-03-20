@@ -192,3 +192,8 @@ Modal.com integration for scalable ML processing:
 ## Pipeline/worker related info
 
 If you need to do any worker/pipeline related work, search for "Pipeline" classes and their "create" or "build" methods to find the main processor sequence. Look for task orchestration patterns (like "chord", "group", or "chain") to identify the post-processing flow with parallel execution chains. This will give you abstract vision on how processing pipeling is organized.
+
+## Code Style
+
+- Always put imports at the top of the file. Let ruff/pre-commit handle sorting and formatting of imports.
+- Exception: In Hatchet pipeline task functions, DB controller imports (e.g., `transcripts_controller`, `meetings_controller`) stay as deferred/inline imports inside `fresh_db_connection()` blocks — this is intentional to avoid sharing DB connections across forked processes. Non-DB imports (utilities, services) should still go at the top of the file.

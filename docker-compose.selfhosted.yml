@@ -309,6 +309,24 @@ services:
       - server
 
   # ===========================================================
+  # Mailpit — local SMTP sink for testing email transcript notifications
+  # Start with: --profile mailpit
+  # Web UI at http://localhost:8025
+  # ===========================================================
+
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: [mailpit]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"   # Web UI
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025/api/v1/messages"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ===========================================================
   # Hatchet workflow engine + workers
   # Required for all processing pipelines (file, live, Daily.co multitrack).
   # Always-on — every selfhosted deployment needs Hatchet.
