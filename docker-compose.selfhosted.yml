@@ -36,7 +36,7 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:1250:1250"
-      - "51000-51100:51000-51100/udp"
+      - "40000-40100:40000-40100/udp"
     env_file:
       - ./server/.env
     environment:
@@ -50,7 +50,7 @@ services:
       # HF_TOKEN needed for in-process pyannote diarization (--cpu mode)
       HF_TOKEN: ${HF_TOKEN:-}
       # WebRTC: fixed UDP port range for ICE candidates (mapped above)
-      WEBRTC_PORT_RANGE: "51000-51100"
+      WEBRTC_PORT_RANGE: "40000-40100"
       # Hatchet workflow engine (always-on for processing pipelines)
       HATCHET_CLIENT_SERVER_URL: ${HATCHET_CLIENT_SERVER_URL:-http://hatchet:8888}
       HATCHET_CLIENT_HOST_PORT: ${HATCHET_CLIENT_HOST_PORT:-hatchet:7077}

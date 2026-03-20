@@ -19,12 +19,14 @@ from reflector.views.rooms import router as rooms_router
 from reflector.views.rtc_offer import router as rtc_offer_router
 from reflector.views.transcripts import router as transcripts_router
 from reflector.views.transcripts_audio import router as transcripts_audio_router
+from reflector.views.transcripts_download import router as transcripts_download_router
 from reflector.views.transcripts_participants import (
     router as transcripts_participants_router,
 )
 from reflector.views.transcripts_process import router as transcripts_process_router
 from reflector.views.transcripts_speaker import router as transcripts_speaker_router
 from reflector.views.transcripts_upload import router as transcripts_upload_router
+from reflector.views.transcripts_video import router as transcripts_video_router
 from reflector.views.transcripts_webrtc import router as transcripts_webrtc_router
 from reflector.views.transcripts_websocket import router as transcripts_websocket_router
 from reflector.views.user import router as user_router
@@ -97,6 +99,8 @@ app.include_router(transcripts_audio_router, prefix="/v1")
 app.include_router(transcripts_participants_router, prefix="/v1")
 app.include_router(transcripts_speaker_router, prefix="/v1")
 app.include_router(transcripts_upload_router, prefix="/v1")
+app.include_router(transcripts_download_router, prefix="/v1")
+app.include_router(transcripts_video_router, prefix="/v1")
 app.include_router(transcripts_websocket_router, prefix="/v1")
 app.include_router(transcripts_webrtc_router, prefix="/v1")
 app.include_router(transcripts_process_router, prefix="/v1")

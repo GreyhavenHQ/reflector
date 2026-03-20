@@ -1,7 +1,8 @@
 import pytest
 
+from reflector.db.recordings import Recording, recordings_controller
 from reflector.db.rooms import rooms_controller
-from reflector.db.transcripts import transcripts_controller
+from reflector.db.transcripts import SourceKind, transcripts_controller
 
 
 @pytest.mark.asyncio
@@ -192,8 +193,92 @@ async def test_transcript_delete(authenticated_client, client):
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+    # API returns 404 for soft-deleted transcripts
     response = await client.get(f"/transcripts/{tid}")
     assert response.status_code == 404
+
+    # But the transcript still exists in DB with deleted_at set
+    transcript = await transcripts_controller.get_by_id(tid)
+    assert transcript is not None
+    assert transcript.deleted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_deleted_transcript_not_in_list(authenticated_client, client):
+    """Soft-deleted transcripts should not appear in the list endpoint."""
+    response = await client.post("/transcripts", json={"name": "testdel_list"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    # Verify it appears in the list
+    response = await client.get("/transcripts")
+    assert response.status_code == 200
+    ids = [t["id"] for t in response.json()["items"]]
+    assert tid in ids
+
+    # Delete it
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # Verify it no longer appears in the list
+    response = await client.get("/transcripts")
+    assert response.status_code == 200
+    ids = [t["id"] for t in response.json()["items"]]
+    assert tid not in ids
+
+
+@pytest.mark.asyncio
+async def test_delete_already_deleted_is_idempotent(authenticated_client, client):
+    """Deleting an already-deleted transcript is idempotent (returns 200)."""
+    response = await client.post("/transcripts", json={"name": "testdel_idem"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    # First delete
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # Second delete — idempotent, still returns ok
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # But deleted_at was only set once (not updated)
+    transcript = await transcripts_controller.get_by_id(tid)
+    assert transcript is not None
+    assert transcript.deleted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_deleted_transcript_recording_soft_deleted(authenticated_client, client):
+    """Soft-deleting a transcript also soft-deletes its recording."""
+    from datetime import datetime, timezone
+
+    recording = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="test.mp4",
+            recorded_at=datetime.now(timezone.utc),
+        )
+    )
+    transcript = await transcripts_controller.add(
+        name="with-recording",
+        source_kind=SourceKind.ROOM,
+        recording_id=recording.id,
+        user_id="randomuserid",
+    )
+
+    response = await client.delete(f"/transcripts/{transcript.id}")
+    assert response.status_code == 200
+
+    # Recording still in DB with deleted_at set
+    rec = await recordings_controller.get_by_id(recording.id)
+    assert rec is not None
+    assert rec.deleted_at is not None
+
+    # Transcript still in DB with deleted_at set
+    tr = await transcripts_controller.get_by_id(transcript.id)
+    assert tr is not None
+    assert tr.deleted_at is not None
 
 
 @pytest.mark.asyncio

@@ -387,6 +387,8 @@ class SearchController:
             transcripts.join(rooms, transcripts.c.room_id == rooms.c.id, isouter=True)
         )
 
+        base_query = base_query.where(transcripts.c.deleted_at.is_(None))
+
         if params.query_text is not None:
             # because already initialized based on params.query_text presence above
             assert search_query is not None

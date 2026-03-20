@@ -91,6 +91,7 @@ transcripts = sqlalchemy.Table(
     sqlalchemy.Column("webvtt", sqlalchemy.Text),
     # Hatchet workflow run ID for resumption of failed workflows
     sqlalchemy.Column("workflow_run_id", sqlalchemy.String),
+    sqlalchemy.Column("deleted_at", sqlalchemy.DateTime(timezone=True), nullable=True),
     sqlalchemy.Column(
         "change_seq",
         sqlalchemy.BigInteger,
@@ -238,6 +239,7 @@ class Transcript(BaseModel):
     webvtt: str | None = None
     workflow_run_id: str | None = None  # Hatchet workflow run ID for resumption
     change_seq: int | None = None
+    deleted_at: datetime | None = None
 
     @field_serializer("created_at", when_used="json")
     def serialize_datetime(self, dt: datetime) -> str:
@@ -418,6 +420,8 @@ class TranscriptController:
             rooms, transcripts.c.room_id == rooms.c.id, isouter=True
         )
 
+        query = query.where(transcripts.c.deleted_at.is_(None))
+
         if user_id:
             query = query.where(
                 or_(transcripts.c.user_id == user_id, rooms.c.is_shared)
@@ -500,7 +504,10 @@ class TranscriptController:
         """
         Get transcripts by room_id (direct access without joins)
         """
-        query = transcripts.select().where(transcripts.c.room_id == room_id)
+        query = transcripts.select().where(
+            transcripts.c.room_id == room_id,
+            transcripts.c.deleted_at.is_(None),
+        )
         if "user_id" in kwargs:
             query = query.where(transcripts.c.user_id == kwargs["user_id"])
         if "order_by" in kwargs:
@@ -531,8 +538,11 @@ class TranscriptController:
         if not result:
             raise HTTPException(status_code=404, detail="Transcript not found")
 
-        # if the transcript is anonymous, share mode is not checked
         transcript = Transcript(**result)
+        if transcript.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+
+        # if the transcript is anonymous, share mode is not checked
         if transcript.user_id is None:
             return transcript
 
@@ -632,56 +642,49 @@ class TranscriptController:
         user_id: str | None = None,
     ) -> None:
         """
-        Remove a transcript by id
+        Soft-delete a transcript by id.
+
+        Sets deleted_at on the transcript and its associated recording.
+        All files (S3 and local) are preserved for later retrieval.
         """
         transcript = await self.get_by_id(transcript_id)
         if not transcript:
             return
         if user_id is not None and transcript.user_id != user_id:
             return
-        if transcript.audio_location == "storage" and not transcript.audio_deleted:
-            try:
-                await get_transcripts_storage().delete_file(
-                    transcript.storage_audio_path
-                )
-            except Exception as e:
-                logger.warning(
-                    "Failed to delete transcript audio from storage",
-                    exc_info=e,
-                    transcript_id=transcript.id,
-                )
-        transcript.unlink()
+        if transcript.deleted_at is not None:
+            return
+
+        now = datetime.now(timezone.utc)
+
+        # Soft-delete the associated recording (keeps S3 files intact)
         if transcript.recording_id:
             try:
-                recording = await recordings_controller.get_by_id(
-                    transcript.recording_id
-                )
-                if recording:
-                    try:
-                        await get_transcripts_storage().delete_file(
-                            recording.object_key, bucket=recording.bucket_name
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to delete recording object from S3",
-                            exc_info=e,
-                            recording_id=transcript.recording_id,
-                        )
-                    await recordings_controller.remove_by_id(transcript.recording_id)
+                await recordings_controller.remove_by_id(transcript.recording_id)
             except Exception as e:
                 logger.warning(
-                    "Failed to delete recording row",
+                    "Failed to soft-delete recording",
                     exc_info=e,
                     recording_id=transcript.recording_id,
                 )
-        query = transcripts.delete().where(transcripts.c.id == transcript_id)
+
+        # Soft-delete the transcript (keeps all files intact)
+        query = (
+            transcripts.update()
+            .where(transcripts.c.id == transcript_id)
+            .values(deleted_at=now)
+        )
         await get_database().execute(query)
 
     async def remove_by_recording_id(self, recording_id: str):
         """
-        Remove a transcript by recording_id
+        Soft-delete a transcript by recording_id
         """
-        query = transcripts.delete().where(transcripts.c.recording_id == recording_id)
+        query = (
+            transcripts.update()
+            .where(transcripts.c.recording_id == recording_id)
+            .values(deleted_at=datetime.now(timezone.utc))
+        )
         await get_database().execute(query)
 
     @staticmethod
