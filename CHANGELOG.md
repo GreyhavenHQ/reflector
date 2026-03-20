@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.40.0](https://github.com/GreyhavenHQ/reflector/compare/v0.39.0...v0.40.0) (2026-03-20)
+
+
+### Features
+
+* allow participants to ask for email transcript ([#923](https://github.com/GreyhavenHQ/reflector/issues/923)) ([55222ec](https://github.com/GreyhavenHQ/reflector/commit/55222ecc4736f99ad461f03a006c8d97b5876142))
+* download files, show cloud video, solf deletion with no reprocessing ([#920](https://github.com/GreyhavenHQ/reflector/issues/920)) ([a76f114](https://github.com/GreyhavenHQ/reflector/commit/a76f1143783d3cf137a8847a851b72302e04445b))
+
 ## [0.39.0](https://github.com/GreyhavenHQ/reflector/compare/v0.38.2...v0.39.0) (2026-03-18)
 
 
