@@ -66,6 +66,8 @@ meetings = sa.Table(
     # Daily.co composed video (Brady Bunch grid layout) - Daily.co only, not Whereby
     sa.Column("daily_composed_video_s3_key", sa.String, nullable=True),
     sa.Column("daily_composed_video_duration", sa.Integer, nullable=True),
+    # Email recipients for transcript notification
+    sa.Column("email_recipients", JSONB, nullable=True),
     sa.Index("idx_meeting_room_id", "room_id"),
     sa.Index("idx_meeting_calendar_event", "calendar_event_id"),
 )
@@ -116,6 +118,8 @@ class Meeting(BaseModel):
     # Daily.co composed video (Brady Bunch grid) - Daily.co only
     daily_composed_video_s3_key: str | None = None
     daily_composed_video_duration: int | None = None
+    # Email recipients for transcript notification
+    email_recipients: list[str] | None = None
 
 
 class MeetingController:
@@ -387,6 +391,17 @@ class MeetingController:
         # Return True only if value was NULL before (actual update occurred)
         # If was_null=False, the WHERE clause prevented the update
         return was_null
+
+    async def add_email_recipient(self, meeting_id: str, email: str) -> list[str]:
+        """Add an email to the meeting's email_recipients list (no duplicates)."""
+        meeting = await self.get_by_id(meeting_id)
+        if not meeting:
+            raise ValueError(f"Meeting {meeting_id} not found")
+        current = meeting.email_recipients or []
+        if email not in current:
+            current.append(email)
+            await self.update_meeting(meeting_id, email_recipients=current)
+        return current
 
     async def increment_num_clients(self, meeting_id: str) -> None:
         """Atomically increment participant count."""

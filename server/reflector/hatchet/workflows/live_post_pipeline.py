@@ -17,6 +17,7 @@ from datetime import timedelta
 from hatchet_sdk import Context
 from pydantic import BaseModel
 
+from reflector.email import is_email_configured, send_transcript_email
 from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.constants import (
     TIMEOUT_HEAVY,
@@ -32,6 +33,7 @@ from reflector.hatchet.workflows.daily_multitrack_pipeline import (
 )
 from reflector.hatchet.workflows.models import (
     ConsentResult,
+    EmailResult,
     TitleResult,
     WaveformResult,
     WebhookResult,
@@ -359,6 +361,52 @@ async def send_webhook(input: LivePostPipelineInput, ctx: Context) -> WebhookRes
         except Exception as e:
             ctx.log(f"send_webhook unexpected error: {e}")
             return WebhookResult(webhook_sent=False)
+
+
+@live_post_pipeline.task(
+    parents=[final_summaries],
+    execution_timeout=timedelta(seconds=TIMEOUT_SHORT),
+    retries=5,
+    backoff_factor=2.0,
+    backoff_max_seconds=15,
+)
+@with_error_handling(TaskName.SEND_EMAIL, set_error_status=False)
+async def send_email(input: LivePostPipelineInput, ctx: Context) -> EmailResult:
+    """Send transcript email to collected recipients."""
+    ctx.log(f"send_email: transcript_id={input.transcript_id}")
+
+    if not is_email_configured():
+        ctx.log("send_email skipped (SMTP not configured)")
+        return EmailResult(skipped=True)
+
+    async with fresh_db_connection():
+        from reflector.db.meetings import meetings_controller  # noqa: PLC0415
+        from reflector.db.recordings import recordings_controller  # noqa: PLC0415
+        from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
+
+        transcript = await transcripts_controller.get_by_id(input.transcript_id)
+        if not transcript:
+            ctx.log("send_email skipped (transcript not found)")
+            return EmailResult(skipped=True)
+
+        meeting = None
+        if transcript.meeting_id:
+            meeting = await meetings_controller.get_by_id(transcript.meeting_id)
+        if not meeting and transcript.recording_id:
+            recording = await recordings_controller.get_by_id(transcript.recording_id)
+            if recording and recording.meeting_id:
+                meeting = await meetings_controller.get_by_id(recording.meeting_id)
+
+        if not meeting or not meeting.email_recipients:
+            ctx.log("send_email skipped (no email recipients)")
+            return EmailResult(skipped=True)
+
+        await transcripts_controller.update(transcript, {"share_mode": "public"})
+
+        count = await send_transcript_email(meeting.email_recipients, transcript)
+        ctx.log(f"send_email complete: sent {count} emails")
+
+    return EmailResult(emails_sent=count)
 
 
 # --- On failure handler ---

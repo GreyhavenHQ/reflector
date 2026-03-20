@@ -21,6 +21,7 @@ class TaskName(StrEnum):
     CLEANUP_CONSENT = "cleanup_consent"
     POST_ZULIP = "post_zulip"
     SEND_WEBHOOK = "send_webhook"
+    SEND_EMAIL = "send_email"
     PAD_TRACK = "pad_track"
     TRANSCRIBE_TRACK = "transcribe_track"
     DETECT_CHUNK_TOPIC = "detect_chunk_topic"
@@ -59,7 +60,7 @@ TIMEOUT_AUDIO = 720  # Audio processing: padding, mixdown (Hatchet execution_tim
 TIMEOUT_AUDIO_HTTP = (
     660  # httpx timeout for pad_track — below 720 so Hatchet doesn't race
 )
-TIMEOUT_HEAVY = 600  # Transcription, fan-out LLM tasks (Hatchet execution_timeout)
+TIMEOUT_HEAVY = 1200  # Transcription, fan-out LLM tasks (Hatchet execution_timeout)
 TIMEOUT_HEAVY_HTTP = (
-    540  # httpx timeout for transcribe_track — below 600 so Hatchet doesn't race
+    1150  # httpx timeout for transcribe_track — below 1200 so Hatchet doesn't race
 )

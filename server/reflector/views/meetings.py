@@ -4,7 +4,7 @@ from typing import Annotated, Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 import reflector.auth as auth
 from reflector.dailyco_api import RecordingType
@@ -151,3 +151,25 @@ async def start_recording(
         raise HTTPException(
             status_code=500, detail=f"Failed to start recording: {str(e)}"
         )
+
+
+class AddEmailRecipientRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/meetings/{meeting_id}/email-recipient")
+async def add_email_recipient(
+    meeting_id: str,
+    request: AddEmailRecipientRequest,
+    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+):
+    """Add an email address to receive the transcript link when processing completes."""
+    meeting = await meetings_controller.get_by_id(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    recipients = await meetings_controller.add_email_recipient(
+        meeting_id, request.email
+    )
+
+    return {"status": "success", "email_recipients": recipients}

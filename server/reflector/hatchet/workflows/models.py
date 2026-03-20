@@ -170,3 +170,10 @@ class WebhookResult(BaseModel):
     webhook_sent: bool
     skipped: bool = False
     response_code: int | None = None
+
+
+class EmailResult(BaseModel):
+    """Result from send_email task."""
+
+    emails_sent: int = 0
+    skipped: bool = False

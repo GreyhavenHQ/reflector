@@ -40,6 +40,8 @@ dependencies = [
     "icalendar>=6.0.0",
     "hatchet-sdk==1.22.16",
     "pydantic>=2.12.5",
+    "aiosmtplib>=3.0.0",
+    "email-validator>=2.0.0",
 ]
 
 [dependency-groups]

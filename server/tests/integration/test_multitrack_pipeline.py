@@ -4,10 +4,12 @@ Integration test: Multitrack → DailyMultitrackPipeline → full processing.
 Exercises: S3 upload → DB recording setup → process endpoint →
 Hatchet DiarizationPipeline → mock Daily API → whisper per-track transcription →
 diarization → mixdown → LLM summarization/topics → status "ended".
+Also tests email transcript notification via Mailpit SMTP sink.
 """
 
 import json
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import text
@@ -22,6 +24,9 @@ TRACK_KEYS = [
 ]
 
 
+TEST_EMAIL = "integration-test@reflector.local"
+
+
 @pytest.mark.asyncio
 async def test_multitrack_pipeline_end_to_end(
     api_client,
@@ -30,6 +35,8 @@ async def test_multitrack_pipeline_end_to_end(
     test_records_dir,
     bucket_name,
     poll_transcript_status,
+    mailpit_client,
+    poll_mailpit_messages,
 ):
     """Set up multitrack recording in S3/DB and verify the full pipeline completes."""
     # 1. Upload test audio as two separate tracks to Garage S3
@@ -52,16 +59,41 @@ async def test_multitrack_pipeline_end_to_end(
     transcript = resp.json()
     transcript_id = transcript["id"]
 
-    # 3. Insert Recording row and link to transcript via direct DB access
+    # 3. Insert Meeting, Recording, and link to transcript via direct DB access
     recording_id = f"rec-integration-{transcript_id[:8]}"
+    meeting_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
     async with db_engine.begin() as conn:
-        # Insert recording with track_keys
+        # Insert meeting with email_recipients for email notification test
         await conn.execute(
             text("""
-                INSERT INTO recording (id, bucket_name, object_key, recorded_at, status, track_keys)
-                VALUES (:id, :bucket_name, :object_key, :recorded_at, :status, CAST(:track_keys AS json))
+                INSERT INTO meeting (
+                    id, room_name, room_url, host_room_url,
+                    start_date, end_date, platform, email_recipients
+                )
+                VALUES (
+                    :id, :room_name, :room_url, :host_room_url,
+                    :start_date, :end_date, :platform, CAST(:email_recipients AS json)
+                )
+            """),
+            {
+                "id": meeting_id,
+                "room_name": "integration-test-room",
+                "room_url": "https://test.daily.co/integration-test-room",
+                "host_room_url": "https://test.daily.co/integration-test-room",
+                "start_date": now,
+                "end_date": now + timedelta(hours=1),
+                "platform": "daily",
+                "email_recipients": json.dumps([TEST_EMAIL]),
+            },
+        )
+
+        # Insert recording with track_keys, linked to meeting
+        await conn.execute(
+            text("""
+                INSERT INTO recording (id, bucket_name, object_key, recorded_at, status, track_keys, meeting_id)
+                VALUES (:id, :bucket_name, :object_key, :recorded_at, :status, CAST(:track_keys AS json), :meeting_id)
             """),
             {
                 "id": recording_id,
@@ -70,6 +102,7 @@ async def test_multitrack_pipeline_end_to_end(
                 "recorded_at": now,
                 "status": "completed",
                 "track_keys": json.dumps(TRACK_KEYS),
+                "meeting_id": meeting_id,
             },
         )
 
@@ -127,3 +160,22 @@ async def test_multitrack_pipeline_end_to_end(
     assert (
         len(participants) >= 2
     ), f"Expected at least 2 speakers for multitrack, got {len(participants)}"
+
+    # 7. Verify email transcript notification
+    # The send_email pipeline task should have:
+    #   a) Set the transcript to public share_mode
+    #   b) Sent an email to TEST_EMAIL via Mailpit
+    transcript_resp = await api_client.get(f"/transcripts/{transcript_id}")
+    transcript_resp.raise_for_status()
+    transcript_data = transcript_resp.json()
+    assert (
+        transcript_data.get("share_mode") == "public"
+    ), "Transcript should be set to public when email recipients exist"
+
+    # Poll Mailpit for the delivered email (send_email task runs async after finalize)
+    messages = await poll_mailpit_messages(mailpit_client, TEST_EMAIL, max_wait=30)
+    assert len(messages) >= 1, "Should have received at least 1 email"
+    email_msg = messages[0]
+    assert (
+        "Transcript Ready" in email_msg.get("Subject", "")
+    ), f"Email subject should contain 'Transcript Ready', got: {email_msg.get('Subject')}"

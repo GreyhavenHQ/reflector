@@ -98,6 +98,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/meetings/{meeting_id}/email-recipient": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Add Email Recipient
+     * @description Add an email address to receive the transcript link when processing completes.
+     */
+    post: operations["v1_add_email_recipient"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/rooms": {
     parameters: {
       query?: never;
@@ -838,6 +858,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AddEmailRecipientRequest */
+    AddEmailRecipientRequest: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+    };
     /** ApiKeyResponse */
     ApiKeyResponse: {
       /**
@@ -2589,6 +2617,41 @@ export interface operations {
           "application/json": {
             [key: string]: unknown;
           };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  v1_add_email_recipient: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        meeting_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddEmailRecipientRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

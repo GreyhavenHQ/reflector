@@ -1,5 +1,6 @@
 import {
   FEATURE_BROWSE_ENV_NAME,
+  FEATURE_EMAIL_TRANSCRIPT_ENV_NAME,
   FEATURE_PRIVACY_ENV_NAME,
   FEATURE_REQUIRE_LOGIN_ENV_NAME,
   FEATURE_ROOMS_ENV_NAME,
@@ -14,6 +15,7 @@ export const FEATURES = [
   "browse",
   "sendToZulip",
   "rooms",
+  "emailTranscript",
 ] as const;
 
 export type FeatureName = (typeof FEATURES)[number];
@@ -26,6 +28,7 @@ export const DEFAULT_FEATURES: Features = {
   browse: true,
   sendToZulip: true,
   rooms: true,
+  emailTranscript: false,
 } as const;
 
 export const ENV_TO_FEATURE: {
@@ -36,6 +39,7 @@ export const ENV_TO_FEATURE: {
   FEATURE_BROWSE: "browse",
   FEATURE_SEND_TO_ZULIP: "sendToZulip",
   FEATURE_ROOMS: "rooms",
+  FEATURE_EMAIL_TRANSCRIPT: "emailTranscript",
 } as const;
 
 export const FEATURE_TO_ENV: {
@@ -46,6 +50,7 @@ export const FEATURE_TO_ENV: {
   browse: "FEATURE_BROWSE",
   sendToZulip: "FEATURE_SEND_TO_ZULIP",
   rooms: "FEATURE_ROOMS",
+  emailTranscript: "FEATURE_EMAIL_TRANSCRIPT",
 };
 
 const features = getClientEnv();
