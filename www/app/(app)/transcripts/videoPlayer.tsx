@@ -39,17 +39,16 @@ export default function VideoPlayer({
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams();
-        if (accessToken) {
-          params.set("token", accessToken);
-        }
-        const url = `${API_URL}/v1/transcripts/${transcriptId}/video/url?${params}`;
+        const url = `${API_URL}/v1/transcripts/${transcriptId}/video/url`;
         const headers: Record<string, string> = {};
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
         const resp = await fetch(url, { headers });
         if (!resp.ok) {
+          if (resp.status === 401) {
+            throw new Error("Sign in to view the video recording");
+          }
           throw new Error("Failed to load video");
         }
         const data = await resp.json();
@@ -90,7 +89,7 @@ export default function VideoPlayer({
         w="fit-content"
         maxW="100%"
       >
-        <Text fontSize="sm">Failed to load video recording</Text>
+        <Text fontSize="sm">{error || "Failed to load video recording"}</Text>
       </Box>
     );
   }
@@ -132,10 +131,14 @@ export default function VideoPlayer({
         </Flex>
       </Flex>
       {/* Video element with visible controls */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
         src={videoUrl}
         controls
         autoPlay
+        controlsList="nodownload"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
         style={{
           display: "block",
           width: "100%",

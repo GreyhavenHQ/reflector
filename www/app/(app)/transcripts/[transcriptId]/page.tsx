@@ -24,6 +24,8 @@ import {
 } from "@chakra-ui/react";
 import { useTranscriptGet } from "../../../lib/apiHooks";
 import { TranscriptStatus } from "../../../lib/transcript";
+import { useAuth } from "../../../lib/AuthProvider";
+import { featureEnabled } from "../../../lib/features";
 
 type TranscriptDetails = {
   params: Promise<{
@@ -57,7 +59,10 @@ export default function TranscriptDetails(details: TranscriptDetails) {
   const [finalSummaryElement, setFinalSummaryElement] =
     useState<HTMLDivElement | null>(null);
 
-  const hasCloudVideo = !!transcript.data?.has_cloud_video;
+  const auth = useAuth();
+  const isAuthenticated =
+    auth.status === "authenticated" || !featureEnabled("requireLogin");
+  const hasCloudVideo = !!transcript.data?.has_cloud_video && isAuthenticated;
   const [videoExpanded, setVideoExpanded] = useState(false);
   const [videoNewBadge, setVideoNewBadge] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -145,7 +150,7 @@ export default function TranscriptDetails(details: TranscriptDetails) {
         mt={4}
         mb={4}
       >
-        {!mp3.audioDeleted && (
+        {isAuthenticated && !mp3.audioDeleted && (
           <>
             {waveform.waveform && mp3.media && topics.topics ? (
               <Player

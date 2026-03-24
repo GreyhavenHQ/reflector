@@ -13,6 +13,7 @@ from reflector.events import subscribers_shutdown, subscribers_startup
 from reflector.logger import logger
 from reflector.metrics import metrics_init
 from reflector.settings import settings
+from reflector.views.config import router as config_router
 from reflector.views.daily import router as daily_router
 from reflector.views.meetings import router as meetings_router
 from reflector.views.rooms import router as rooms_router
@@ -107,6 +108,7 @@ app.include_router(transcripts_process_router, prefix="/v1")
 app.include_router(user_router, prefix="/v1")
 app.include_router(user_api_keys_router, prefix="/v1")
 app.include_router(user_ws_router, prefix="/v1")
+app.include_router(config_router, prefix="/v1")
 app.include_router(zulip_router, prefix="/v1")
 app.include_router(whereby_router, prefix="/v1")
 app.include_router(daily_router, prefix="/v1/daily")

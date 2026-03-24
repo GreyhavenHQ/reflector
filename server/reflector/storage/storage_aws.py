@@ -170,16 +170,23 @@ class AwsStorage(Storage):
         expires_in: int = 3600,
         *,
         bucket: str | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         actual_bucket = bucket or self._bucket_name
         folder = self.aws_folder
         s3filename = f"{folder}/{filename}" if folder else filename
+        params = {}
+        if extra_params:
+            params.update(extra_params)
+        # Always set Bucket/Key after extra_params to prevent overrides
+        params["Bucket"] = actual_bucket
+        params["Key"] = s3filename
         async with self.session.client(
             "s3", config=self.boto_config, endpoint_url=self._endpoint_url
         ) as client:
             presigned_url = await client.generate_presigned_url(
                 operation,
-                Params={"Bucket": actual_bucket, "Key": s3filename},
+                Params=params,
                 ExpiresIn=expires_in,
             )
 

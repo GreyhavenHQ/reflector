@@ -53,9 +53,22 @@ async def transcript_get_audio_mp3(
         else:
             user_id = token_user["sub"]
 
-    transcript = await transcripts_controller.get_by_id_for_http(
-        transcript_id, user_id=user_id
-    )
+    if not user_id and not token:
+        # No authentication provided at all. Only anonymous transcripts
+        # (user_id=None) are accessible without auth, to preserve
+        # pipeline access via _generate_local_audio_link().
+        transcript = await transcripts_controller.get_by_id(transcript_id)
+        if not transcript or transcript.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+        if transcript.user_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+            )
+    else:
+        transcript = await transcripts_controller.get_by_id_for_http(
+            transcript_id, user_id=user_id
+        )
 
     if transcript.audio_location == "storage":
         # proxy S3 file, to prevent issue with CORS
@@ -94,16 +107,16 @@ async def transcript_get_audio_mp3(
         request,
         transcript.audio_mp3_filename,
         content_type="audio/mpeg",
-        content_disposition=f"attachment; filename={filename}",
+        content_disposition=f"inline; filename={filename}",
     )
 
 
 @router.get("/transcripts/{transcript_id}/audio/waveform")
 async def transcript_get_audio_waveform(
     transcript_id: str,
-    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+    user: Annotated[auth.UserInfo, Depends(auth.current_user)],
 ) -> AudioWaveform:
-    user_id = user["sub"] if user else None
+    user_id = user["sub"]
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )

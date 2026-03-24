@@ -397,13 +397,30 @@ async def send_email(input: LivePostPipelineInput, ctx: Context) -> EmailResult:
             if recording and recording.meeting_id:
                 meeting = await meetings_controller.get_by_id(recording.meeting_id)
 
-        if not meeting or not meeting.email_recipients:
+        recipients = (
+            list(meeting.email_recipients)
+            if meeting and meeting.email_recipients
+            else []
+        )
+
+        # Also check room-level email
+        from reflector.db.rooms import rooms_controller  # noqa: PLC0415
+
+        if transcript.room_id:
+            room = await rooms_controller.get_by_id(transcript.room_id)
+            if room and room.email_transcript_to:
+                if room.email_transcript_to not in recipients:
+                    recipients.append(room.email_transcript_to)
+
+        if not recipients:
             ctx.log("send_email skipped (no email recipients)")
             return EmailResult(skipped=True)
 
-        await transcripts_controller.update(transcript, {"share_mode": "public"})
+        # For room-level emails, do NOT change share_mode (only set public if meeting had recipients)
+        if meeting and meeting.email_recipients:
+            await transcripts_controller.update(transcript, {"share_mode": "public"})
 
-        count = await send_transcript_email(meeting.email_recipients, transcript)
+        count = await send_transcript_email(recipients, transcript)
         ctx.log(f"send_email complete: sent {count} emails")
 
     return EmailResult(emails_sent=count)

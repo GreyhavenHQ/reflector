@@ -228,7 +228,11 @@ export function useRoomDelete() {
   });
 }
 
-export function useZulipStreams() {
+export function useConfig() {
+  return $api.useQuery("get", "/v1/config", {});
+}
+
+export function useZulipStreams(enabled: boolean = true) {
   const { isAuthenticated } = useAuthReady();
 
   return $api.useQuery(
@@ -236,7 +240,7 @@ export function useZulipStreams() {
     "/v1/zulip/streams",
     {},
     {
-      enabled: isAuthenticated,
+      enabled: enabled && isAuthenticated,
     },
   );
 }
@@ -287,6 +291,16 @@ export function useTranscriptPostToZulip() {
   return $api.useMutation("post", "/v1/transcripts/{transcript_id}/zulip", {
     onError: (error) => {
       setError(error as Error, "There was an error posting to Zulip");
+    },
+  });
+}
+
+export function useTranscriptSendEmail() {
+  const { setError } = useError();
+
+  return $api.useMutation("post", "/v1/transcripts/{transcript_id}/email", {
+    onError: (error) => {
+      setError(error as Error, "There was an error sending the email");
     },
   });
 }
