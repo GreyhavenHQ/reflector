@@ -137,6 +137,7 @@ async def mock_storage():
             operation: str = "get_object",
             expires_in: int = 3600,
             bucket=None,
+            extra_params=None,
         ):
             return f"http://test-storage/{path}"
 

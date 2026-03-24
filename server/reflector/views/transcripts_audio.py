@@ -53,6 +53,12 @@ async def transcript_get_audio_mp3(
         else:
             user_id = token_user["sub"]
 
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
@@ -94,16 +100,16 @@ async def transcript_get_audio_mp3(
         request,
         transcript.audio_mp3_filename,
         content_type="audio/mpeg",
-        content_disposition=f"attachment; filename={filename}",
+        content_disposition=f"inline; filename={filename}",
     )
 
 
 @router.get("/transcripts/{transcript_id}/audio/waveform")
 async def transcript_get_audio_waveform(
     transcript_id: str,
-    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+    user: Annotated[auth.UserInfo, Depends(auth.current_user)],
 ) -> AudioWaveform:
-    user_id = user["sub"] if user else None
+    user_id = user["sub"]
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )

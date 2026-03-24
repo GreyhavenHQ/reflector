@@ -56,7 +56,7 @@ const useMp3 = (transcriptId: string, waiting?: boolean): Mp3Response => {
   }, [navigator.serviceWorker, !serviceWorker, accessTokenInfo]);
 
   useEffect(() => {
-    if (!transcriptId || later || !transcript) return;
+    if (!transcriptId || later || !transcript || !accessTokenInfo) return;
 
     let stopped = false;
     let audioElement: HTMLAudioElement | null = null;

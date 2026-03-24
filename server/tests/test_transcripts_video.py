@@ -103,3 +103,58 @@ async def test_transcript_get_includes_video_fields(authenticated_client, client
     data = response.json()
     assert data["has_cloud_video"] is False
     assert data["cloud_video_duration"] is None
+
+
+@pytest.mark.asyncio
+async def test_video_url_requires_authentication(client):
+    """Test that video URL endpoint returns 401 for unauthenticated requests."""
+    response = await client.get("/transcripts/any-id/video/url")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_video_url_presigned_params(authenticated_client, client):
+    """Test that presigned URL is generated with short expiry and inline disposition."""
+    from reflector.db import get_database
+    from reflector.db.meetings import meetings
+
+    meeting_id = "test-meeting-presigned-params"
+    await get_database().execute(
+        meetings.insert().values(
+            id=meeting_id,
+            room_name="Presigned Params Meeting",
+            room_url="https://example.com",
+            host_room_url="https://example.com/host",
+            start_date=datetime.now(timezone.utc),
+            end_date=datetime.now(timezone.utc) + timedelta(hours=1),
+            room_id=None,
+            daily_composed_video_s3_key="recordings/video.mp4",
+            daily_composed_video_duration=60,
+        )
+    )
+
+    transcript = await transcripts_controller.add(
+        name="presigned-params",
+        source_kind=SourceKind.ROOM,
+        meeting_id=meeting_id,
+        user_id="randomuserid",
+    )
+
+    with patch("reflector.views.transcripts_video.get_source_storage") as mock_storage:
+        mock_instance = AsyncMock()
+        mock_instance.get_file_url = AsyncMock(
+            return_value="https://s3.example.com/presigned-url"
+        )
+        mock_storage.return_value = mock_instance
+
+        await client.get(f"/transcripts/{transcript.id}/video/url")
+
+        mock_instance.get_file_url.assert_called_once_with(
+            "recordings/video.mp4",
+            operation="get_object",
+            expires_in=900,
+            extra_params={
+                "ResponseContentDisposition": "inline",
+                "ResponseContentType": "video/mp4",
+            },
+        )

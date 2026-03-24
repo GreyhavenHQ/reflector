@@ -373,9 +373,9 @@ async def test_audio_mp3_requires_token_for_owned_transcript(
     tr.audio_mp3_filename.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(audio_path, tr.audio_mp3_filename)
 
-    # Anonymous GET without token should be 403 or 404 depending on access; we call mp3
+    # Anonymous GET without token should be 401 (auth required)
     resp = await client.get(f"/transcripts/{t.id}/audio/mp3")
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
     # With token should succeed
     token = create_access_token(
@@ -919,8 +919,8 @@ async def test_anonymous_transcript_audio_accessible(client, monkeypatch, tmpdir
 
     resp = await client.get(f"/transcripts/{t.id}/audio/mp3")
     assert (
-        resp.status_code == 200
-    ), f"Anonymous transcript audio should be accessible: {resp.text}"
+        resp.status_code == 401
+    ), f"Anonymous transcript audio should require authentication: {resp.text}"
 
 
 @pytest.mark.asyncio

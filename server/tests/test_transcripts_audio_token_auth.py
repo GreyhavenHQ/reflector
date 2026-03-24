@@ -98,10 +98,10 @@ async def private_transcript(tmpdir):
 
 
 @pytest.mark.asyncio
-async def test_audio_mp3_private_no_auth_returns_403(private_transcript, client):
-    """Without auth, accessing a private transcript's audio returns 403."""
+async def test_audio_mp3_private_no_auth_returns_401(private_transcript, client):
+    """Without auth, accessing a private transcript's audio returns 401."""
     response = await client.get(f"/transcripts/{private_transcript.id}/audio/mp3")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -125,8 +125,8 @@ async def test_audio_mp3_with_bearer_header(private_transcript, client):
 
 
 @pytest.mark.asyncio
-async def test_audio_mp3_public_transcript_no_auth_ok(tmpdir, client):
-    """Public transcripts are accessible without any auth."""
+async def test_audio_mp3_public_transcript_no_auth_returns_401(tmpdir, client):
+    """Public transcripts require authentication for audio access."""
     from reflector.db.transcripts import SourceKind, transcripts_controller
     from reflector.settings import settings
 
@@ -146,8 +146,7 @@ async def test_audio_mp3_public_transcript_no_auth_ok(tmpdir, client):
     shutil.copy(mp3_source, audio_filename)
 
     response = await client.get(f"/transcripts/{transcript.id}/audio/mp3")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/mpeg"
+    assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------

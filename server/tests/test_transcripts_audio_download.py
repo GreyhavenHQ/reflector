@@ -40,7 +40,7 @@ async def fake_transcript(tmpdir, client, monkeypatch):
     ],
 )
 async def test_transcript_audio_download(
-    fake_transcript, url_suffix, content_type, client
+    authenticated_client, fake_transcript, url_suffix, content_type, client
 ):
     response = await client.get(f"/transcripts/{fake_transcript.id}/audio{url_suffix}")
     assert response.status_code == 200
@@ -61,7 +61,7 @@ async def test_transcript_audio_download(
     ],
 )
 async def test_transcript_audio_download_head(
-    fake_transcript, url_suffix, content_type, client
+    authenticated_client, fake_transcript, url_suffix, content_type, client
 ):
     response = await client.head(f"/transcripts/{fake_transcript.id}/audio{url_suffix}")
     assert response.status_code == 200
@@ -82,7 +82,7 @@ async def test_transcript_audio_download_head(
     ],
 )
 async def test_transcript_audio_download_range(
-    fake_transcript, url_suffix, content_type, client
+    authenticated_client, fake_transcript, url_suffix, content_type, client
 ):
     response = await client.get(
         f"/transcripts/{fake_transcript.id}/audio{url_suffix}",
@@ -102,7 +102,7 @@ async def test_transcript_audio_download_range(
     ],
 )
 async def test_transcript_audio_download_range_with_seek(
-    fake_transcript, url_suffix, content_type, client
+    authenticated_client, fake_transcript, url_suffix, content_type, client
 ):
     response = await client.get(
         f"/transcripts/{fake_transcript.id}/audio{url_suffix}",

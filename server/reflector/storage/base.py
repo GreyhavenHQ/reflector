@@ -116,9 +116,12 @@ class Storage:
         expires_in: int = 3600,
         *,
         bucket: str | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         """Generate presigned URL. bucket: override instance default if provided."""
-        return await self._get_file_url(filename, operation, expires_in, bucket=bucket)
+        return await self._get_file_url(
+            filename, operation, expires_in, bucket=bucket, extra_params=extra_params
+        )
 
     async def _get_file_url(
         self,
@@ -127,6 +130,7 @@ class Storage:
         expires_in: int = 3600,
         *,
         bucket: str | None = None,
+        extra_params: dict | None = None,
     ) -> str:
         raise NotImplementedError
 
