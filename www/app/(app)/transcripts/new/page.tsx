@@ -21,6 +21,10 @@ import { useAuth } from "../../../lib/AuthProvider";
 import { featureEnabled } from "../../../lib/features";
 import { SearchableLanguageSelect } from "../../../components/SearchableLanguageSelect";
 
+const sourceLanguages = supportedLanguages.filter(
+  (l) => l.value && l.value !== "NOTRANSLATION",
+);
+
 const TranscriptCreate = () => {
   const router = useRouter();
   const auth = useAuth();
@@ -33,8 +37,13 @@ const TranscriptCreate = () => {
   const nameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setName(event.target.value);
   };
+  const [sourceLanguage, setSourceLanguage] = useState<string>("");
   const [targetLanguage, setTargetLanguage] = useState<string>("NOTRANSLATION");
 
+  const onSourceLanguageChange = (newval) => {
+    (!newval || typeof newval === "string") &&
+      setSourceLanguage(newval || "en");
+  };
   const onLanguageChange = (newval) => {
     (!newval || typeof newval === "string") && setTargetLanguage(newval);
   };
@@ -55,7 +64,7 @@ const TranscriptCreate = () => {
     const targetLang = getTargetLanguage();
     createTranscript.create({
       name,
-      source_language: "en",
+      source_language: sourceLanguage || "en",
       target_language: targetLang || "en",
       source_kind: "live",
     });
@@ -67,7 +76,7 @@ const TranscriptCreate = () => {
     const targetLang = getTargetLanguage();
     createTranscript.create({
       name,
-      source_language: "en",
+      source_language: sourceLanguage || "en",
       target_language: targetLang || "en",
       source_kind: "file",
     });
@@ -158,6 +167,15 @@ const TranscriptCreate = () => {
                     type="text"
                     onChange={nameChange}
                     placeholder="Optional"
+                  />
+                </Box>
+                <Box mb={4}>
+                  <Text mb={1}>Audio language</Text>
+                  <SearchableLanguageSelect
+                    options={sourceLanguages}
+                    value={sourceLanguage}
+                    onChange={onSourceLanguageChange}
+                    placeholder="Select language"
                   />
                 </Box>
                 <Box mb={4}>

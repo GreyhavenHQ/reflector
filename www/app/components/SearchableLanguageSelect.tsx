@@ -67,7 +67,7 @@ export function SearchableLanguageSelect({
 
   const collection = useMemo(() => createListCollection({ items }), [items]);
 
-  const selectedValues = value && value !== "NOTRANSLATION" ? [value] : [];
+  const selectedValues = value ? [value] : [];
 
   return (
     <Combobox.Root
