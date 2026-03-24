@@ -44,6 +44,7 @@ class Room(BaseModel):
     ics_last_etag: Optional[str] = None
     platform: Platform
     skip_consent: bool = False
+    email_transcript_to: str | None = None
 
 
 class RoomDetails(Room):
@@ -93,6 +94,7 @@ class CreateRoom(BaseModel):
     ics_enabled: bool = False
     platform: Platform
     skip_consent: bool = False
+    email_transcript_to: str | None = None
 
 
 class UpdateRoom(BaseModel):
@@ -112,6 +114,7 @@ class UpdateRoom(BaseModel):
     ics_enabled: Optional[bool] = None
     platform: Optional[Platform] = None
     skip_consent: Optional[bool] = None
+    email_transcript_to: Optional[str] = None
 
 
 class CreateRoomMeeting(BaseModel):
@@ -253,6 +256,7 @@ async def rooms_create(
         ics_enabled=room.ics_enabled,
         platform=room.platform,
         skip_consent=room.skip_consent,
+        email_transcript_to=room.email_transcript_to,
     )
 
 

@@ -18,10 +18,11 @@ import {
   createListCollection,
 } from "@chakra-ui/react";
 import { LuShare2 } from "react-icons/lu";
-import { useTranscriptUpdate } from "../../lib/apiHooks";
+import { useTranscriptUpdate, useConfig } from "../../lib/apiHooks";
 import ShareLink from "./shareLink";
 import ShareCopy from "./shareCopy";
 import ShareZulip from "./shareZulip";
+import ShareEmail from "./shareEmail";
 import { useAuth } from "../../lib/AuthProvider";
 
 import { featureEnabled } from "../../lib/features";
@@ -55,6 +56,9 @@ export default function ShareAndPrivacy(props: ShareAndPrivacyProps) {
   const [shareLoading, setShareLoading] = useState(false);
   const requireLogin = featureEnabled("requireLogin");
   const updateTranscriptMutation = useTranscriptUpdate();
+  const { data: config } = useConfig();
+  const zulipEnabled = config?.zulip_enabled ?? false;
+  const emailEnabled = config?.email_enabled ?? false;
 
   const updateShareMode = async (selectedValue: string) => {
     const selectedOption = shareOptionsData.find(
@@ -169,11 +173,17 @@ export default function ShareAndPrivacy(props: ShareAndPrivacyProps) {
               <Text fontSize="sm" mb="2" fontWeight={"bold"}>
                 Share options
               </Text>
-              <Flex gap={2} mb={2}>
-                {requireLogin && (
+              <Flex gap={2} mb={2} flexWrap="wrap">
+                {requireLogin && zulipEnabled && (
                   <ShareZulip
                     transcript={props.transcript}
                     topics={props.topics}
+                    disabled={toShareMode(shareMode.value) === "private"}
+                  />
+                )}
+                {emailEnabled && (
+                  <ShareEmail
+                    transcript={props.transcript}
                     disabled={toShareMode(shareMode.value) === "private"}
                   />
                 )}

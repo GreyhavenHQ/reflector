@@ -456,6 +456,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/transcripts/{transcript_id}/email": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Transcript Send Email */
+    post: operations["v1_transcript_send_email"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/transcripts/{transcript_id}/audio/mp3": {
     parameters: {
       query?: never;
@@ -739,6 +756,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Config */
+    get: operations["v1_get_config"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/zulip/streams": {
     parameters: {
       query?: never;
@@ -942,6 +976,13 @@ export interface components {
        */
       updated_at: string;
     };
+    /** ConfigResponse */
+    ConfigResponse: {
+      /** Zulip Enabled */
+      zulip_enabled: boolean;
+      /** Email Enabled */
+      email_enabled: boolean;
+    };
     /** CreateApiKeyRequest */
     CreateApiKeyRequest: {
       /** Name */
@@ -1025,6 +1066,8 @@ export interface components {
        * @default false
        */
       skip_consent: boolean;
+      /** Email Transcript To */
+      email_transcript_to?: string | null;
     };
     /** CreateRoomMeeting */
     CreateRoomMeeting: {
@@ -1844,6 +1887,8 @@ export interface components {
        * @default false
        */
       skip_consent: boolean;
+      /** Email Transcript To */
+      email_transcript_to?: string | null;
     };
     /** RoomDetails */
     RoomDetails: {
@@ -1900,6 +1945,8 @@ export interface components {
        * @default false
        */
       skip_consent: boolean;
+      /** Email Transcript To */
+      email_transcript_to?: string | null;
       /** Webhook Url */
       webhook_url: string | null;
       /** Webhook Secret */
@@ -1983,6 +2030,16 @@ export interface components {
       total_match_count: number;
       /** Change Seq */
       change_seq?: number | null;
+    };
+    /** SendEmailRequest */
+    SendEmailRequest: {
+      /** Email */
+      email: string;
+    };
+    /** SendEmailResponse */
+    SendEmailResponse: {
+      /** Sent */
+      sent: number;
     };
     /**
      * SourceKind
@@ -2264,6 +2321,8 @@ export interface components {
       platform?: ("whereby" | "daily") | null;
       /** Skip Consent */
       skip_consent?: boolean | null;
+      /** Email Transcript To */
+      email_transcript_to?: string | null;
     };
     /** UpdateTranscript */
     UpdateTranscript: {
@@ -3497,6 +3556,41 @@ export interface operations {
       };
     };
   };
+  v1_transcript_send_email: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        transcript_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SendEmailRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SendEmailResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   v1_transcript_get_audio_mp3: {
     parameters: {
       query?: {
@@ -4163,6 +4257,26 @@ export interface operations {
             | components["schemas"]["UserWsTranscriptStatus"]
             | components["schemas"]["UserWsTranscriptFinalTitle"]
             | components["schemas"]["UserWsTranscriptDuration"];
+        };
+      };
+    };
+  };
+  v1_get_config: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfigResponse"];
         };
       };
     };

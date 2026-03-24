@@ -40,6 +40,7 @@ from reflector.db.transcripts import (
     transcripts_controller,
 )
 from reflector.db.users import user_controller
+from reflector.email import is_email_configured, send_transcript_email
 from reflector.processors.types import Transcript as ProcessorTranscript
 from reflector.processors.types import Word
 from reflector.schemas.transcript_formats import TranscriptFormat, TranscriptSegment
@@ -718,3 +719,31 @@ async def transcript_post_to_zulip(
         await transcripts_controller.update(
             transcript, {"zulip_message_id": response["id"]}
         )
+
+
+class SendEmailRequest(BaseModel):
+    email: str
+
+
+class SendEmailResponse(BaseModel):
+    sent: int
+
+
+@router.post("/transcripts/{transcript_id}/email", response_model=SendEmailResponse)
+async def transcript_send_email(
+    transcript_id: str,
+    request: SendEmailRequest,
+    user: Annotated[auth.UserInfo, Depends(auth.current_user)],
+):
+    if not is_email_configured():
+        raise HTTPException(status_code=400, detail="Email not configured")
+    user_id = user["sub"]
+    transcript = await transcripts_controller.get_by_id_for_http(
+        transcript_id, user_id=user_id
+    )
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    if not transcripts_controller.user_can_mutate(transcript, user_id):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    sent = await send_transcript_email([request.email], transcript)
+    return SendEmailResponse(sent=sent)
