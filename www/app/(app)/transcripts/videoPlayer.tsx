@@ -89,7 +89,7 @@ export default function VideoPlayer({
         w="fit-content"
         maxW="100%"
       >
-        <Text fontSize="sm">Failed to load video recording</Text>
+        <Text fontSize="sm">{error || "Failed to load video recording"}</Text>
       </Box>
     );
   }

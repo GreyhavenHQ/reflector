@@ -158,3 +158,107 @@ async def test_video_url_presigned_params(authenticated_client, client):
                 "ResponseContentType": "video/mp4",
             },
         )
+
+
+async def _create_meeting_with_video(meeting_id):
+    """Helper to create a meeting with cloud video."""
+    from reflector.db import get_database
+    from reflector.db.meetings import meetings
+
+    await get_database().execute(
+        meetings.insert().values(
+            id=meeting_id,
+            room_name="Video Meeting",
+            room_url="https://example.com",
+            host_room_url="https://example.com/host",
+            start_date=datetime.now(timezone.utc),
+            end_date=datetime.now(timezone.utc) + timedelta(hours=1),
+            room_id=None,
+            daily_composed_video_s3_key="recordings/video.mp4",
+            daily_composed_video_duration=60,
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_video_url_private_transcript_denies_non_owner(
+    authenticated_client, client
+):
+    """Authenticated non-owner cannot access video for a private transcript."""
+    meeting_id = "test-meeting-private-deny"
+    await _create_meeting_with_video(meeting_id)
+
+    transcript = await transcripts_controller.add(
+        name="private-video",
+        source_kind=SourceKind.ROOM,
+        meeting_id=meeting_id,
+        user_id="other-owner",
+        share_mode="private",
+    )
+
+    with patch("reflector.views.transcripts_video.get_source_storage") as mock_storage:
+        mock_instance = AsyncMock()
+        mock_instance.get_file_url = AsyncMock(
+            return_value="https://s3.example.com/url"
+        )
+        mock_storage.return_value = mock_instance
+
+        response = await client.get(f"/transcripts/{transcript.id}/video/url")
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_video_url_public_transcript_allows_authenticated_non_owner(
+    authenticated_client, client
+):
+    """Authenticated non-owner can access video for a public transcript."""
+    meeting_id = "test-meeting-public-allow"
+    await _create_meeting_with_video(meeting_id)
+
+    transcript = await transcripts_controller.add(
+        name="public-video",
+        source_kind=SourceKind.ROOM,
+        meeting_id=meeting_id,
+        user_id="other-owner",
+        share_mode="public",
+    )
+
+    with patch("reflector.views.transcripts_video.get_source_storage") as mock_storage:
+        mock_instance = AsyncMock()
+        mock_instance.get_file_url = AsyncMock(
+            return_value="https://s3.example.com/url"
+        )
+        mock_storage.return_value = mock_instance
+
+        response = await client.get(f"/transcripts/{transcript.id}/video/url")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_video_url_semi_private_allows_authenticated_non_owner(
+    authenticated_client, client
+):
+    """Authenticated non-owner can access video for a semi-private transcript."""
+    meeting_id = "test-meeting-semi-private-allow"
+    await _create_meeting_with_video(meeting_id)
+
+    transcript = await transcripts_controller.add(
+        name="semi-private-video",
+        source_kind=SourceKind.ROOM,
+        meeting_id=meeting_id,
+        user_id="other-owner",
+        share_mode="semi-private",
+    )
+
+    with patch("reflector.views.transcripts_video.get_source_storage") as mock_storage:
+        mock_instance = AsyncMock()
+        mock_instance.get_file_url = AsyncMock(
+            return_value="https://s3.example.com/url"
+        )
+        mock_storage.return_value = mock_instance
+
+        response = await client.get(f"/transcripts/{transcript.id}/video/url")
+
+    assert response.status_code == 200

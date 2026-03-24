@@ -298,11 +298,9 @@ async def test_local_audio_link_token_works_with_authentik_backend(
     """_generate_local_audio_link creates an HS256 token via create_access_token.
 
     When the Authentik (RS256) auth backend is active, verify_raw_token uses
-    JWTAuth which expects RS256 + public key. The HS256 token created by
-    _generate_local_audio_link will fail verification, returning 401.
-
-    This test documents the bug: the internal audio URL generated for the
-    diarization pipeline is unusable under the JWT auth backend.
+    JWTAuth which expects RS256 + public key. The HS256 token fails RS256
+    verification, but the audio endpoint's HS256 fallback (jwt.decode with
+    SECRET_KEY) correctly handles it, so the request succeeds with 200.
     """
     from urllib.parse import parse_qs, urlparse
 
@@ -321,6 +319,55 @@ async def test_local_audio_link_token_works_with_authentik_backend(
             f"/transcripts/{private_transcript.id}/audio/mp3?token={token}"
         )
 
-    # BUG: this should be 200 (the token was created by our own server),
-    # but the Authentik backend rejects it because it's HS256, not RS256.
+    # The HS256 fallback in the audio endpoint handles this correctly.
     assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Waveform endpoint auth tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_waveform_requires_authentication(client):
+    """Waveform endpoint returns 401 for unauthenticated requests."""
+    response = await client.get("/transcripts/any-id/audio/waveform")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_audio_mp3_authenticated_user_accesses_anonymous_transcript(
+    tmpdir, client
+):
+    """Authenticated user can access audio for an anonymous (user_id=None) transcript."""
+    from reflector.app import app
+    from reflector.auth import current_user, current_user_optional
+    from reflector.db.transcripts import SourceKind, transcripts_controller
+    from reflector.settings import settings
+
+    settings.DATA_DIR = Path(tmpdir)
+
+    transcript = await transcripts_controller.add(
+        "Anonymous audio test",
+        source_kind=SourceKind.FILE,
+        user_id=None,
+        share_mode="private",
+    )
+    await transcripts_controller.update(transcript, {"status": "ended"})
+
+    audio_filename = transcript.audio_mp3_filename
+    mp3_source = Path(__file__).parent / "records" / "test_mathieu_hello.mp3"
+    audio_filename.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(mp3_source, audio_filename)
+
+    _user = lambda: {"sub": "some-authenticated-user", "email": "user@example.com"}
+    app.dependency_overrides[current_user] = _user
+    app.dependency_overrides[current_user_optional] = _user
+    try:
+        response = await client.get(f"/transcripts/{transcript.id}/audio/mp3")
+    finally:
+        del app.dependency_overrides[current_user]
+        del app.dependency_overrides[current_user_optional]
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/mpeg"

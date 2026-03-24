@@ -175,9 +175,12 @@ class AwsStorage(Storage):
         actual_bucket = bucket or self._bucket_name
         folder = self.aws_folder
         s3filename = f"{folder}/{filename}" if folder else filename
-        params = {"Bucket": actual_bucket, "Key": s3filename}
+        params = {}
         if extra_params:
             params.update(extra_params)
+        # Always set Bucket/Key after extra_params to prevent overrides
+        params["Bucket"] = actual_bucket
+        params["Key"] = s3filename
         async with self.session.client(
             "s3", config=self.boto_config, endpoint_url=self._endpoint_url
         ) as client:

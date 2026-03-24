@@ -53,15 +53,22 @@ async def transcript_get_audio_mp3(
         else:
             user_id = token_user["sub"]
 
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
+    if not user_id and not token:
+        # No authentication provided at all. Only anonymous transcripts
+        # (user_id=None) are accessible without auth, to preserve
+        # pipeline access via _generate_local_audio_link().
+        transcript = await transcripts_controller.get_by_id(transcript_id)
+        if not transcript or transcript.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+        if transcript.user_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+            )
+    else:
+        transcript = await transcripts_controller.get_by_id_for_http(
+            transcript_id, user_id=user_id
         )
-
-    transcript = await transcripts_controller.get_by_id_for_http(
-        transcript_id, user_id=user_id
-    )
 
     if transcript.audio_location == "storage":
         # proxy S3 file, to prevent issue with CORS

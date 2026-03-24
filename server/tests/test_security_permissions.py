@@ -898,7 +898,7 @@ async def test_anonymous_transcript_in_list_when_public_mode(client, monkeypatch
 @pytest.mark.asyncio
 async def test_anonymous_transcript_audio_accessible(client, monkeypatch, tmpdir):
     """Anonymous transcript audio (mp3) is accessible without authentication
-    because user_id=None bypasses share_mode checks."""
+    because user_id=None bypasses the auth requirement (pipeline access)."""
     monkeypatch.setattr(settings, "PUBLIC_MODE", True)
     monkeypatch.setattr(settings, "DATA_DIR", Path(tmpdir).as_posix())
 
@@ -919,8 +919,8 @@ async def test_anonymous_transcript_audio_accessible(client, monkeypatch, tmpdir
 
     resp = await client.get(f"/transcripts/{t.id}/audio/mp3")
     assert (
-        resp.status_code == 401
-    ), f"Anonymous transcript audio should require authentication: {resp.text}"
+        resp.status_code == 200
+    ), f"Anonymous transcript audio should be accessible for pipeline: {resp.text}"
 
 
 @pytest.mark.asyncio

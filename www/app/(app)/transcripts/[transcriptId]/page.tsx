@@ -25,6 +25,7 @@ import {
 import { useTranscriptGet } from "../../../lib/apiHooks";
 import { TranscriptStatus } from "../../../lib/transcript";
 import { useAuth } from "../../../lib/AuthProvider";
+import { featureEnabled } from "../../../lib/features";
 
 type TranscriptDetails = {
   params: Promise<{
@@ -59,7 +60,8 @@ export default function TranscriptDetails(details: TranscriptDetails) {
     useState<HTMLDivElement | null>(null);
 
   const auth = useAuth();
-  const isAuthenticated = auth.status === "authenticated";
+  const isAuthenticated =
+    auth.status === "authenticated" || !featureEnabled("requireLogin");
   const hasCloudVideo = !!transcript.data?.has_cloud_video && isAuthenticated;
   const [videoExpanded, setVideoExpanded] = useState(false);
   const [videoNewBadge, setVideoNewBadge] = useState(() => {
