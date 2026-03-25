@@ -228,6 +228,7 @@ export default function TranscriptDetails(details: TranscriptDetails) {
                 duration={transcript.data?.cloud_video_duration ?? null}
                 expanded={videoExpanded}
                 onClose={() => setVideoExpanded(false)}
+                sourceLanguage={transcript.data?.source_language ?? null}
               />
             </GridItem>
           )}
