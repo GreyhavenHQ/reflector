@@ -229,6 +229,7 @@ export default function TranscriptDetails(details: TranscriptDetails) {
                 expanded={videoExpanded}
                 onClose={() => setVideoExpanded(false)}
                 sourceLanguage={transcript.data?.source_language ?? null}
+                participants={transcript.data?.participants ?? null}
               />
             </GridItem>
           )}
