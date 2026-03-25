@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.41.0](https://github.com/GreyhavenHQ/reflector/compare/v0.40.0...v0.41.0) (2026-03-25)
+
+
+### Features
+
+* add auto-generated captions, speaker-colored progress bar with sync controls, and speaker tooltip to cloud video player ([#926](https://github.com/GreyhavenHQ/reflector/issues/926)) ([f19113a](https://github.com/GreyhavenHQ/reflector/commit/f19113a3cfa27797a70b9496bfcf1baff9d89f0d))
+* send email in share transcript and add email sending in room ([#924](https://github.com/GreyhavenHQ/reflector/issues/924)) ([e2ba502](https://github.com/GreyhavenHQ/reflector/commit/e2ba502697ce331c4d87fb019648fcbe4e7cca73))
+* zulip dag monitor for failed runs ([#928](https://github.com/GreyhavenHQ/reflector/issues/928)) ([1f98790](https://github.com/GreyhavenHQ/reflector/commit/1f98790e7bc58013690ec81aefa051da5e36e93e))
+
 ## [0.40.0](https://github.com/GreyhavenHQ/reflector/compare/v0.39.0...v0.40.0) (2026-03-20)
 
 
