@@ -44,7 +44,16 @@ def main():
         track_workflow,
     ]
 
-    if settings.ZULIP_REALM and settings.ZULIP_DAG_STREAM and settings.ZULIP_DAG_TOPIC:
+    _zulip_dag_enabled = all(
+        [
+            settings.ZULIP_REALM,
+            settings.ZULIP_API_KEY,
+            settings.ZULIP_BOT_EMAIL,
+            settings.ZULIP_DAG_STREAM,
+            settings.ZULIP_DAG_TOPIC,
+        ]
+    )
+    if _zulip_dag_enabled:
         from reflector.hatchet.workflows.failed_runs_monitor import (  # noqa: PLC0415
             failed_runs_monitor,
         )

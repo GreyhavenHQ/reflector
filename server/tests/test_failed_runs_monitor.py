@@ -43,7 +43,7 @@ class TestCheckFailedRuns:
                 return_value=mock_client,
             ),
             patch(
-                "reflector.zulip.send_message_to_zulip",
+                "reflector.hatchet.workflows.failed_runs_monitor.send_message_to_zulip",
                 new_callable=AsyncMock,
             ) as mock_send,
         ):
@@ -76,11 +76,11 @@ class TestCheckFailedRuns:
                 return_value=mock_client,
             ),
             patch(
-                "reflector.tools.render_hatchet_run.render_run_detail",
+                "reflector.hatchet.workflows.failed_runs_monitor.render_run_detail",
                 return_value="**rendered DAG**",
             ),
             patch(
-                "reflector.zulip.send_message_to_zulip",
+                "reflector.hatchet.workflows.failed_runs_monitor.send_message_to_zulip",
                 new_callable=AsyncMock,
                 return_value={"id": 1},
             ) as mock_send,
@@ -123,11 +123,11 @@ class TestCheckFailedRuns:
                 return_value=mock_client,
             ),
             patch(
-                "reflector.tools.render_hatchet_run.render_run_detail",
+                "reflector.hatchet.workflows.failed_runs_monitor.render_run_detail",
                 return_value="**rendered**",
             ),
             patch(
-                "reflector.zulip.send_message_to_zulip",
+                "reflector.hatchet.workflows.failed_runs_monitor.send_message_to_zulip",
                 new_callable=AsyncMock,
                 return_value={"id": 1},
             ) as mock_send,
@@ -169,11 +169,11 @@ class TestCheckFailedRuns:
                 return_value=mock_client,
             ),
             patch(
-                "reflector.tools.render_hatchet_run.render_run_detail",
+                "reflector.hatchet.workflows.failed_runs_monitor.render_run_detail",
                 return_value="**rendered**",
             ),
             patch(
-                "reflector.zulip.send_message_to_zulip",
+                "reflector.hatchet.workflows.failed_runs_monitor.send_message_to_zulip",
                 new_callable=AsyncMock,
                 return_value={"id": 1},
             ) as mock_send,
@@ -215,11 +215,11 @@ class TestCheckFailedRuns:
                 return_value=mock_client,
             ),
             patch(
-                "reflector.tools.render_hatchet_run.render_run_detail",
+                "reflector.hatchet.workflows.failed_runs_monitor.render_run_detail",
                 return_value="**rendered**",
             ),
             patch(
-                "reflector.zulip.send_message_to_zulip",
+                "reflector.hatchet.workflows.failed_runs_monitor.send_message_to_zulip",
                 new_callable=AsyncMock,
                 return_value={"id": 1},
             ) as mock_send,

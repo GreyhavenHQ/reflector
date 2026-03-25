@@ -169,9 +169,8 @@ def render_run_detail(details: V1WorkflowRunDetails) -> str:
         lines.append(f"Error: {first_line}")
     lines.append("")
 
-    # DAG Status Overview table
-    lines.append("**DAG Status Overview**")
-    lines.append("")
+    # DAG Status Overview table (collapsible)
+    lines.append("```spoiler DAG Status Overview")
     lines.append("| Node | Status | Duration | Dependencies |")
     lines.append("|------|--------|----------|--------------|")
 
@@ -199,11 +198,11 @@ def render_run_detail(details: V1WorkflowRunDetails) -> str:
 
         lines.append(f"| {name} | {icon} | {dur} | {deps} |")
 
-    lines.append("")
-    lines.append("---")
+    lines.append("```")
     lines.append("")
 
-    # Node details
+    # Node details (collapsible)
+    lines.append("```spoiler Node Details")
     for step_id in ordered:
         t = task_by_step.get(step_id)
         name = step_to_name[step_id]
@@ -285,6 +284,7 @@ def render_run_detail(details: V1WorkflowRunDetails) -> str:
 
         lines.append("")
 
+    lines.append("```")
     return "\n".join(lines)
 
 

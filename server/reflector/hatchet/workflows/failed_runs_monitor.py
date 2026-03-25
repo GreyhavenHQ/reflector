@@ -15,6 +15,8 @@ from hatchet_sdk.clients.rest.models import V1TaskStatus
 from reflector.hatchet.client import HatchetClientManager
 from reflector.logger import logger
 from reflector.settings import settings
+from reflector.tools.render_hatchet_run import render_run_detail
+from reflector.zulip import send_message_to_zulip
 
 MONITORED_PIPELINES = {
     "DiarizationPipeline",
@@ -47,6 +49,7 @@ async def _check_failed_runs() -> dict:
             statuses=[V1TaskStatus.FAILED],
             since=since,
             until=now,
+            limit=200,
         )
     except Exception:
         logger.exception("[FailedRunsMonitor] Failed to list runs from Hatchet")
@@ -70,10 +73,6 @@ async def _check_failed_runs() -> dict:
         count=len(failed_main_runs),
         since=since.isoformat(),
     )
-
-    # Deferred imports for fork-safety
-    from reflector.tools.render_hatchet_run import render_run_detail  # noqa: PLC0415
-    from reflector.zulip import send_message_to_zulip  # noqa: PLC0415
 
     reported = 0
     for run in failed_main_runs:
@@ -105,6 +104,6 @@ async def _check_failed_runs() -> dict:
     execution_timeout=timedelta(seconds=120),
     retries=1,
 )
-async def check_failed_runs(ctx: Context) -> dict:
+async def check_failed_runs(input, ctx: Context) -> dict:
     """Hatchet task entry point — delegates to _check_failed_runs."""
     return await _check_failed_runs()
