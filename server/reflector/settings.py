@@ -194,6 +194,8 @@ class Settings(BaseSettings):
     ZULIP_REALM: str | None = None
     ZULIP_API_KEY: str | None = None
     ZULIP_BOT_EMAIL: str | None = None
+    ZULIP_DAG_STREAM: str | None = None
+    ZULIP_DAG_TOPIC: str | None = None
 
     # Email / SMTP integration (for transcript email notifications)
     SMTP_HOST: str | None = None
