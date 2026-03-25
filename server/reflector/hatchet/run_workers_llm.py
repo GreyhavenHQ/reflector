@@ -16,6 +16,7 @@ from reflector.hatchet.workflows.subject_processing import subject_workflow
 from reflector.hatchet.workflows.topic_chunk_processing import topic_chunk_workflow
 from reflector.hatchet.workflows.track_processing import track_workflow
 from reflector.logger import logger
+from reflector.settings import settings
 
 SLOTS = 10
 WORKER_NAME = "llm-worker-pool"
@@ -34,6 +35,38 @@ def main():
             error=str(e),
         )
 
+    workflows = [
+        daily_multitrack_pipeline,
+        file_pipeline,
+        live_post_pipeline,
+        topic_chunk_workflow,
+        subject_workflow,
+        track_workflow,
+    ]
+
+    _zulip_dag_enabled = all(
+        [
+            settings.ZULIP_REALM,
+            settings.ZULIP_API_KEY,
+            settings.ZULIP_BOT_EMAIL,
+            settings.ZULIP_DAG_STREAM,
+            settings.ZULIP_DAG_TOPIC,
+        ]
+    )
+    if _zulip_dag_enabled:
+        from reflector.hatchet.workflows.failed_runs_monitor import (  # noqa: PLC0415
+            failed_runs_monitor,
+        )
+
+        workflows.append(failed_runs_monitor)
+        logger.info(
+            "FailedRunsMonitor cron enabled",
+            stream=settings.ZULIP_DAG_STREAM,
+            topic=settings.ZULIP_DAG_TOPIC,
+        )
+    else:
+        logger.info("FailedRunsMonitor cron disabled (Zulip DAG not configured)")
+
     logger.info(
         "Starting Hatchet LLM worker pool (all tasks except mixdown)",
         worker_name=WORKER_NAME,
@@ -47,14 +80,7 @@ def main():
         labels={
             "pool": POOL,
         },
-        workflows=[
-            daily_multitrack_pipeline,
-            file_pipeline,
-            live_post_pipeline,
-            topic_chunk_workflow,
-            subject_workflow,
-            track_workflow,
-        ],
+        workflows=workflows,
     )
 
     try:

@@ -419,3 +419,18 @@ User-room broadcasts to `user:{user_id}`:
 - `TRANSCRIPT_STATUS`
 - `TRANSCRIPT_FINAL_TITLE`
 - `TRANSCRIPT_DURATION`
+
+## Failed Runs Monitor (Hatchet Cron)
+
+A `FailedRunsMonitor` Hatchet cron workflow runs hourly (`0 * * * *`) and checks for failed pipeline runs
+(DiarizationPipeline, FilePipeline, LivePostProcessingPipeline) in the last hour. For each failed run,
+it renders a DAG status overview and posts it to Zulip.
+
+**Required env vars** (all must be set to enable):
+- `ZULIP_REALM` — Zulip server hostname
+- `ZULIP_API_KEY` — Zulip bot API key
+- `ZULIP_BOT_EMAIL` — Zulip bot email
+- `ZULIP_DAG_STREAM` — Zulip stream for alerts
+- `ZULIP_DAG_TOPIC` — Zulip topic for alerts
+
+If any of these are unset, the monitor workflow is not registered with the Hatchet worker.

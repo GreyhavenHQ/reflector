@@ -199,6 +199,11 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 | `DAILY_SUBDOMAIN` | Daily.co subdomain | *(unset)* |
 | `DAILYCO_STORAGE_AWS_ACCESS_KEY_ID` | AWS access key for reading Daily's recording bucket | *(unset)* |
 | `DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY` | AWS secret key for reading Daily's recording bucket | *(unset)* |
+| `ZULIP_REALM` | Zulip server hostname (e.g. `zulip.example.com`) | *(unset)* |
+| `ZULIP_API_KEY` | Zulip bot API key | *(unset)* |
+| `ZULIP_BOT_EMAIL` | Zulip bot email address | *(unset)* |
+| `ZULIP_DAG_STREAM` | Zulip stream for pipeline failure alerts | *(unset)* |
+| `ZULIP_DAG_TOPIC` | Zulip topic for pipeline failure alerts | *(unset)* |
 | `HATCHET_CLIENT_TOKEN` | Hatchet API token (auto-generated) | *(unset)* |
 | `HATCHET_CLIENT_SERVER_URL` | Hatchet server URL | Auto-set when Daily.co configured |
 | `HATCHET_CLIENT_HOST_PORT` | Hatchet gRPC address | Auto-set when Daily.co configured |

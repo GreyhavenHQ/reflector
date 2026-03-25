@@ -41,14 +41,14 @@ uv run celery -A reflector.worker.app beat
 
 **Testing:**
 ```bash
-# Run all tests with coverage
-uv run pytest
+# Run all tests with coverage (requires Redis on localhost)
+REDIS_HOST=localhost REDIS_PORT=6379 uv run pytest
 
 # Run specific test file
-uv run pytest tests/test_transcripts.py
+REDIS_HOST=localhost REDIS_PORT=6379 uv run pytest tests/test_transcripts.py
 
 # Run tests with verbose output
-uv run pytest -v
+REDIS_HOST=localhost REDIS_PORT=6379 uv run pytest -v
 ```
 
 **Process Audio Files:**
