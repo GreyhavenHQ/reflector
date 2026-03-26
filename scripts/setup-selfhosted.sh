@@ -4,7 +4,7 @@
 # Single script to configure and launch everything on one server.
 #
 # Usage:
-#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASSWORD] [--build]
+#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--custom-ca PATH] [--password PASSWORD] [--build]
 #
 # ML processing modes (pick ONE — required):
 #   --gpu              NVIDIA GPU container for transcription/diarization/translation
@@ -23,6 +23,13 @@
 #   --domain DOMAIN    Use a real domain for Caddy (enables Let's Encrypt auto-HTTPS)
 #                      Requires: DNS pointing to this server + ports 80/443 open
 #                      Without --domain: Caddy uses self-signed cert for IP access
+#   --custom-ca PATH   Custom CA certificate for private HTTPS services
+#                      PATH can be a directory (containing ca.crt, optionally server.pem + server-key.pem)
+#                      or a single PEM file (CA trust only, no Caddy TLS)
+#                      With server.pem+server-key.pem: Caddy serves HTTPS using those certs (requires --domain)
+#                      Without: only injects CA trust into backend containers for outbound calls
+#   --extra-ca FILE    Additional CA cert to trust (can be repeated for multiple CAs)
+#                      Appended to the CA bundle so backends trust multiple authorities
 #   --password PASS    Enable password auth with admin@localhost user
 #   --build            Build backend and frontend images from source instead of pulling
 #
@@ -35,6 +42,8 @@
 #   ./scripts/setup-selfhosted.sh --gpu --garage --caddy --password mysecretpass
 #   ./scripts/setup-selfhosted.sh --gpu --garage --caddy
 #   ./scripts/setup-selfhosted.sh --cpu
+#   ./scripts/setup-selfhosted.sh --gpu --caddy --domain reflector.local --custom-ca certs/
+#   ./scripts/setup-selfhosted.sh --hosted --custom-ca /path/to/corporate-ca.crt
 #
 # The script auto-detects Daily.co (DAILY_API_KEY) and Whereby (WHEREBY_API_KEY)
 # from server/.env. If Daily.co is configured, Hatchet workflow services are
@@ -154,16 +163,19 @@ env_set() {
 }
 
 compose_cmd() {
-    local profiles=""
+    local profiles="" files="-f $COMPOSE_FILE"
+    [[ "$USE_CUSTOM_CA" == "true" ]] && files="$files -f $ROOT_DIR/docker-compose.ca.yml"
     for p in "${COMPOSE_PROFILES[@]}"; do
         profiles="$profiles --profile $p"
     done
-    docker compose -f "$COMPOSE_FILE" $profiles "$@"
+    docker compose $files $profiles "$@"
 }
 
 # Compose command with only garage profile (for garage-only operations before full stack start)
 compose_garage_cmd() {
-    docker compose -f "$COMPOSE_FILE" --profile garage "$@"
+    local files="-f $COMPOSE_FILE"
+    [[ "$USE_CUSTOM_CA" == "true" ]] && files="$files -f $ROOT_DIR/docker-compose.ca.yml"
+    docker compose $files --profile garage "$@"
 }
 
 # --- Parse arguments ---
@@ -174,6 +186,9 @@ USE_CADDY=false
 CUSTOM_DOMAIN=""    # optional domain for Let's Encrypt HTTPS
 BUILD_IMAGES=false  # build backend/frontend from source
 ADMIN_PASSWORD=""   # optional admin password for password auth
+CUSTOM_CA=""        # --custom-ca: path to dir or CA cert file
+USE_CUSTOM_CA=false # derived flag: true when --custom-ca is provided
+EXTRA_CA_FILES=()   # --extra-ca: additional CA certs to trust (can be repeated)
 
 SKIP_NEXT=false
 ARGS=("$@")
@@ -227,18 +242,95 @@ for i in "${!ARGS[@]}"; do
             CUSTOM_DOMAIN="${ARGS[$next_i]}"
             USE_CADDY=true  # --domain implies --caddy
             SKIP_NEXT=true ;;
+        --custom-ca)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--custom-ca requires a path to a directory or PEM certificate file"
+                exit 1
+            fi
+            CUSTOM_CA="${ARGS[$next_i]}"
+            USE_CUSTOM_CA=true
+            SKIP_NEXT=true ;;
+        --extra-ca)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--extra-ca requires a path to a PEM certificate file"
+                exit 1
+            fi
+            extra_ca_file="${ARGS[$next_i]}"
+            if [[ ! -f "$extra_ca_file" ]]; then
+                err "--extra-ca file not found: $extra_ca_file"
+                exit 1
+            fi
+            EXTRA_CA_FILES+=("$extra_ca_file")
+            USE_CUSTOM_CA=true
+            SKIP_NEXT=true ;;
         *)
             err "Unknown argument: $arg"
-            err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASS] [--build]"
+            err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--custom-ca PATH] [--password PASS] [--build]"
             exit 1
             ;;
     esac
 done
 
+# --- Resolve --custom-ca flag ---
+CA_CERT_PATH=""       # resolved path to CA certificate
+TLS_CERT_PATH=""      # resolved path to server cert (optional, for Caddy TLS)
+TLS_KEY_PATH=""       # resolved path to server key (optional, for Caddy TLS)
+
+if [[ "$USE_CUSTOM_CA" == "true" ]]; then
+    # Strip trailing slashes to avoid double-slash paths
+    CUSTOM_CA="${CUSTOM_CA%/}"
+
+    if [[ -z "$CUSTOM_CA" ]] && [[ -n "${EXTRA_CA_FILES[0]+x}" ]]; then
+        # --extra-ca only (no --custom-ca): use first extra CA as the base
+        CA_CERT_PATH="${EXTRA_CA_FILES[0]}"
+        unset 'EXTRA_CA_FILES[0]'
+        EXTRA_CA_FILES=("${EXTRA_CA_FILES[@]+"${EXTRA_CA_FILES[@]}"}")
+    elif [[ -d "$CUSTOM_CA" ]]; then
+        # Directory mode: look for convention files
+        if [[ ! -f "$CUSTOM_CA/ca.crt" ]]; then
+            err "CA certificate not found: $CUSTOM_CA/ca.crt"
+            err "Directory must contain ca.crt (and optionally server.pem + server-key.pem)"
+            exit 1
+        fi
+        CA_CERT_PATH="$CUSTOM_CA/ca.crt"
+        # Server cert/key are optional — if both present, use for Caddy TLS
+        if [[ -f "$CUSTOM_CA/server.pem" ]] && [[ -f "$CUSTOM_CA/server-key.pem" ]]; then
+            TLS_CERT_PATH="$CUSTOM_CA/server.pem"
+            TLS_KEY_PATH="$CUSTOM_CA/server-key.pem"
+        elif [[ -f "$CUSTOM_CA/server.pem" ]] || [[ -f "$CUSTOM_CA/server-key.pem" ]]; then
+            warn "Found only one of server.pem/server-key.pem in $CUSTOM_CA — both are needed for Caddy TLS. Skipping."
+        fi
+    elif [[ -f "$CUSTOM_CA" ]]; then
+        # Single file mode: CA trust only (no Caddy TLS certs)
+        CA_CERT_PATH="$CUSTOM_CA"
+    else
+        err "--custom-ca path not found: $CUSTOM_CA"
+        exit 1
+    fi
+
+    # Validate PEM format
+    if ! head -1 "$CA_CERT_PATH" | grep -q "BEGIN"; then
+        err "CA certificate does not appear to be PEM format: $CA_CERT_PATH"
+        exit 1
+    fi
+
+    # If server cert/key found, require --domain and imply --caddy
+    if [[ -n "$TLS_CERT_PATH" ]]; then
+        if [[ -z "$CUSTOM_DOMAIN" ]]; then
+            err "Server cert/key found in $CUSTOM_CA but --domain not set."
+            err "Provide --domain to specify the domain name matching the certificate."
+            exit 1
+        fi
+        USE_CADDY=true  # custom TLS certs imply --caddy
+    fi
+fi
+
 if [[ -z "$MODEL_MODE" ]]; then
     err "No model mode specified. You must choose --gpu, --cpu, or --hosted."
     err ""
-    err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--password PASS] [--build]"
+    err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--custom-ca PATH] [--password PASS] [--build]"
     err ""
     err "ML processing modes (required):"
     err "  --gpu              NVIDIA GPU container for transcription/diarization/translation"
@@ -255,6 +347,8 @@ if [[ -z "$MODEL_MODE" ]]; then
     err "  --garage           Local S3-compatible storage (Garage)"
     err "  --caddy            Caddy reverse proxy with self-signed cert"
     err "  --domain DOMAIN    Use a real domain with Let's Encrypt HTTPS (implies --caddy)"
+    err "  --custom-ca PATH   Custom CA cert (dir with ca.crt[+server.pem+server-key.pem] or single PEM file)"
+    err "  --extra-ca FILE    Additional CA cert to trust (repeatable for multiple CAs)"
     err "  --password PASS    Enable password auth (admin@localhost) instead of public mode"
     err "  --build            Build backend/frontend images from source instead of pulling"
     exit 1
@@ -364,6 +458,103 @@ print(f'pbkdf2:sha256:100000\$\$' + salt + '\$\$' + dk.hex())
     fi
 
     ok "Secrets ready"
+}
+
+# =========================================================
+# Step 1b: Custom CA certificate setup
+# =========================================================
+step_custom_ca() {
+    if [[ "$USE_CUSTOM_CA" != "true" ]]; then
+        # Clean up stale override from previous runs
+        rm -f "$ROOT_DIR/docker-compose.ca.yml"
+        return
+    fi
+
+    info "Configuring custom CA certificate"
+    local certs_dir="$ROOT_DIR/certs"
+    mkdir -p "$certs_dir"
+
+    # Stage CA certificate (skip copy if source and dest are the same file)
+    local ca_dest="$certs_dir/ca.crt"
+    local src_id dst_id
+    src_id=$(ls -i "$CA_CERT_PATH" 2>/dev/null | awk '{print $1}')
+    dst_id=$(ls -i "$ca_dest" 2>/dev/null | awk '{print $1}')
+    if [[ "$src_id" != "$dst_id" ]] || [[ -z "$dst_id" ]]; then
+        cp "$CA_CERT_PATH" "$ca_dest"
+    fi
+    chmod 644 "$ca_dest"
+    ok "CA certificate staged at certs/ca.crt"
+
+    # Append extra CA certs (--extra-ca flags)
+    for extra_ca in "${EXTRA_CA_FILES[@]+"${EXTRA_CA_FILES[@]}"}"; do
+        if ! head -1 "$extra_ca" | grep -q "BEGIN"; then
+            warn "Skipping $extra_ca — does not appear to be PEM format"
+            continue
+        fi
+        echo "" >> "$ca_dest"
+        cat "$extra_ca" >> "$ca_dest"
+        ok "Appended extra CA: $extra_ca"
+    done
+
+    # Stage TLS cert/key if present (for Caddy)
+    if [[ -n "$TLS_CERT_PATH" ]]; then
+        local cert_dest="$certs_dir/server.pem"
+        local key_dest="$certs_dir/server-key.pem"
+        src_id=$(ls -i "$TLS_CERT_PATH" 2>/dev/null | awk '{print $1}')
+        dst_id=$(ls -i "$cert_dest" 2>/dev/null | awk '{print $1}')
+        if [[ "$src_id" != "$dst_id" ]] || [[ -z "$dst_id" ]]; then
+            cp "$TLS_CERT_PATH" "$cert_dest"
+            cp "$TLS_KEY_PATH" "$key_dest"
+        fi
+        chmod 644 "$cert_dest"
+        chmod 600 "$key_dest"
+        ok "TLS cert/key staged at certs/server.pem, certs/server-key.pem"
+    fi
+
+    # Generate docker-compose.ca.yml override
+    local ca_override="$ROOT_DIR/docker-compose.ca.yml"
+    cat > "$ca_override" << 'CAEOF'
+# Generated by setup-selfhosted.sh — custom CA trust for backend services.
+# Do not edit manually; re-run setup-selfhosted.sh with --custom-ca to regenerate.
+services:
+  server:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  worker:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  beat:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  hatchet-worker-llm:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  hatchet-worker-cpu:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  gpu:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  cpu:
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+  web:
+    environment:
+      NODE_EXTRA_CA_CERTS: /usr/local/share/ca-certificates/custom-ca.crt
+    volumes:
+      - ./certs/ca.crt:/usr/local/share/ca-certificates/custom-ca.crt:ro
+CAEOF
+
+    # If TLS cert/key present, also mount certs dir into Caddy
+    if [[ -n "$TLS_CERT_PATH" ]]; then
+        cat >> "$ca_override" << 'CADDYCAEOF'
+  caddy:
+    volumes:
+      - ./certs:/etc/caddy/certs:ro
+CADDYCAEOF
+    fi
+
+    ok "Generated docker-compose.ca.yml override"
 }
 
 # =========================================================
@@ -799,7 +990,25 @@ step_caddyfile() {
         rm -rf "$caddyfile"
     fi
 
-    if [[ -n "$CUSTOM_DOMAIN" ]]; then
+    if [[ -n "$TLS_CERT_PATH" ]] && [[ -n "$CUSTOM_DOMAIN" ]]; then
+        # Custom domain with user-provided TLS certificate (from --custom-ca directory)
+        cat > "$caddyfile" << CADDYEOF
+# Generated by setup-selfhosted.sh — Custom TLS cert for $CUSTOM_DOMAIN
+$CUSTOM_DOMAIN {
+    tls /etc/caddy/certs/server.pem /etc/caddy/certs/server-key.pem
+    handle /v1/* {
+        reverse_proxy server:1250
+    }
+    handle /health {
+        reverse_proxy server:1250
+    }
+    handle {
+        reverse_proxy web:3000
+    }
+}
+CADDYEOF
+        ok "Created Caddyfile for $CUSTOM_DOMAIN (custom TLS certificate)"
+    elif [[ -n "$CUSTOM_DOMAIN" ]]; then
         # Real domain: Caddy auto-provisions Let's Encrypt certificate
         cat > "$caddyfile" << CADDYEOF
 # Generated by setup-selfhosted.sh — Let's Encrypt HTTPS for $CUSTOM_DOMAIN
@@ -1170,6 +1379,8 @@ main() {
     echo "  Garage:  $USE_GARAGE"
     echo "  Caddy:   $USE_CADDY"
     [[ -n "$CUSTOM_DOMAIN" ]] && echo "  Domain:  $CUSTOM_DOMAIN"
+    [[ "$USE_CUSTOM_CA" == "true" ]] && echo "  CA:      Custom ($CUSTOM_CA)"
+    [[ -n "$TLS_CERT_PATH" ]] && echo "  TLS:     Custom cert (from $CUSTOM_CA)"
     [[ "$BUILD_IMAGES" == "true" ]] && echo "  Build:   from source"
     echo ""
 
@@ -1199,6 +1410,8 @@ main() {
     step_prerequisites
     echo ""
     step_secrets
+    echo ""
+    step_custom_ca
     echo ""
     step_server_env
     echo ""
@@ -1282,7 +1495,17 @@ EOF
     [[ "$DAILY_DETECTED" == "true" ]] && echo "  Video:   Daily.co (live rooms + multitrack processing via Hatchet)"
     [[ "$WHEREBY_DETECTED" == "true" ]] && echo "  Video:   Whereby (live rooms)"
     [[ "$ANY_PLATFORM_DETECTED" != "true" ]] && echo "  Video:   None (rooms disabled)"
+    if [[ "$USE_CUSTOM_CA" == "true" ]]; then
+        echo "  CA:      Custom (certs/ca.crt)"
+        [[ -n "$TLS_CERT_PATH" ]] && echo "  TLS:     Custom cert (certs/server.pem)"
+    fi
     echo ""
+    if [[ "$USE_CUSTOM_CA" == "true" ]]; then
+        echo "  NOTE: Clients must trust the CA certificate to avoid browser warnings."
+        echo "        CA cert location: certs/ca.crt"
+        echo "        See docsv2/custom-ca-setup.md for instructions."
+        echo ""
+    fi
     echo "  To stop:   docker compose -f docker-compose.selfhosted.yml down"
     echo "  To re-run: ./scripts/setup-selfhosted.sh $*"
     echo ""

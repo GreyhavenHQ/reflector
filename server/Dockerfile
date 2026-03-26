@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # builder install base dependencies
 WORKDIR /tmp
-RUN apt-get update && apt-get install -y curl ffmpeg && apt-get clean
+RUN apt-get update && apt-get install -y curl ffmpeg ca-certificates && apt-get clean
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh
 ENV PATH="/root/.local/bin/:$PATH"
@@ -18,7 +18,7 @@ COPY pyproject.toml uv.lock README.md /app/
 RUN uv sync --compile-bytecode --locked
 
 # bootstrap
-COPY alembic.ini runserver.sh /app/
+COPY alembic.ini docker-entrypoint.sh runserver.sh /app/
 COPY images /app/images
 COPY migrations /app/migrations
 COPY reflector /app/reflector
@@ -35,4 +35,6 @@ RUN if [ "$(uname -m)" = "aarch64" ] && [ ! -f /usr/lib/libgomp.so.1 ]; then \
 # Pre-check just to make sure the image will not fail
 RUN uv run python -c "import silero_vad.model"
 
-CMD ["./runserver.sh"]
+RUN chmod +x /app/docker-entrypoint.sh
+
+CMD ["./docker-entrypoint.sh"]

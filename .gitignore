@@ -24,5 +24,10 @@ www/.env.production
 .secrets
 opencode.json
 
+certs/
+docker-compose.ca.yml
+docker-compose.gpu-ca.yml
+Caddyfile.gpu-host
+.env.gpu-host
 vibedocs/
 server/tests/integration/logs/
