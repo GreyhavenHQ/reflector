@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.42.0](https://github.com/GreyhavenHQ/reflector/compare/v0.41.0...v0.42.0) (2026-03-30)
+
+
+### Features
+
+* custom ca for caddy ([#931](https://github.com/GreyhavenHQ/reflector/issues/931)) ([12bf0c2](https://github.com/GreyhavenHQ/reflector/commit/12bf0c2d77f9915b79b1eb1decd77ed2dadbb31d))
+* mixdown modal services + processor pattern ([#936](https://github.com/GreyhavenHQ/reflector/issues/936)) ([d164e48](https://github.com/GreyhavenHQ/reflector/commit/d164e486cc33ff8babf6cff6c163893cfc56fd76))
+
+
+### Bug Fixes
+
+* grpc tls for local hatchet ([#937](https://github.com/GreyhavenHQ/reflector/issues/937)) ([a22789d](https://github.com/GreyhavenHQ/reflector/commit/a22789d5486bf8b83e33ab2fb5eb3ee9799c6d47))
+* remove share public from integration tests ([#938](https://github.com/GreyhavenHQ/reflector/issues/938)) ([7b3b5b9](https://github.com/GreyhavenHQ/reflector/commit/7b3b5b98586449afd0b6996ba9fd7aec8308bbc6))
+
 ## [0.41.0](https://github.com/GreyhavenHQ/reflector/compare/v0.40.0...v0.41.0) (2026-03-25)
 
 
