@@ -158,6 +158,55 @@ Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse pr
 
 **Without a domain:** `--caddy` alone uses a self-signed certificate. Browsers will show a security warning that must be accepted.
 
+## Per-Service Backend Overrides
+
+Override individual ML services without changing the base mode. Useful when you want most services on one backend but need specific services on another.
+
+| Flag | Valid backends | Default (`--gpu`/`--hosted`) | Default (`--cpu`) |
+|------|---------------|------------------------------|-------------------|
+| `--transcript BACKEND` | `whisper`, `modal` | `modal` | `whisper` |
+| `--diarization BACKEND` | `pyannote`, `modal` | `modal` | `pyannote` |
+| `--translation BACKEND` | `marian`, `modal`, `passthrough` | `modal` | `marian` |
+| `--padding BACKEND` | `pyav`, `modal` | `modal` | `pyav` |
+
+**Examples:**
+
+```bash
+# CPU base, but use a remote modal service for padding only
+./scripts/setup-selfhosted.sh --cpu --padding modal --garage --caddy
+
+# GPU base, but skip translation entirely (passthrough)
+./scripts/setup-selfhosted.sh --gpu --translation passthrough --garage --caddy
+
+# CPU base with remote modal diarization and translation
+./scripts/setup-selfhosted.sh --cpu --diarization modal --translation modal --garage
+```
+
+When overriding a service to `modal` in `--cpu` mode, the script will warn you to configure the service URL (`TRANSCRIPT_URL` etc.) in `server/.env` to point to your GPU service, then re-run.
+
+When overriding a service to a CPU backend (e.g., `--transcript whisper`) in `--gpu` mode, that service runs in-process on the server/worker containers while the GPU container still serves the remaining `modal` services.
+
+## Config Memory (No-Flag Re-run)
+
+After a successful run, the script saves your CLI arguments to `data/.selfhosted-last-args`. On subsequent runs with no arguments, the saved configuration is automatically replayed:
+
+```bash
+# First run — saves the config
+./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy
+
+# Later re-runs — same config, no flags needed
+./scripts/setup-selfhosted.sh
+# => "No flags provided — replaying saved configuration:"
+# => "  --gpu --ollama-gpu --garage --caddy"
+```
+
+To change the configuration, pass new flags — they override and replace the saved config:
+
+```bash
+# Switch to CPU mode with overrides — this becomes the new saved config
+./scripts/setup-selfhosted.sh --cpu --padding modal --garage --caddy
+```
+
 ## What the Script Does
 
 1. **Prerequisites check** — Docker, NVIDIA GPU (if needed), compose file exists
@@ -576,9 +625,9 @@ docker compose -f docker-compose.selfhosted.yml exec gpu curl http://localhost:8
 ## Updating
 
 ```bash
-# Option A: Pull latest prebuilt images and restart
+# Option A: Pull latest prebuilt images and restart (replays saved config automatically)
 docker compose -f docker-compose.selfhosted.yml down
-./scripts/setup-selfhosted.sh <same-flags-as-before>
+./scripts/setup-selfhosted.sh
 
 # Option B: Build from source (after git pull) and restart
 git pull
@@ -588,6 +637,8 @@ docker compose -f docker-compose.selfhosted.yml down
 # Rebuild only the GPU/CPU model image (picks up model updates)
 docker compose -f docker-compose.selfhosted.yml build gpu  # or cpu
 ```
+
+> **Note on config memory:** Running with no flags replays the saved config from your last run. Running with *any* flags replaces the saved config entirely — the script always saves the complete set of flags you provide. See [Config Memory](#config-memory-no-flag-re-run).
 
 The setup script is idempotent — it won't overwrite existing secrets or env vars that are already set.
 

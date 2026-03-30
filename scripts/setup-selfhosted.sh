@@ -4,12 +4,19 @@
 # Single script to configure and launch everything on one server.
 #
 # Usage:
-#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--custom-ca PATH] [--password PASSWORD] [--build]
+#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND]
+#   ./scripts/setup-selfhosted.sh                        (re-run with saved config from last run)
 #
-# ML processing modes (pick ONE — required):
+# ML processing modes (pick ONE — required on first run):
 #   --gpu              NVIDIA GPU container for transcription/diarization/translation
 #   --cpu              In-process CPU processing (no ML container, slower)
 #   --hosted           Remote GPU service URL (no ML container)
+#
+# Per-service backend overrides (optional — override individual services from the base mode):
+#   --transcript BACKEND    whisper | modal  (default: whisper for --cpu, modal for --gpu/--hosted)
+#   --diarization BACKEND   pyannote | modal (default: pyannote for --cpu, modal for --gpu/--hosted)
+#   --translation BACKEND   marian | modal | passthrough (default: marian for --cpu, modal for --gpu/--hosted)
+#   --padding BACKEND       pyav | modal     (default: pyav for --cpu, modal for --gpu/--hosted)
 #
 # Local LLM (optional — for summarization & topic detection):
 #   --ollama-gpu       Local Ollama with NVIDIA GPU acceleration
@@ -38,12 +45,17 @@
 #   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --domain reflector.example.com
 #   ./scripts/setup-selfhosted.sh --cpu --ollama-cpu --garage --caddy
 #   ./scripts/setup-selfhosted.sh --hosted --garage --caddy
+#   ./scripts/setup-selfhosted.sh --cpu --padding modal --garage --caddy
+#   ./scripts/setup-selfhosted.sh --gpu --translation passthrough --garage --caddy
+#   ./scripts/setup-selfhosted.sh --cpu --diarization modal --translation modal --garage
 #   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --llm-model mistral --garage --caddy
 #   ./scripts/setup-selfhosted.sh --gpu --garage --caddy --password mysecretpass
-#   ./scripts/setup-selfhosted.sh --gpu --garage --caddy
-#   ./scripts/setup-selfhosted.sh --cpu
 #   ./scripts/setup-selfhosted.sh --gpu --caddy --domain reflector.local --custom-ca certs/
 #   ./scripts/setup-selfhosted.sh --hosted --custom-ca /path/to/corporate-ca.crt
+#   ./scripts/setup-selfhosted.sh                       # re-run with saved config
+#
+# Config memory: after a successful run, flags are saved to data/.selfhosted-last-args.
+# Re-running with no arguments replays the saved configuration automatically.
 #
 # The script auto-detects Daily.co (DAILY_API_KEY) and Whereby (WHEREBY_API_KEY)
 # from server/.env. If Daily.co is configured, Hatchet workflow services are
@@ -59,6 +71,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.selfhosted.yml"
 SERVER_ENV="$ROOT_DIR/server/.env"
 WWW_ENV="$ROOT_DIR/www/.env"
+LAST_ARGS_FILE="$ROOT_DIR/data/.selfhosted-last-args"
 
 OLLAMA_MODEL="qwen2.5:14b"
 OS="$(uname -s)"
@@ -178,6 +191,17 @@ compose_garage_cmd() {
     docker compose $files --profile garage "$@"
 }
 
+# --- Config memory: replay last args if none provided ---
+if [[ $# -eq 0 ]] && [[ -f "$LAST_ARGS_FILE" ]]; then
+    SAVED_ARGS="$(cat "$LAST_ARGS_FILE")"
+    if [[ -n "$SAVED_ARGS" ]]; then
+        info "No flags provided — replaying saved configuration:"
+        info "  $SAVED_ARGS"
+        echo ""
+        eval "set -- $SAVED_ARGS"
+    fi
+fi
+
 # --- Parse arguments ---
 MODEL_MODE=""       # gpu or cpu (required, mutually exclusive)
 OLLAMA_MODE=""      # ollama-gpu or ollama-cpu (optional)
@@ -189,6 +213,18 @@ ADMIN_PASSWORD=""   # optional admin password for password auth
 CUSTOM_CA=""        # --custom-ca: path to dir or CA cert file
 USE_CUSTOM_CA=false # derived flag: true when --custom-ca is provided
 EXTRA_CA_FILES=()   # --extra-ca: additional CA certs to trust (can be repeated)
+OVERRIDE_TRANSCRIPT=""    # per-service override: whisper | modal
+OVERRIDE_DIARIZATION=""   # per-service override: pyannote | modal
+OVERRIDE_TRANSLATION=""   # per-service override: marian | modal | passthrough
+OVERRIDE_PADDING=""       # per-service override: pyav | modal
+
+# Validate per-service backend override values
+validate_backend() {
+    local service="$1" value="$2"; shift 2; local valid=("$@")
+    for v in "${valid[@]}"; do [[ "$value" == "$v" ]] && return 0; done
+    err "--$service value '$value' is not valid. Choose one of: ${valid[*]}"
+    exit 1
+}
 
 SKIP_NEXT=false
 ARGS=("$@")
@@ -265,13 +301,55 @@ for i in "${!ARGS[@]}"; do
             EXTRA_CA_FILES+=("$extra_ca_file")
             USE_CUSTOM_CA=true
             SKIP_NEXT=true ;;
+        --transcript)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--transcript requires a backend (whisper | modal)"
+                exit 1
+            fi
+            validate_backend "transcript" "${ARGS[$next_i]}" whisper modal
+            OVERRIDE_TRANSCRIPT="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
+        --diarization)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--diarization requires a backend (pyannote | modal)"
+                exit 1
+            fi
+            validate_backend "diarization" "${ARGS[$next_i]}" pyannote modal
+            OVERRIDE_DIARIZATION="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
+        --translation)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--translation requires a backend (marian | modal | passthrough)"
+                exit 1
+            fi
+            validate_backend "translation" "${ARGS[$next_i]}" marian modal passthrough
+            OVERRIDE_TRANSLATION="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
+        --padding)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--padding requires a backend (pyav | modal)"
+                exit 1
+            fi
+            validate_backend "padding" "${ARGS[$next_i]}" pyav modal
+            OVERRIDE_PADDING="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
         *)
             err "Unknown argument: $arg"
-            err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--custom-ca PATH] [--password PASS] [--build]"
+            err "Usage: $0 <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND]"
             exit 1
             ;;
     esac
 done
+
+# --- Save CLI args for config memory (re-run without flags) ---
+if [[ $# -gt 0 ]]; then
+    mkdir -p "$ROOT_DIR/data"
+    printf '%q ' "$@" > "$LAST_ARGS_FILE"
+fi
 
 # --- Resolve --custom-ca flag ---
 CA_CERT_PATH=""       # resolved path to CA certificate
@@ -330,12 +408,18 @@ fi
 if [[ -z "$MODEL_MODE" ]]; then
     err "No model mode specified. You must choose --gpu, --cpu, or --hosted."
     err ""
-    err "Usage: $0 <--gpu|--cpu|--hosted> [--ollama-gpu|--ollama-cpu] [--llm-model MODEL] [--garage] [--caddy] [--domain DOMAIN] [--custom-ca PATH] [--password PASS] [--build]"
+    err "Usage: $0 <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND]"
     err ""
     err "ML processing modes (required):"
     err "  --gpu              NVIDIA GPU container for transcription/diarization/translation"
     err "  --cpu              In-process CPU processing (no ML container, slower)"
     err "  --hosted           Remote GPU service URL (no ML container)"
+    err ""
+    err "Per-service backend overrides (optional — override individual services):"
+    err "  --transcript BACKEND    whisper | modal  (default: whisper for --cpu, modal for --gpu/--hosted)"
+    err "  --diarization BACKEND   pyannote | modal (default: pyannote for --cpu, modal for --gpu/--hosted)"
+    err "  --translation BACKEND   marian | modal | passthrough (default: marian for --cpu, modal for --gpu/--hosted)"
+    err "  --padding BACKEND       pyav | modal     (default: pyav for --cpu, modal for --gpu/--hosted)"
     err ""
     err "Local LLM (optional):"
     err "  --ollama-gpu       Local Ollama with GPU (for summarization/topics)"
@@ -351,6 +435,8 @@ if [[ -z "$MODEL_MODE" ]]; then
     err "  --extra-ca FILE    Additional CA cert to trust (repeatable for multiple CAs)"
     err "  --password PASS    Enable password auth (admin@localhost) instead of public mode"
     err "  --build            Build backend/frontend images from source instead of pulling"
+    err ""
+    err "Tip: After your first run, re-run with no flags to reuse the same configuration."
     exit 1
 fi
 
@@ -374,9 +460,35 @@ OLLAMA_SVC=""
 [[ "$OLLAMA_MODE" == "ollama-gpu" ]] && USES_OLLAMA=true && OLLAMA_SVC="ollama"
 [[ "$OLLAMA_MODE" == "ollama-cpu" ]] && USES_OLLAMA=true && OLLAMA_SVC="ollama-cpu"
 
+# Resolve effective backend per service (override wins over base mode default)
+case "$MODEL_MODE" in
+    gpu|hosted)
+        EFF_TRANSCRIPT="${OVERRIDE_TRANSCRIPT:-modal}"
+        EFF_DIARIZATION="${OVERRIDE_DIARIZATION:-modal}"
+        EFF_TRANSLATION="${OVERRIDE_TRANSLATION:-modal}"
+        EFF_PADDING="${OVERRIDE_PADDING:-modal}"
+        ;;
+    cpu)
+        EFF_TRANSCRIPT="${OVERRIDE_TRANSCRIPT:-whisper}"
+        EFF_DIARIZATION="${OVERRIDE_DIARIZATION:-pyannote}"
+        EFF_TRANSLATION="${OVERRIDE_TRANSLATION:-marian}"
+        EFF_PADDING="${OVERRIDE_PADDING:-pyav}"
+        ;;
+esac
+
+# Check if any per-service overrides were provided
+HAS_OVERRIDES=false
+[[ -n "$OVERRIDE_TRANSCRIPT" ]] && HAS_OVERRIDES=true
+[[ -n "$OVERRIDE_DIARIZATION" ]] && HAS_OVERRIDES=true
+[[ -n "$OVERRIDE_TRANSLATION" ]] && HAS_OVERRIDES=true
+[[ -n "$OVERRIDE_PADDING" ]] && HAS_OVERRIDES=true
+
 # Human-readable mode string for display
 MODE_DISPLAY="$MODEL_MODE"
 [[ -n "$OLLAMA_MODE" ]] && MODE_DISPLAY="$MODEL_MODE + $OLLAMA_MODE"
+if [[ "$HAS_OVERRIDES" == "true" ]]; then
+    MODE_DISPLAY="$MODE_DISPLAY (overrides: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING)"
+fi
 
 # =========================================================
 # Step 0: Prerequisites
@@ -623,54 +735,30 @@ step_server_env() {
         env_set "$SERVER_ENV" "WEBRTC_HOST" "$PRIMARY_IP"
     fi
 
-    # Specialized models — backend configuration per mode
+    # Specialized models — backend configuration per service
     env_set "$SERVER_ENV" "DIARIZATION_ENABLED" "true"
+
+    # Resolve the URL for modal backends
+    local modal_url=""
     case "$MODEL_MODE" in
         gpu)
-            # GPU container aliased as "transcription" on docker network
-            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "modal"
-            env_set "$SERVER_ENV" "TRANSCRIPT_URL" "http://transcription:8000"
-            env_set "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY" "selfhosted"
-            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "modal"
-            env_set "$SERVER_ENV" "DIARIZATION_URL" "http://transcription:8000"
-            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
-            env_set "$SERVER_ENV" "TRANSLATE_URL" "http://transcription:8000"
-            env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
-            env_set "$SERVER_ENV" "PADDING_URL" "http://transcription:8000"
-            ok "ML backends: GPU container (modal)"
-            ;;
-        cpu)
-            # In-process backends — no ML service container needed
-            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "whisper"
-            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "pyannote"
-            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "marian"
-            env_set "$SERVER_ENV" "PADDING_BACKEND" "pyav"
-            ok "ML backends: in-process CPU (whisper/pyannote/marian/pyav)"
+            modal_url="http://transcription:8000"
             ;;
         hosted)
             # Remote GPU service — user provides URL
-            local gpu_url=""
             if env_has_key "$SERVER_ENV" "TRANSCRIPT_URL"; then
-                gpu_url=$(env_get "$SERVER_ENV" "TRANSCRIPT_URL")
+                modal_url=$(env_get "$SERVER_ENV" "TRANSCRIPT_URL")
             fi
-            if [[ -z "$gpu_url" ]] && [[ -t 0 ]]; then
+            if [[ -z "$modal_url" ]] && [[ -t 0 ]]; then
                 echo ""
                 info "Enter the URL of your remote GPU service (e.g. https://gpu.example.com)"
-                read -rp "  GPU service URL: " gpu_url
+                read -rp "  GPU service URL: " modal_url
             fi
-            if [[ -z "$gpu_url" ]]; then
+            if [[ -z "$modal_url" ]]; then
                 err "GPU service URL required for --hosted mode."
                 err "Set TRANSCRIPT_URL in server/.env or provide it interactively."
                 exit 1
             fi
-            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "modal"
-            env_set "$SERVER_ENV" "TRANSCRIPT_URL" "$gpu_url"
-            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "modal"
-            env_set "$SERVER_ENV" "DIARIZATION_URL" "$gpu_url"
-            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
-            env_set "$SERVER_ENV" "TRANSLATE_URL" "$gpu_url"
-            env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
-            env_set "$SERVER_ENV" "PADDING_URL" "$gpu_url"
             # API key for remote service
             local gpu_api_key=""
             if env_has_key "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY"; then
@@ -682,15 +770,92 @@ step_server_env() {
             if [[ -n "$gpu_api_key" ]]; then
                 env_set "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY" "$gpu_api_key"
             fi
-            ok "ML backends: remote hosted ($gpu_url)"
+            ;;
+        cpu)
+            # CPU mode: modal_url stays empty. If services are overridden to modal,
+            # the user must configure the URL (TRANSCRIPT_URL etc.) in server/.env manually.
+            # We intentionally do NOT read from existing env here to avoid overwriting
+            # per-service URLs with a stale TRANSCRIPT_URL from a previous --gpu run.
             ;;
     esac
 
+    # Set each service backend independently using effective backends
+    # Transcript
+    case "$EFF_TRANSCRIPT" in
+        modal)
+            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "modal"
+            if [[ -n "$modal_url" ]]; then
+                env_set "$SERVER_ENV" "TRANSCRIPT_URL" "$modal_url"
+            fi
+            [[ "$MODEL_MODE" == "gpu" ]] && env_set "$SERVER_ENV" "TRANSCRIPT_MODAL_API_KEY" "selfhosted"
+            ;;
+        whisper)
+            env_set "$SERVER_ENV" "TRANSCRIPT_BACKEND" "whisper"
+            ;;
+    esac
+
+    # Diarization
+    case "$EFF_DIARIZATION" in
+        modal)
+            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "modal"
+            if [[ -n "$modal_url" ]]; then
+                env_set "$SERVER_ENV" "DIARIZATION_URL" "$modal_url"
+            fi
+            ;;
+        pyannote)
+            env_set "$SERVER_ENV" "DIARIZATION_BACKEND" "pyannote"
+            ;;
+    esac
+
+    # Translation
+    case "$EFF_TRANSLATION" in
+        modal)
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "modal"
+            if [[ -n "$modal_url" ]]; then
+                env_set "$SERVER_ENV" "TRANSLATE_URL" "$modal_url"
+            fi
+            ;;
+        marian)
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "marian"
+            ;;
+        passthrough)
+            env_set "$SERVER_ENV" "TRANSLATION_BACKEND" "passthrough"
+            ;;
+    esac
+
+    # Padding
+    case "$EFF_PADDING" in
+        modal)
+            env_set "$SERVER_ENV" "PADDING_BACKEND" "modal"
+            if [[ -n "$modal_url" ]]; then
+                env_set "$SERVER_ENV" "PADDING_URL" "$modal_url"
+            fi
+            ;;
+        pyav)
+            env_set "$SERVER_ENV" "PADDING_BACKEND" "pyav"
+            ;;
+    esac
+
+    # Warn about modal overrides in CPU mode that need URL configuration
+    if [[ "$MODEL_MODE" == "cpu" ]] && [[ -z "$modal_url" ]]; then
+        local needs_url=false
+        [[ "$EFF_TRANSCRIPT" == "modal" ]] && needs_url=true
+        [[ "$EFF_DIARIZATION" == "modal" ]] && needs_url=true
+        [[ "$EFF_TRANSLATION" == "modal" ]] && needs_url=true
+        [[ "$EFF_PADDING" == "modal" ]] && needs_url=true
+        if [[ "$needs_url" == "true" ]]; then
+            warn "One or more services are set to 'modal' but no service URL is configured."
+            warn "Set TRANSCRIPT_URL (and optionally TRANSCRIPT_MODAL_API_KEY) in server/.env"
+            warn "to point to your GPU service, then re-run this script."
+        fi
+    fi
+
+    ok "ML backends: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING"
+
     # HuggingFace token for gated models (pyannote diarization)
-    # --gpu: written to root .env (docker compose passes to GPU container)
-    # --cpu: written to both root .env and server/.env (in-process pyannote needs it)
-    # --hosted: not needed (remote service handles its own auth)
-    if [[ "$MODEL_MODE" != "hosted" ]]; then
+    # Needed when: GPU container is running (MODEL_MODE=gpu), or diarization uses pyannote in-process
+    # Not needed when: all modal services point to a remote hosted URL with its own auth
+    if [[ "$MODEL_MODE" == "gpu" ]] || [[ "$EFF_DIARIZATION" == "pyannote" ]]; then
         local root_env="$ROOT_DIR/.env"
         local current_hf_token="${HF_TOKEN:-}"
         if [[ -f "$root_env" ]] && env_has_key "$root_env" "HF_TOKEN"; then
@@ -709,8 +874,8 @@ step_server_env() {
             touch "$root_env"
             env_set "$root_env" "HF_TOKEN" "$current_hf_token"
             export HF_TOKEN="$current_hf_token"
-            # In CPU mode, server process needs HF_TOKEN directly
-            if [[ "$MODEL_MODE" == "cpu" ]]; then
+            # When diarization runs in-process (pyannote), server process needs HF_TOKEN directly
+            if [[ "$EFF_DIARIZATION" == "pyannote" ]]; then
                 env_set "$SERVER_ENV" "HF_TOKEN" "$current_hf_token"
             fi
             ok "HF_TOKEN configured"
@@ -743,11 +908,15 @@ step_server_env() {
         fi
     fi
 
-    # CPU mode: increase file processing timeouts (default 600s is too short for long audio on CPU)
-    if [[ "$MODEL_MODE" == "cpu" ]]; then
+    # Increase file processing timeouts for CPU backends (default 600s is too short for long audio on CPU)
+    if [[ "$EFF_TRANSCRIPT" == "whisper" ]]; then
         env_set "$SERVER_ENV" "TRANSCRIPT_FILE_TIMEOUT" "3600"
+    fi
+    if [[ "$EFF_DIARIZATION" == "pyannote" ]]; then
         env_set "$SERVER_ENV" "DIARIZATION_FILE_TIMEOUT" "3600"
-        ok "CPU mode — file processing timeouts set to 3600s (1 hour)"
+    fi
+    if [[ "$EFF_TRANSCRIPT" == "whisper" ]] || [[ "$EFF_DIARIZATION" == "pyannote" ]]; then
+        ok "CPU backend(s) detected — file processing timeouts set to 3600s (1 hour)"
     fi
 
     # Hatchet is always required (file, live, and multitrack pipelines all use it)
@@ -1175,9 +1344,9 @@ step_health() {
             warn "Check with: docker compose -f docker-compose.selfhosted.yml logs gpu"
         fi
     elif [[ "$MODEL_MODE" == "cpu" ]]; then
-        ok "CPU mode — ML processing runs in-process on server/worker (no separate service)"
+        ok "CPU mode — in-process backends run on server/worker (transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING)"
     elif [[ "$MODEL_MODE" == "hosted" ]]; then
-        ok "Hosted mode — ML processing via remote GPU service (no local health check)"
+        ok "Hosted mode — ML processing via remote GPU service (transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING)"
     fi
 
     # Ollama (if applicable)
@@ -1375,6 +1544,10 @@ main() {
     echo "=========================================="
     echo ""
     echo "  Models:  $MODEL_MODE"
+    if [[ "$HAS_OVERRIDES" == "true" ]]; then
+        echo "           transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION"
+        echo "           translation=$EFF_TRANSLATION, padding=$EFF_PADDING"
+    fi
     echo "  LLM:     ${OLLAMA_MODE:-external}"
     echo "  Garage:  $USE_GARAGE"
     echo "  Caddy:   $USE_CADDY"
@@ -1487,7 +1660,13 @@ EOF
         echo "    API:       server:1250 (or localhost:1250 from host)"
     fi
     echo ""
-    echo "  Models:  $MODEL_MODE (transcription/diarization/translation)"
+    if [[ "$HAS_OVERRIDES" == "true" ]]; then
+        echo "  Models:  $MODEL_MODE base + overrides"
+        echo "           transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION"
+        echo "           translation=$EFF_TRANSLATION, padding=$EFF_PADDING"
+    else
+        echo "  Models:  $MODEL_MODE (transcription/diarization/translation/padding)"
+    fi
     [[ "$USE_GARAGE" == "true" ]] && echo "  Storage: Garage (local S3)"
     [[ "$USE_GARAGE" != "true" ]] && echo "  Storage: External S3"
     [[ "$USES_OLLAMA" == "true" ]] && echo "  LLM:     Ollama ($OLLAMA_MODEL) for summarization/topics"
@@ -1507,7 +1686,8 @@ EOF
         echo ""
     fi
     echo "  To stop:   docker compose -f docker-compose.selfhosted.yml down"
-    echo "  To re-run: ./scripts/setup-selfhosted.sh $*"
+    echo "  To re-run: ./scripts/setup-selfhosted.sh          (replays saved config)"
+    echo "  Last args: $*"
     echo ""
 }
 

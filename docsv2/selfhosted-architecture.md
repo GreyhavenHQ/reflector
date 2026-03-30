@@ -24,6 +24,8 @@ This document explains the internals of the self-hosted deployment: how the setu
 The self-hosted deployment runs the entire Reflector platform on a single server using Docker Compose. A single bash script (`scripts/setup-selfhosted.sh`) handles all configuration and orchestration. The key design principles are:
 
 - **One command to deploy** — flags select which features to enable
+- **Config memory** — CLI args are saved to `data/.selfhosted-last-args`; re-run with no flags to replay
+- **Per-service overrides** — individual ML backends (transcript, diarization, translation, padding) can be overridden independently from the base mode
 - **Idempotent** — safe to re-run without losing existing configuration
 - **Profile-based composition** — Docker Compose profiles activate optional services
 - **No external dependencies required** — with `--garage` and `--ollama-*`, everything runs locally
@@ -61,8 +63,9 @@ Creates or updates the backend environment file from `server/.env.selfhosted.exa
 - **Infrastructure** — PostgreSQL URL, Redis host, Celery broker (all pointing to Docker-internal hostnames)
 - **Public URLs** — `BASE_URL` and `CORS_ORIGIN` computed from the domain (if `--domain`), IP (if detected on Linux), or `localhost`
 - **WebRTC** — `WEBRTC_HOST` set to the server's LAN IP so browsers can reach UDP ICE candidates
-- **Specialized models** — always points to `http://transcription:8000` (the Docker network alias shared by GPU and CPU containers)
-- **HuggingFace token** — prompts interactively for pyannote model access; writes to root `.env` so Docker Compose can inject it into GPU/CPU containers
+- **ML backends (per-service)** — Each ML service (transcript, diarization, translation, padding) is configured independently using "effective backends" (`EFF_TRANSCRIPT`, `EFF_DIARIZATION`, `EFF_TRANSLATION`, `EFF_PADDING`). These are resolved from the base mode default + any `--transcript`/`--diarization`/`--translation`/`--padding` overrides. For `modal` backends, the URL is `http://transcription:8000` (GPU mode), user-provided (hosted mode), or read from existing env (CPU mode with override). For CPU backends, no URL is needed (in-process). If a service is overridden to `modal` in CPU mode without a URL configured, the script warns the user to set `TRANSCRIPT_URL` in `server/.env`
+- **CPU timeouts** — `TRANSCRIPT_FILE_TIMEOUT` and `DIARIZATION_FILE_TIMEOUT` are increased to 3600s only for services actually using CPU backends (whisper/pyannote), not blanket for the whole mode
+- **HuggingFace token** — prompted when diarization uses `pyannote` (in-process) or when GPU mode is active (GPU container needs it). Writes to root `.env` so Docker Compose can inject it into GPU/CPU containers
 - **LLM** — if `--ollama-*` is used, configures `LLM_URL` pointing to the Ollama container. Otherwise, warns that the user needs to configure an external LLM
 - **Public mode** — sets `PUBLIC_MODE=true` so the app is accessible without authentication by default
 - **Password auth** — if `--password` is passed, sets `AUTH_BACKEND=password`, `PUBLIC_MODE=false`, `ADMIN_EMAIL=admin@localhost`, and `ADMIN_PASSWORD_HASH` (the hash generated in Step 1). The admin user is provisioned in the database on container startup via `runserver.sh`
@@ -228,11 +231,18 @@ Both the `gpu` and `cpu` services define a Docker network alias of `transcriptio
 Environment variables flow through multiple layers. Understanding this prevents confusion when debugging:
 
 ```
-Flags (--gpu, --garage, etc.)
+CLI args (--gpu, --garage, --padding modal, etc.)
   │
-  ├── setup-selfhosted.sh interprets flags
+  ├── Config memory: saved to data/.selfhosted-last-args
+  │   (replayed on next run if no args provided)
+  │
+  ├── setup-selfhosted.sh resolves effective backends:
+  │     EFF_TRANSCRIPT  = override or base mode default
+  │     EFF_DIARIZATION = override or base mode default
+  │     EFF_TRANSLATION = override or base mode default
+  │     EFF_PADDING     = override or base mode default
   │     │
-  │     ├── Writes server/.env (backend config)
+  │     ├── Writes server/.env (backend config, per-service backends)
   │     ├── Writes www/.env (frontend config)
   │     ├── Writes .env (HF_TOKEN for compose interpolation)
   │     └── Writes Caddyfile (proxy routes)
