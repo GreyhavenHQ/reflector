@@ -162,15 +162,9 @@ async def test_multitrack_pipeline_end_to_end(
     ), f"Expected at least 2 speakers for multitrack, got {len(participants)}"
 
     # 7. Verify email transcript notification
-    # The send_email pipeline task should have:
-    #   a) Set the transcript to public share_mode
-    #   b) Sent an email to TEST_EMAIL via Mailpit
-    transcript_resp = await api_client.get(f"/transcripts/{transcript_id}")
-    transcript_resp.raise_for_status()
-    transcript_data = transcript_resp.json()
-    assert (
-        transcript_data.get("share_mode") == "public"
-    ), "Transcript should be set to public when email recipients exist"
+    # The send_email pipeline task should have sent an email to TEST_EMAIL via Mailpit.
+    # Note: share_mode is only set to "public" when meeting has email_recipients;
+    # room-level emails do NOT change share_mode.
 
     # Poll Mailpit for the delivered email (send_email task runs async after finalize)
     messages = await poll_mailpit_messages(mailpit_client, TEST_EMAIL, max_wait=30)
