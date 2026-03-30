@@ -127,6 +127,14 @@ class Settings(BaseSettings):
     PADDING_URL: str | None = None
     PADDING_MODAL_API_KEY: str | None = None
 
+    # Audio Mixdown
+    # backends:
+    #   - pyav: in-process PyAV mixdown (no HTTP, runs in same process)
+    #   - modal: HTTP API client (works with Modal.com OR self-hosted gpu/self_hosted/)
+    MIXDOWN_BACKEND: str = "pyav"
+    MIXDOWN_URL: str | None = None
+    MIXDOWN_MODAL_API_KEY: str | None = None
+
     # Sentry
     SENTRY_DSN: str | None = None
 
