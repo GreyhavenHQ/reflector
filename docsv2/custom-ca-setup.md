@@ -199,7 +199,8 @@ Each backend container (server, worker, beat, hatchet workers, GPU) has an entry
 | `SSL_CERT_FILE` | httpx, OpenAI SDK, llama-index, Python ssl module |
 | `REQUESTS_CA_BUNDLE` | requests library (transitive dependencies) |
 | `CURL_CA_BUNDLE` | curl CLI (container healthchecks) |
-| `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` | grpcio (Hatchet gRPC client) |
+
+Note: `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` is intentionally NOT set. Setting it causes grpcio to attempt TLS on internal Hatchet gRPC connections that run without TLS, resulting in handshake failures. The internal Hatchet connection uses `HATCHET_CLIENT_TLS_STRATEGY=none` (plaintext).
 
 When no CA cert is mounted, the entrypoint is a no-op — containers behave exactly as before.
 

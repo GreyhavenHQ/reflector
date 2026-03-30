@@ -15,7 +15,8 @@ if [ -s "$CUSTOM_CA_PATH" ]; then
     export SSL_CERT_FILE="$COMBINED_BUNDLE"
     export REQUESTS_CA_BUNDLE="$COMBINED_BUNDLE"
     export CURL_CA_BUNDLE="$COMBINED_BUNDLE"
-    export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="$COMBINED_BUNDLE"
+    # Note: GRPC_DEFAULT_SSL_ROOTS_FILE_PATH is intentionally NOT set here.
+    # Setting it causes grpcio to attempt TLS on connections that may be plaintext.
     echo "[entrypoint] CA trust store updated (SSL_CERT_FILE=$COMBINED_BUNDLE)"
 fi
 
