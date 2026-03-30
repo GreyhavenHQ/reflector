@@ -42,6 +42,7 @@ COPY pyproject.toml uv.lock /app/
 COPY ./app /app/app
 COPY ./main.py /app/
 COPY ./runserver.sh /app/
+COPY ./docker-entrypoint.sh /app/
 
 # prevent uv failing with too many open files on big cpus
 ENV UV_CONCURRENT_INSTALLS=16
@@ -52,6 +53,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 EXPOSE 8000
 
-CMD ["sh", "/app/runserver.sh"]
+RUN chmod +x /app/docker-entrypoint.sh
+
+CMD ["sh", "/app/docker-entrypoint.sh"]
 
 

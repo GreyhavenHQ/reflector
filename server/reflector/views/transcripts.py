@@ -700,8 +700,6 @@ async def transcript_post_to_zulip(
     )
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
-    if not transcripts_controller.user_can_mutate(transcript, user_id):
-        raise HTTPException(status_code=403, detail="Not authorized")
     content = get_zulip_message(transcript, include_topics)
 
     message_updated = False
@@ -733,17 +731,15 @@ class SendEmailResponse(BaseModel):
 async def transcript_send_email(
     transcript_id: str,
     request: SendEmailRequest,
-    user: Annotated[auth.UserInfo, Depends(auth.current_user)],
+    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ):
     if not is_email_configured():
         raise HTTPException(status_code=400, detail="Email not configured")
-    user_id = user["sub"]
+    user_id = user["sub"] if user else None
     transcript = await transcripts_controller.get_by_id_for_http(
         transcript_id, user_id=user_id
     )
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
-    if not transcripts_controller.user_can_mutate(transcript, user_id):
-        raise HTTPException(status_code=403, detail="Not authorized")
     sent = await send_transcript_email([request.email], transcript)
     return SendEmailResponse(sent=sent)

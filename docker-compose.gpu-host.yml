@@ -1,0 +1,106 @@
+# Standalone GPU host for Reflector — transcription, diarization, translation.
+#
+# Usage: ./scripts/setup-gpu-host.sh [--domain DOMAIN] [--custom-ca PATH] [--api-key KEY] [--cpu]
+#   or:  docker compose -f docker-compose.gpu-host.yml --profile gpu [--profile caddy] up -d
+#
+# Processing mode (pick ONE — mutually exclusive, both bind port 8000):
+#   --profile gpu      NVIDIA GPU container (requires nvidia-container-toolkit)
+#   --profile cpu      CPU-only container (no GPU required, slower)
+#
+# Optional:
+#   --profile caddy    Caddy reverse proxy with HTTPS
+#
+# This file is checked into the repo. The setup script generates:
+#   - .env.gpu-host            (HF_TOKEN, API key, port config)
+#   - Caddyfile.gpu-host       (Caddy config, only with --domain)
+#   - docker-compose.gpu-ca.yml (CA cert mounts, only with --custom-ca)
+
+services:
+  # ===========================================================
+  # GPU service — NVIDIA GPU accelerated
+  # Activated with: --profile gpu
+  # ===========================================================
+
+  gpu:
+    build:
+      context: ./gpu/self_hosted
+      dockerfile: Dockerfile
+    profiles: [gpu]
+    restart: unless-stopped
+    ports:
+      - "${GPU_HOST_PORT:-8000}:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      REFLECTOR_GPU_APIKEY: ${REFLECTOR_GPU_APIKEY:-}
+    volumes:
+      - gpu_cache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+    networks:
+      default:
+        aliases:
+          - transcription
+
+  # ===========================================================
+  # CPU service — no GPU required, uses Dockerfile.cpu
+  # Activated with: --profile cpu
+  # Mutually exclusive with gpu (both bind port 8000)
+  # ===========================================================
+
+  cpu:
+    build:
+      context: ./gpu/self_hosted
+      dockerfile: Dockerfile.cpu
+    profiles: [cpu]
+    restart: unless-stopped
+    ports:
+      - "${GPU_HOST_PORT:-8000}:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      REFLECTOR_GPU_APIKEY: ${REFLECTOR_GPU_APIKEY:-}
+    volumes:
+      - gpu_cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+    networks:
+      default:
+        aliases:
+          - transcription
+
+  # ===========================================================
+  # Caddy — reverse proxy with HTTPS (optional)
+  # Activated with: --profile caddy
+  # Proxies to "transcription" network alias (works for both gpu and cpu)
+  # ===========================================================
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [caddy]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile.gpu-host:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  gpu_cache:
+  caddy_data:
+  caddy_config:

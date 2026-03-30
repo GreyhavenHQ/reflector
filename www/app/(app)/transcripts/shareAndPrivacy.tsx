@@ -178,14 +178,11 @@ export default function ShareAndPrivacy(props: ShareAndPrivacyProps) {
                   <ShareZulip
                     transcript={props.transcript}
                     topics={props.topics}
-                    disabled={toShareMode(shareMode.value) === "private"}
+                    disabled={toShareMode(shareMode.value) === "public"}
                   />
                 )}
                 {emailEnabled && (
-                  <ShareEmail
-                    transcript={props.transcript}
-                    disabled={toShareMode(shareMode.value) === "private"}
-                  />
+                  <ShareEmail transcript={props.transcript} disabled={false} />
                 )}
                 <ShareCopy
                   finalSummaryElement={props.finalSummaryElement}

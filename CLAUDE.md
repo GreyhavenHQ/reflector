@@ -193,6 +193,11 @@ Modal.com integration for scalable ML processing:
 
 If you need to do any worker/pipeline related work, search for "Pipeline" classes and their "create" or "build" methods to find the main processor sequence. Look for task orchestration patterns (like "chord", "group", or "chain") to identify the post-processing flow with parallel execution chains. This will give you abstract vision on how processing pipeling is organized.
 
+## Documentation
+
+- New documentation files go in `docsv2/`, not in `docs/docs/`.
+- Existing `docs/` directory contains legacy Docusaurus docs.
+
 ## Code Style
 
 - Always put imports at the top of the file. Let ruff/pre-commit handle sorting and formatting of imports.
