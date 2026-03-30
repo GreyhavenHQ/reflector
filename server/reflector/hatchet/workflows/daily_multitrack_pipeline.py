@@ -84,7 +84,7 @@ from reflector.hatchet.workflows.topic_chunk_processing import (
 from reflector.hatchet.workflows.track_processing import TrackInput, track_workflow
 from reflector.logger import logger
 from reflector.pipelines import topic_processing
-from reflector.processors import AudioFileWriterProcessor
+from reflector.processors.audio_mixdown_auto import AudioMixdownAutoProcessor
 from reflector.processors.summary.models import ActionItemsResponse
 from reflector.processors.summary.prompts import (
     RECAP_PROMPT,
@@ -98,10 +98,6 @@ from reflector.settings import settings
 from reflector.utils.audio_constants import (
     PRESIGNED_URL_EXPIRATION_SECONDS,
     WAVEFORM_SEGMENTS,
-)
-from reflector.utils.audio_mixdown import (
-    detect_sample_rate_from_tracks,
-    mixdown_tracks_pyav,
 )
 from reflector.utils.audio_waveform import get_audio_waveform
 from reflector.utils.daily import (
@@ -539,7 +535,7 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
 )
 @with_error_handling(TaskName.MIXDOWN_TRACKS)
 async def mixdown_tracks(input: PipelineInput, ctx: Context) -> MixdownResult:
-    """Mix all padded tracks into single audio file using PyAV (same as Celery)."""
+    """Mix all padded tracks into single audio file via configured backend."""
     ctx.log("mixdown_tracks: mixing padded tracks into single audio file")
 
     track_result = ctx.task_output(process_tracks)
@@ -579,37 +575,33 @@ async def mixdown_tracks(input: PipelineInput, ctx: Context) -> MixdownResult:
     if not valid_urls:
         raise ValueError("No valid padded tracks to mixdown")
 
-    target_sample_rate = detect_sample_rate_from_tracks(valid_urls, logger=logger)
-    if not target_sample_rate:
-        logger.error("Mixdown failed - no decodable audio frames found")
-        raise ValueError("No decodable audio frames in any track")
-
-    output_path = tempfile.mktemp(suffix=".mp3")
-    duration_ms_callback_capture_container = [0.0]
-
-    async def capture_duration(d):
-        duration_ms_callback_capture_container[0] = d
-
-    writer = AudioFileWriterProcessor(path=output_path, on_duration=capture_duration)
-
-    await mixdown_tracks_pyav(
-        valid_urls,
-        writer,
-        target_sample_rate,
-        offsets_seconds=None,
-        logger=logger,
-        progress_callback=make_audio_progress_logger(ctx, TaskName.MIXDOWN_TRACKS),
-        expected_duration_sec=recording_duration if recording_duration > 0 else None,
-    )
-    await writer.flush()
-
-    file_size = Path(output_path).stat().st_size
     storage_path = f"{input.transcript_id}/audio.mp3"
 
-    with open(output_path, "rb") as mixed_file:
-        await storage.put_file(storage_path, mixed_file)
+    # Generate presigned PUT URL for the output (used by modal backend;
+    # pyav backend ignores it and writes locally instead)
+    output_url = await storage.get_file_url(
+        storage_path,
+        operation="put_object",
+        expires_in=PRESIGNED_URL_EXPIRATION_SECONDS,
+    )
 
-    Path(output_path).unlink(missing_ok=True)
+    processor = AudioMixdownAutoProcessor()
+    result = await processor.mixdown_tracks(
+        valid_urls, output_url, offsets_seconds=None
+    )
+
+    if result.output_path:
+        # Pyav backend wrote locally — upload to storage ourselves
+        output_file = Path(result.output_path)
+        with open(output_file, "rb") as mixed_file:
+            await storage.put_file(storage_path, mixed_file)
+        output_file.unlink(missing_ok=True)
+        # Clean up the temp directory the pyav processor created
+        try:
+            output_file.parent.rmdir()
+        except OSError:
+            pass
+    # else: modal backend already uploaded to output_url
 
     async with fresh_db_connection():
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
@@ -620,11 +612,11 @@ async def mixdown_tracks(input: PipelineInput, ctx: Context) -> MixdownResult:
                 transcript, {"audio_location": "storage"}
             )
 
-    ctx.log(f"mixdown_tracks complete: uploaded {file_size} bytes to {storage_path}")
+    ctx.log(f"mixdown_tracks complete: {result.size} bytes to {storage_path}")
 
     return MixdownResult(
         audio_key=storage_path,
-        duration=duration_ms_callback_capture_container[0],
+        duration=result.duration_ms,
         tracks_mixed=len(valid_urls),
     )
 

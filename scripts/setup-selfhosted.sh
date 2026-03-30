@@ -4,7 +4,7 @@
 # Single script to configure and launch everything on one server.
 #
 # Usage:
-#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND]
+#   ./scripts/setup-selfhosted.sh <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND] [--mixdown BACKEND]
 #   ./scripts/setup-selfhosted.sh                        (re-run with saved config from last run)
 #
 # ML processing modes (pick ONE — required on first run):
@@ -17,6 +17,7 @@
 #   --diarization BACKEND   pyannote | modal (default: pyannote for --cpu, modal for --gpu/--hosted)
 #   --translation BACKEND   marian | modal | passthrough (default: marian for --cpu, modal for --gpu/--hosted)
 #   --padding BACKEND       pyav | modal     (default: pyav for --cpu, modal for --gpu/--hosted)
+#   --mixdown BACKEND       pyav | modal     (default: pyav for --cpu, modal for --gpu/--hosted)
 #
 # Local LLM (optional — for summarization & topic detection):
 #   --ollama-gpu       Local Ollama with NVIDIA GPU acceleration
@@ -217,6 +218,7 @@ OVERRIDE_TRANSCRIPT=""    # per-service override: whisper | modal
 OVERRIDE_DIARIZATION=""   # per-service override: pyannote | modal
 OVERRIDE_TRANSLATION=""   # per-service override: marian | modal | passthrough
 OVERRIDE_PADDING=""       # per-service override: pyav | modal
+OVERRIDE_MIXDOWN=""       # per-service override: pyav | modal
 
 # Validate per-service backend override values
 validate_backend() {
@@ -337,9 +339,18 @@ for i in "${!ARGS[@]}"; do
             validate_backend "padding" "${ARGS[$next_i]}" pyav modal
             OVERRIDE_PADDING="${ARGS[$next_i]}"
             SKIP_NEXT=true ;;
+        --mixdown)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--mixdown requires a backend (pyav | modal)"
+                exit 1
+            fi
+            validate_backend "mixdown" "${ARGS[$next_i]}" pyav modal
+            OVERRIDE_MIXDOWN="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
         *)
             err "Unknown argument: $arg"
-            err "Usage: $0 <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND]"
+            err "Usage: $0 <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND] [--mixdown BACKEND]"
             exit 1
             ;;
     esac
@@ -408,7 +419,7 @@ fi
 if [[ -z "$MODEL_MODE" ]]; then
     err "No model mode specified. You must choose --gpu, --cpu, or --hosted."
     err ""
-    err "Usage: $0 <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND]"
+    err "Usage: $0 <--gpu|--cpu|--hosted> [options] [--transcript BACKEND] [--diarization BACKEND] [--translation BACKEND] [--padding BACKEND] [--mixdown BACKEND]"
     err ""
     err "ML processing modes (required):"
     err "  --gpu              NVIDIA GPU container for transcription/diarization/translation"
@@ -420,6 +431,7 @@ if [[ -z "$MODEL_MODE" ]]; then
     err "  --diarization BACKEND   pyannote | modal (default: pyannote for --cpu, modal for --gpu/--hosted)"
     err "  --translation BACKEND   marian | modal | passthrough (default: marian for --cpu, modal for --gpu/--hosted)"
     err "  --padding BACKEND       pyav | modal     (default: pyav for --cpu, modal for --gpu/--hosted)"
+    err "  --mixdown BACKEND       pyav | modal     (default: pyav for --cpu, modal for --gpu/--hosted)"
     err ""
     err "Local LLM (optional):"
     err "  --ollama-gpu       Local Ollama with GPU (for summarization/topics)"
@@ -467,12 +479,14 @@ case "$MODEL_MODE" in
         EFF_DIARIZATION="${OVERRIDE_DIARIZATION:-modal}"
         EFF_TRANSLATION="${OVERRIDE_TRANSLATION:-modal}"
         EFF_PADDING="${OVERRIDE_PADDING:-modal}"
+        EFF_MIXDOWN="${OVERRIDE_MIXDOWN:-modal}"
         ;;
     cpu)
         EFF_TRANSCRIPT="${OVERRIDE_TRANSCRIPT:-whisper}"
         EFF_DIARIZATION="${OVERRIDE_DIARIZATION:-pyannote}"
         EFF_TRANSLATION="${OVERRIDE_TRANSLATION:-marian}"
         EFF_PADDING="${OVERRIDE_PADDING:-pyav}"
+        EFF_MIXDOWN="${OVERRIDE_MIXDOWN:-pyav}"
         ;;
 esac
 
@@ -482,12 +496,13 @@ HAS_OVERRIDES=false
 [[ -n "$OVERRIDE_DIARIZATION" ]] && HAS_OVERRIDES=true
 [[ -n "$OVERRIDE_TRANSLATION" ]] && HAS_OVERRIDES=true
 [[ -n "$OVERRIDE_PADDING" ]] && HAS_OVERRIDES=true
+[[ -n "$OVERRIDE_MIXDOWN" ]] && HAS_OVERRIDES=true
 
 # Human-readable mode string for display
 MODE_DISPLAY="$MODEL_MODE"
 [[ -n "$OLLAMA_MODE" ]] && MODE_DISPLAY="$MODEL_MODE + $OLLAMA_MODE"
 if [[ "$HAS_OVERRIDES" == "true" ]]; then
-    MODE_DISPLAY="$MODE_DISPLAY (overrides: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING)"
+    MODE_DISPLAY="$MODE_DISPLAY (overrides: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN)"
 fi
 
 # =========================================================
@@ -836,6 +851,19 @@ step_server_env() {
             ;;
     esac
 
+    # Mixdown
+    case "$EFF_MIXDOWN" in
+        modal)
+            env_set "$SERVER_ENV" "MIXDOWN_BACKEND" "modal"
+            if [[ -n "$modal_url" ]]; then
+                env_set "$SERVER_ENV" "MIXDOWN_URL" "$modal_url"
+            fi
+            ;;
+        pyav)
+            env_set "$SERVER_ENV" "MIXDOWN_BACKEND" "pyav"
+            ;;
+    esac
+
     # Warn about modal overrides in CPU mode that need URL configuration
     if [[ "$MODEL_MODE" == "cpu" ]] && [[ -z "$modal_url" ]]; then
         local needs_url=false
@@ -843,6 +871,7 @@ step_server_env() {
         [[ "$EFF_DIARIZATION" == "modal" ]] && needs_url=true
         [[ "$EFF_TRANSLATION" == "modal" ]] && needs_url=true
         [[ "$EFF_PADDING" == "modal" ]] && needs_url=true
+        [[ "$EFF_MIXDOWN" == "modal" ]] && needs_url=true
         if [[ "$needs_url" == "true" ]]; then
             warn "One or more services are set to 'modal' but no service URL is configured."
             warn "Set TRANSCRIPT_URL (and optionally TRANSCRIPT_MODAL_API_KEY) in server/.env"
@@ -850,7 +879,7 @@ step_server_env() {
         fi
     fi
 
-    ok "ML backends: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING"
+    ok "ML backends: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN"
 
     # HuggingFace token for gated models (pyannote diarization)
     # Needed when: GPU container is running (MODEL_MODE=gpu), or diarization uses pyannote in-process
@@ -1344,9 +1373,9 @@ step_health() {
             warn "Check with: docker compose -f docker-compose.selfhosted.yml logs gpu"
         fi
     elif [[ "$MODEL_MODE" == "cpu" ]]; then
-        ok "CPU mode — in-process backends run on server/worker (transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING)"
+        ok "CPU mode — in-process backends run on server/worker (transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN)"
     elif [[ "$MODEL_MODE" == "hosted" ]]; then
-        ok "Hosted mode — ML processing via remote GPU service (transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING)"
+        ok "Hosted mode — ML processing via remote GPU service (transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN)"
     fi
 
     # Ollama (if applicable)
@@ -1546,7 +1575,7 @@ main() {
     echo "  Models:  $MODEL_MODE"
     if [[ "$HAS_OVERRIDES" == "true" ]]; then
         echo "           transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION"
-        echo "           translation=$EFF_TRANSLATION, padding=$EFF_PADDING"
+        echo "           translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN"
     fi
     echo "  LLM:     ${OLLAMA_MODE:-external}"
     echo "  Garage:  $USE_GARAGE"
@@ -1663,7 +1692,7 @@ EOF
     if [[ "$HAS_OVERRIDES" == "true" ]]; then
         echo "  Models:  $MODEL_MODE base + overrides"
         echo "           transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION"
-        echo "           translation=$EFF_TRANSLATION, padding=$EFF_PADDING"
+        echo "           translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN"
     else
         echo "  Models:  $MODEL_MODE (transcription/diarization/translation/padding)"
     fi

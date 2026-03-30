@@ -52,10 +52,12 @@ OPUS_DEFAULT_BIT_RATE = 128000
     timeout=PADDING_TIMEOUT,
     scaledown_window=SCALEDOWN_WINDOW,
     image=image,
+    secrets=[modal.Secret.from_name("reflector-gpu")],
 )
 @modal.asgi_app()
 def web():
-    from fastapi import FastAPI, Request, HTTPException
+    from fastapi import Depends, FastAPI, HTTPException, Request, status
+    from fastapi.security import OAuth2PasswordBearer
     from pydantic import BaseModel
 
     class PaddingRequest(BaseModel):
@@ -70,7 +72,18 @@ def web():
 
     web_app = FastAPI()
 
-    @web_app.post("/pad")
+    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+    def apikey_auth(apikey: str = Depends(oauth2_scheme)):
+        if apikey == os.environ["REFLECTOR_GPU_APIKEY"]:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    @web_app.post("/pad", dependencies=[Depends(apikey_auth)])
     async def pad_track_endpoint(request: Request, req: PaddingRequest) -> PaddingResponse:
         """Modal web endpoint for padding audio tracks with disconnect detection.
         """

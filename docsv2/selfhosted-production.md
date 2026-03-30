@@ -70,7 +70,7 @@ That's it. The script generates env files, secrets, starts all containers, waits
 
 ## ML Processing Modes (Required)
 
-Pick `--gpu`, `--cpu`, or `--hosted`. This determines how **transcription, diarization, translation, and audio padding** run:
+Pick `--gpu`, `--cpu`, or `--hosted`. This determines how **transcription, diarization, translation, audio padding, and audio mixdown** run:
 
 | Flag | What it does | Requires |
 |------|-------------|----------|
@@ -168,6 +168,7 @@ Override individual ML services without changing the base mode. Useful when you 
 | `--diarization BACKEND` | `pyannote`, `modal` | `modal` | `pyannote` |
 | `--translation BACKEND` | `marian`, `modal`, `passthrough` | `modal` | `marian` |
 | `--padding BACKEND` | `pyav`, `modal` | `modal` | `pyav` |
+| `--mixdown BACKEND` | `pyav`, `modal` | `modal` | `pyav` |
 
 **Examples:**
 
@@ -238,6 +239,8 @@ To change the configuration, pass new flags — they override and replace the sa
 | `TRANSCRIPT_URL` | Specialized model endpoint | `http://transcription:8000` |
 | `PADDING_BACKEND` | Audio padding backend (`pyav` or `modal`) | `modal` (selfhosted), `pyav` (default) |
 | `PADDING_URL` | Audio padding endpoint (when `PADDING_BACKEND=modal`) | `http://transcription:8000` |
+| `MIXDOWN_BACKEND` | Audio mixdown backend (`pyav` or `modal`) | `modal` (selfhosted), `pyav` (default) |
+| `MIXDOWN_URL` | Audio mixdown endpoint (when `MIXDOWN_BACKEND=modal`) | `http://transcription:8000` |
 | `LLM_URL` | OpenAI-compatible LLM endpoint | Auto-set for Ollama modes |
 | `LLM_API_KEY` | LLM API key | `not-needed` for Ollama |
 | `LLM_MODEL` | LLM model name | `qwen2.5:14b` for Ollama (override with `--llm-model`) |
