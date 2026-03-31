@@ -8,8 +8,8 @@ import structlog
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
+from reflector.asynctask import asynctask
 from reflector.db.rooms import rooms_controller
-from reflector.pipelines.main_live_pipeline import asynctask
 from reflector.utils.webhook import (
     WebhookRoomPayload,
     WebhookTestPayload,

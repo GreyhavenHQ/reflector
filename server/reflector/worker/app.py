@@ -146,7 +146,6 @@ else:
     app.conf.broker_connection_retry_on_startup = True
     app.autodiscover_tasks(
         [
-            "reflector.pipelines.main_live_pipeline",
             "reflector.worker.healthcheck",
             "reflector.worker.process",
             "reflector.worker.cleanup",
