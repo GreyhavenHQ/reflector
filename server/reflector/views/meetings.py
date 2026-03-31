@@ -168,8 +168,9 @@ async def add_email_recipient(
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
+    include_link = user is not None
     recipients = await meetings_controller.add_email_recipient(
-        meeting_id, request.email
+        meeting_id, request.email, include_link=include_link
     )
 
     return {"status": "success", "email_recipients": recipients}

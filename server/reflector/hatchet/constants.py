@@ -64,3 +64,9 @@ TIMEOUT_HEAVY = 1200  # Transcription, fan-out LLM tasks (Hatchet execution_time
 TIMEOUT_HEAVY_HTTP = (
     1150  # httpx timeout for transcribe_track — below 1200 so Hatchet doesn't race
 )
+TIMEOUT_EXTRA_HEAVY = (
+    3600  # Detect Topics, fan-out LLM tasks (Hatchet execution_timeout)
+)
+TIMEOUT_EXTRA_HEAVY_HTTP = (
+    3400  # httpx timeout for detect_topics — below 3600 so Hatchet doesn't race
+)

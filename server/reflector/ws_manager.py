@@ -107,7 +107,8 @@ class WebsocketManager:
         while True:
             # timeout=1.0 prevents tight CPU loop when no messages available
             message = await pubsub_subscriber.get_message(
-                ignore_subscribe_messages=True
+                ignore_subscribe_messages=True,
+                timeout=1.0,
             )
             if message is not None:
                 room_id = message["channel"].decode("utf-8")

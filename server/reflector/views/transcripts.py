@@ -797,5 +797,7 @@ async def transcript_send_email(
     )
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
-    sent = await send_transcript_email([request.email], transcript)
+    sent = await send_transcript_email(
+        [request.email], transcript, include_link=(transcript.share_mode == "public")
+    )
     return SendEmailResponse(sent=sent)

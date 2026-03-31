@@ -6,13 +6,15 @@ import { Box, Button, Input, Text, VStack, HStack } from "@chakra-ui/react";
 interface EmailTranscriptDialogProps {
   onSubmit: (email: string) => void;
   onDismiss: () => void;
+  initialEmail?: string;
 }
 
 export function EmailTranscriptDialog({
   onSubmit,
   onDismiss,
+  initialEmail,
 }: EmailTranscriptDialogProps) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [inputEl, setInputEl] = useState<HTMLInputElement | null>(null);
 
   useEffect(() => {

@@ -12,6 +12,7 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 from pydantic import ValidationError
 
+from reflector.asynctask import asynctask
 from reflector.dailyco_api import FinishedRecordingResponse, RecordingResponse
 from reflector.db.daily_participant_sessions import (
     DailyParticipantSession,
@@ -25,9 +26,6 @@ from reflector.db.transcripts import (
     transcripts_controller,
 )
 from reflector.hatchet.client import HatchetClientManager
-from reflector.pipelines.main_live_pipeline import asynctask
-from reflector.pipelines.topic_processing import EmptyPipeline
-from reflector.processors import AudioFileWriterProcessor
 from reflector.processors.audio_waveform_processor import AudioWaveformProcessor
 from reflector.redis_cache import RedisAsyncLock
 from reflector.settings import settings
@@ -906,6 +904,11 @@ async def convert_audio_and_waveform(transcript) -> None:
         logger.info(
             "Converting audio to MP3 and generating waveform",
             transcript_id=transcript.id,
+        )
+
+        from reflector.pipelines.topic_processing import EmptyPipeline  # noqa: PLC0415
+        from reflector.processors.audio_file_writer import (
+            AudioFileWriterProcessor,  # noqa: PLC0415
         )
 
         upload_path = transcript.data_path / "upload.webm"

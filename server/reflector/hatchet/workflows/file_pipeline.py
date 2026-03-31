@@ -916,22 +916,41 @@ async def send_email(input: FilePipelineInput, ctx: Context) -> EmailResult:
             if recording and recording.meeting_id:
                 meeting = await meetings_controller.get_by_id(recording.meeting_id)
 
-        recipients = (
-            list(meeting.email_recipients)
+        # Normalise meeting recipients (legacy strings → dicts)
+        meeting_recipients: list[dict] = (
+            [
+                entry
+                if isinstance(entry, dict)
+                else {"email": entry, "include_link": True}
+                for entry in (meeting.email_recipients or [])
+            ]
             if meeting and meeting.email_recipients
             else []
         )
 
-        # Also check room-level email
+        # Room-level email always gets a link (room owner)
         from reflector.db.rooms import rooms_controller  # noqa: PLC0415
 
+        room_email = None
         if transcript.room_id:
             room = await rooms_controller.get_by_id(transcript.room_id)
             if room and room.email_transcript_to:
-                if room.email_transcript_to not in recipients:
-                    recipients.append(room.email_transcript_to)
+                room_email = room.email_transcript_to
 
-        if not recipients:
+        # Build two groups: with link and without link
+        with_link = [
+            r["email"] for r in meeting_recipients if r.get("include_link", True)
+        ]
+        without_link = [
+            r["email"] for r in meeting_recipients if not r.get("include_link", True)
+        ]
+
+        if room_email:
+            if room_email not in with_link:
+                with_link.append(room_email)
+            without_link = [e for e in without_link if e != room_email]
+
+        if not with_link and not without_link:
             ctx.log("send_email skipped (no email recipients)")
             return EmailResult(skipped=True)
 
@@ -939,7 +958,15 @@ async def send_email(input: FilePipelineInput, ctx: Context) -> EmailResult:
         if meeting and meeting.email_recipients:
             await transcripts_controller.update(transcript, {"share_mode": "public"})
 
-        count = await send_transcript_email(recipients, transcript)
+        count = 0
+        if with_link:
+            count += await send_transcript_email(
+                with_link, transcript, include_link=True
+            )
+        if without_link:
+            count += await send_transcript_email(
+                without_link, transcript, include_link=False
+            )
         ctx.log(f"send_email complete: sent {count} emails")
 
     return EmailResult(emails_sent=count)
