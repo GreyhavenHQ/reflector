@@ -113,12 +113,14 @@ def download_pyannote_audio():
 
 
 diarizer_image = (
-    modal.Image.debian_slim(python_version="3.10")
+    modal.Image.from_registry(
+        "nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04", add_python="3.10"
+    )
     .pip_install(
         "pyannote.audio==3.1.0",
         "requests",
         "onnx",
-        "torchaudio",
+        "torchaudio==2.0.1",
         "onnxruntime-gpu",
         "torch==2.0.0",
         "transformers==4.34.0",
@@ -133,14 +135,6 @@ diarizer_image = (
         secrets=[modal.Secret.from_name("hf_token")],
     )
     .run_function(migrate_cache_llm)
-    .env(
-        {
-            "LD_LIBRARY_PATH": (
-                "/usr/local/lib/python3.10/site-packages/nvidia/cudnn/lib/:"
-                "/opt/conda/lib/python3.10/site-packages/nvidia/cublas/lib/"
-            )
-        }
-    )
 )
 
 
