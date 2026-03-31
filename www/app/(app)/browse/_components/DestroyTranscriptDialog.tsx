@@ -1,7 +1,7 @@
 import React from "react";
 import { Button, Dialog, Text } from "@chakra-ui/react";
 
-interface DeleteTranscriptDialogProps {
+interface DestroyTranscriptDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -12,7 +12,7 @@ interface DeleteTranscriptDialogProps {
   source?: string;
 }
 
-export default function DeleteTranscriptDialog({
+export default function DestroyTranscriptDialog({
   isOpen,
   onClose,
   onConfirm,
@@ -21,7 +21,7 @@ export default function DeleteTranscriptDialog({
   title,
   date,
   source,
-}: DeleteTranscriptDialogProps) {
+}: DestroyTranscriptDialogProps) {
   return (
     <Dialog.Root
       open={isOpen}
@@ -34,11 +34,13 @@ export default function DeleteTranscriptDialog({
       <Dialog.Positioner>
         <Dialog.Content>
           <Dialog.Header fontSize="lg" fontWeight="bold">
-            Move to Trash
+            Permanently Destroy Transcript
           </Dialog.Header>
           <Dialog.Body>
-            This transcript will be moved to the trash. You can restore it later
-            from the Trash view.
+            <Text color="red.600" fontWeight="medium">
+              This will permanently delete this transcript and all its
+              associated audio files. This action cannot be undone.
+            </Text>
             {title && (
               <Text mt={3} fontWeight="600">
                 {title}
@@ -71,7 +73,7 @@ export default function DeleteTranscriptDialog({
               ml={3}
               disabled={!!isLoading}
             >
-              Move to Trash
+              Destroy
             </Button>
           </Dialog.Footer>
         </Dialog.Content>

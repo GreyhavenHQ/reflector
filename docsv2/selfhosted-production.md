@@ -305,6 +305,48 @@ TRANSCRIPT_STORAGE_AWS_REGION=us-east-1
 TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL=http://minio:9000
 ```
 
+### S3 IAM Permissions Reference
+
+Reflector uses up to 3 separate S3 credential sets, each scoped to a specific bucket. When using AWS IAM in production, each key should have only the permissions it needs.
+
+**Transcript storage key** (`TRANSCRIPT_STORAGE_AWS_*`) — the main bucket for processed files:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket"],
+  "Resource": ["arn:aws:s3:::reflector-media/*", "arn:aws:s3:::reflector-media"]
+}
+```
+
+Used for: processed MP3 audio, waveform JSON, temporary pipeline files. Deletions happen during trash "Destroy", consent-denied cleanup, and public mode data retention.
+
+**Daily.co worker key** (`DAILYCO_STORAGE_AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEY`) — for reading and cleaning up Daily recordings:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:GetObject", "s3:DeleteObject", "s3:ListBucket"],
+  "Resource": ["arn:aws:s3:::your-daily-bucket/*", "arn:aws:s3:::your-daily-bucket"]
+}
+```
+
+Used for: downloading multitrack recording files for processing, deleting track files and composed video on consent denial or trash destroy. No `s3:PutObject` needed — Daily's own API writes via the Role ARN.
+
+**Whereby worker key** (`WHEREBY_STORAGE_AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEY`) — same pattern as Daily:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:GetObject", "s3:DeleteObject", "s3:ListBucket"],
+  "Resource": ["arn:aws:s3:::your-whereby-bucket/*", "arn:aws:s3:::your-whereby-bucket"]
+}
+```
+
+> **Fallback behavior:** If platform-specific worker keys are not set, Reflector falls back to the transcript storage master key with a bucket override. This means the master key would need cross-bucket access to the Daily/Whereby buckets. For least-privilege, configure platform-specific keys so each only accesses its own bucket.
+
+> **Garage / single-bucket setups:** When using Garage or a single S3 bucket for everything, one master key with full permissions on that bucket is sufficient. The IAM scoping above only matters when using separate buckets per platform (typical in AWS production).
+
 ## What Authentication Enables
 
 By default, Reflector runs in **public mode** (`AUTH_BACKEND=none`, `PUBLIC_MODE=true`) — anyone can create and view transcripts without logging in. Transcripts are anonymous (not linked to any user) and cannot be edited or deleted after creation.

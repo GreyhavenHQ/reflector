@@ -19,6 +19,7 @@ import {
   parseAsStringLiteral,
 } from "nuqs";
 import { LuX } from "react-icons/lu";
+import { toaster } from "../../components/ui/toaster";
 import type { components } from "../../reflector-api";
 
 type Room = components["schemas"]["Room"];
@@ -29,6 +30,9 @@ import {
   useTranscriptsSearch,
   useTranscriptDelete,
   useTranscriptProcess,
+  useTranscriptRestore,
+  useTranscriptDestroy,
+  useAuthReady,
 } from "../../lib/apiHooks";
 import FilterSidebar from "./_components/FilterSidebar";
 import Pagination, {
@@ -40,6 +44,7 @@ import Pagination, {
 } from "./_components/Pagination";
 import TranscriptCards from "./_components/TranscriptCards";
 import DeleteTranscriptDialog from "./_components/DeleteTranscriptDialog";
+import DestroyTranscriptDialog from "./_components/DestroyTranscriptDialog";
 import { formatLocalDate } from "../../lib/time";
 import { RECORD_A_MEETING_URL } from "../../api/urls";
 import { useUserName } from "../../lib/useUserName";
@@ -175,14 +180,17 @@ const UnderSearchFormFilterIndicators: React.FC<{
 
 const EmptyResult: React.FC<{
   searchQuery: string;
-}> = ({ searchQuery }) => {
+  isTrash?: boolean;
+}> = ({ searchQuery, isTrash }) => {
   return (
     <Flex flexDir="column" alignItems="center" justifyContent="center" py={8}>
       <Text textAlign="center">
-        {searchQuery
-          ? `No results found for "${searchQuery}". Try adjusting your search terms.`
-          : "No transcripts found, but you can "}
-        {!searchQuery && (
+        {isTrash
+          ? "Trash is empty."
+          : searchQuery
+            ? `No results found for "${searchQuery}". Try adjusting your search terms.`
+            : "No transcripts found, but you can "}
+        {!isTrash && !searchQuery && (
           <>
             <Link href={RECORD_A_MEETING_URL} color="blue.500">
               record a meeting
@@ -196,6 +204,8 @@ const EmptyResult: React.FC<{
 };
 
 export default function TranscriptBrowser() {
+  const { isAuthenticated } = useAuthReady();
+
   const [urlSearchQuery, setUrlSearchQuery] = useQueryState(
     "q",
     parseAsString.withDefault("").withOptions({ shallow: false }),
@@ -216,6 +226,12 @@ export default function TranscriptBrowser() {
     parseAsString.withDefault("").withOptions({ shallow: false }),
   );
 
+  const [urlTrash, setUrlTrash] = useQueryState(
+    "trash",
+    parseAsStringLiteral(["1"] as const).withOptions({ shallow: false }),
+  );
+  const isTrashView = urlTrash === "1";
+
   const [urlPage, setPage] = useQueryState(
     "page",
     parseAsInteger.withDefault(1).withOptions({ shallow: false }),
@@ -231,7 +247,7 @@ export default function TranscriptBrowser() {
       return;
     }
     _setSafePage(maybePage.value);
-  }, [urlPage]);
+  }, [urlPage, setPage]);
 
   const pageSize = 20;
 
@@ -240,11 +256,12 @@ export default function TranscriptBrowser() {
     () => ({
       q: urlSearchQuery,
       extras: {
-        room_id: urlRoomId || undefined,
-        source_kind: urlSourceKind || undefined,
+        room_id: isTrashView ? undefined : urlRoomId || undefined,
+        source_kind: isTrashView ? undefined : urlSourceKind || undefined,
+        include_deleted: isTrashView ? true : undefined,
       },
     }),
-    [urlSearchQuery, urlRoomId, urlSourceKind],
+    [urlSearchQuery, urlRoomId, urlSourceKind, isTrashView],
   );
 
   const {
@@ -266,35 +283,55 @@ export default function TranscriptBrowser() {
 
   const totalPages = getTotalPages(totalResults, pageSize);
 
-  // reset pagination when search results change (detected by total change; good enough approximation)
+  // reset pagination when search filters change
   useEffect(() => {
     // operation is idempotent
     setPage(FIRST_PAGE).then(() => {});
-  }, [JSON.stringify(searchFilters)]);
+  }, [searchFilters, setPage]);
 
   const userName = useUserName();
-  const [deletionLoading, setDeletionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const cancelRef = React.useRef(null);
+  const destroyCancelRef = React.useRef(null);
+
+  // Delete (soft-delete / move to trash)
   const [transcriptToDeleteId, setTranscriptToDeleteId] =
+    React.useState<string>();
+
+  // Destroy (hard-delete)
+  const [transcriptToDestroyId, setTranscriptToDestroyId] =
     React.useState<string>();
 
   const handleFilterTranscripts = (
     sourceKind: SourceKind | null,
     roomId: string,
   ) => {
+    if (isTrashView) {
+      setUrlTrash(null);
+    }
     setUrlSourceKind(sourceKind);
     setUrlRoomId(roomId);
     setPage(1);
   };
 
+  const handleTrashClick = () => {
+    setUrlTrash(isTrashView ? null : "1");
+    setUrlSourceKind(null);
+    setUrlRoomId(null);
+    setPage(1);
+  };
+
   const onCloseDeletion = () => setTranscriptToDeleteId(undefined);
+  const onCloseDestroy = () => setTranscriptToDestroyId(undefined);
 
   const deleteTranscript = useTranscriptDelete();
   const processTranscript = useTranscriptProcess();
+  const restoreTranscript = useTranscriptRestore();
+  const destroyTranscript = useTranscriptDestroy();
 
   const confirmDeleteTranscript = (transcriptId: string) => {
-    if (deletionLoading) return;
-    setDeletionLoading(true);
+    if (actionLoading) return;
+    setActionLoading(true);
     deleteTranscript.mutate(
       {
         params: {
@@ -303,12 +340,12 @@ export default function TranscriptBrowser() {
       },
       {
         onSuccess: () => {
-          setDeletionLoading(false);
+          setActionLoading(false);
           onCloseDeletion();
           reloadSearch();
         },
         onError: () => {
-          setDeletionLoading(false);
+          setActionLoading(false);
         },
       },
     );
@@ -322,17 +359,82 @@ export default function TranscriptBrowser() {
     });
   };
 
+  const handleRestoreTranscript = (transcriptId: string) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    restoreTranscript.mutate(
+      {
+        params: {
+          path: { transcript_id: transcriptId },
+        },
+      },
+      {
+        onSuccess: () => {
+          setActionLoading(false);
+          reloadSearch();
+          toaster.create({
+            duration: 3000,
+            render: () => (
+              <Box bg="green.500" color="white" px={4} py={3} borderRadius="md">
+                <Text fontWeight="bold">Transcript restored</Text>
+              </Box>
+            ),
+          });
+        },
+        onError: () => {
+          setActionLoading(false);
+        },
+      },
+    );
+  };
+
+  const confirmDestroyTranscript = (transcriptId: string) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    destroyTranscript.mutate(
+      {
+        params: {
+          path: { transcript_id: transcriptId },
+        },
+      },
+      {
+        onSuccess: () => {
+          setActionLoading(false);
+          onCloseDestroy();
+          reloadSearch();
+        },
+        onError: () => {
+          setActionLoading(false);
+        },
+      },
+    );
+  };
+
+  // Dialog data for delete
   const transcriptToDelete = results?.find(
     (i) => i.id === transcriptToDeleteId,
   );
-  const dialogTitle = transcriptToDelete?.title || "Unnamed Transcript";
-  const dialogDate = transcriptToDelete?.created_at
+  const deleteDialogTitle = transcriptToDelete?.title || "Unnamed Transcript";
+  const deleteDialogDate = transcriptToDelete?.created_at
     ? formatLocalDate(transcriptToDelete.created_at)
     : undefined;
-  const dialogSource =
+  const deleteDialogSource =
     transcriptToDelete?.source_kind === "room" && transcriptToDelete?.room_id
       ? transcriptToDelete.room_name || transcriptToDelete.room_id
       : transcriptToDelete?.source_kind;
+
+  // Dialog data for destroy
+  const transcriptToDestroy = results?.find(
+    (i) => i.id === transcriptToDestroyId,
+  );
+  const destroyDialogTitle = transcriptToDestroy?.title || "Unnamed Transcript";
+  const destroyDialogDate = transcriptToDestroy?.created_at
+    ? formatLocalDate(transcriptToDestroy.created_at)
+    : undefined;
+  const destroyDialogSource =
+    transcriptToDestroy?.source_kind === "room" && transcriptToDestroy?.room_id
+      ? transcriptToDestroy.room_name || transcriptToDestroy.room_id
+      : transcriptToDestroy?.source_kind;
 
   if (searchLoading && results.length === 0) {
     return (
@@ -361,17 +463,24 @@ export default function TranscriptBrowser() {
         mb={4}
       >
         <Heading size="lg">
-          {userName ? `${userName}'s Transcriptions` : "Your Transcriptions"}{" "}
-          {(searchLoading || deletionLoading) && <Spinner size="sm" />}
+          {isTrashView
+            ? "Trash"
+            : userName
+              ? `${userName}'s Transcriptions`
+              : "Your Transcriptions"}{" "}
+          {(searchLoading || actionLoading) && <Spinner size="sm" />}
         </Heading>
       </Flex>
 
       <Flex flexDir={{ base: "column", md: "row" }}>
         <FilterSidebar
           rooms={rooms}
-          selectedSourceKind={urlSourceKind}
-          selectedRoomId={urlRoomId}
+          selectedSourceKind={isTrashView ? null : urlSourceKind}
+          selectedRoomId={isTrashView ? "" : urlRoomId}
           onFilterChange={handleFilterTranscripts}
+          isTrashView={isTrashView}
+          onTrashClick={handleTrashClick}
+          isAuthenticated={isAuthenticated}
         />
 
         <Flex
@@ -384,8 +493,8 @@ export default function TranscriptBrowser() {
         >
           <SearchForm
             setPage={setPage}
-            sourceKind={urlSourceKind}
-            roomId={urlRoomId}
+            sourceKind={isTrashView ? null : urlSourceKind}
+            roomId={isTrashView ? null : urlRoomId}
             searchQuery={urlSearchQuery}
             setSearchQuery={setUrlSearchQuery}
             setSourceKind={setUrlSourceKind}
@@ -406,12 +515,15 @@ export default function TranscriptBrowser() {
             results={results}
             query={urlSearchQuery}
             isLoading={searchLoading}
-            onDelete={setTranscriptToDeleteId}
-            onReprocess={handleProcessTranscript}
+            isTrash={isTrashView}
+            onDelete={isTrashView ? undefined : setTranscriptToDeleteId}
+            onReprocess={isTrashView ? undefined : handleProcessTranscript}
+            onRestore={isTrashView ? handleRestoreTranscript : undefined}
+            onDestroy={isTrashView ? setTranscriptToDestroyId : undefined}
           />
 
           {!searchLoading && results.length === 0 && (
-            <EmptyResult searchQuery={urlSearchQuery} />
+            <EmptyResult searchQuery={urlSearchQuery} isTrash={isTrashView} />
           )}
         </Flex>
       </Flex>
@@ -423,10 +535,24 @@ export default function TranscriptBrowser() {
           transcriptToDeleteId && confirmDeleteTranscript(transcriptToDeleteId)
         }
         cancelRef={cancelRef}
-        isLoading={deletionLoading}
-        title={dialogTitle}
-        date={dialogDate}
-        source={dialogSource}
+        isLoading={actionLoading}
+        title={deleteDialogTitle}
+        date={deleteDialogDate}
+        source={deleteDialogSource}
+      />
+
+      <DestroyTranscriptDialog
+        isOpen={!!transcriptToDestroyId}
+        onClose={onCloseDestroy}
+        onConfirm={() =>
+          transcriptToDestroyId &&
+          confirmDestroyTranscript(transcriptToDestroyId)
+        }
+        cancelRef={destroyCancelRef}
+        isLoading={actionLoading}
+        title={destroyDialogTitle}
+        date={destroyDialogDate}
+        source={destroyDialogSource}
       />
     </Flex>
   );

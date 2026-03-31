@@ -29,8 +29,11 @@ interface TranscriptCardsProps {
   results: SearchResult[];
   query: string;
   isLoading?: boolean;
-  onDelete: (transcriptId: string) => void;
-  onReprocess: (transcriptId: string) => void;
+  isTrash?: boolean;
+  onDelete?: (transcriptId: string) => void;
+  onReprocess?: (transcriptId: string) => void;
+  onRestore?: (transcriptId: string) => void;
+  onDestroy?: (transcriptId: string) => void;
 }
 
 function highlightText(text: string, query: string): React.ReactNode {
@@ -102,13 +105,19 @@ const transcriptHref = (
 function TranscriptCard({
   result,
   query,
+  isTrash,
   onDelete,
   onReprocess,
+  onRestore,
+  onDestroy,
 }: {
   result: SearchResult;
   query: string;
-  onDelete: (transcriptId: string) => void;
-  onReprocess: (transcriptId: string) => void;
+  isTrash?: boolean;
+  onDelete?: (transcriptId: string) => void;
+  onReprocess?: (transcriptId: string) => void;
+  onRestore?: (transcriptId: string) => void;
+  onDestroy?: (transcriptId: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -136,22 +145,36 @@ function TranscriptCard({
   };
 
   return (
-    <Box borderWidth={1} p={4} borderRadius="md" fontSize="sm">
+    <Box
+      borderWidth={1}
+      p={4}
+      borderRadius="md"
+      fontSize="sm"
+      borderLeftWidth={isTrash ? "3px" : 1}
+      borderLeftColor={isTrash ? "red.400" : undefined}
+      bg={isTrash ? "gray.50" : undefined}
+    >
       <Flex justify="space-between" alignItems="flex-start" gap="2">
         <Box>
           <TranscriptStatusIcon status={result.status} />
         </Box>
         <Box flex="1">
-          {/* Title with highlighting and text fragment for deep linking */}
-          <Link
-            as={NextLink}
-            href={transcriptHref(result.id, mainSnippet, query)}
-            fontWeight="600"
-            display="block"
-            mb={2}
-          >
-            {highlightText(resultTitle, query)}
-          </Link>
+          {/* Title — plain text in trash (deleted transcripts return 404) */}
+          {isTrash ? (
+            <Text fontWeight="600" mb={2} color="gray.600">
+              {highlightText(resultTitle, query)}
+            </Text>
+          ) : (
+            <Link
+              as={NextLink}
+              href={transcriptHref(result.id, mainSnippet, query)}
+              fontWeight="600"
+              display="block"
+              mb={2}
+            >
+              {highlightText(resultTitle, query)}
+            </Link>
+          )}
 
           {/* Metadata - Horizontal on desktop, vertical on mobile */}
           <Flex
@@ -272,8 +295,10 @@ function TranscriptCard({
         </Box>
         <TranscriptActionsMenu
           transcriptId={result.id}
-          onDelete={onDelete}
-          onReprocess={onReprocess}
+          onDelete={isTrash ? undefined : onDelete}
+          onReprocess={isTrash ? undefined : onReprocess}
+          onRestore={isTrash ? onRestore : undefined}
+          onDestroy={isTrash ? onDestroy : undefined}
         />
       </Flex>
     </Box>
@@ -284,8 +309,11 @@ export default function TranscriptCards({
   results,
   query,
   isLoading,
+  isTrash,
   onDelete,
   onReprocess,
+  onRestore,
+  onDestroy,
 }: TranscriptCardsProps) {
   return (
     <Box position="relative">
@@ -315,8 +343,11 @@ export default function TranscriptCards({
               key={result.id}
               result={result}
               query={query}
+              isTrash={isTrash}
               onDelete={onDelete}
               onReprocess={onReprocess}
+              onRestore={onRestore}
+              onDestroy={onDestroy}
             />
           ))}
         </Stack>

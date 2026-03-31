@@ -113,6 +113,7 @@ TranscriptWsEvent = Annotated[
 UserEventName = Literal[
     "TRANSCRIPT_CREATED",
     "TRANSCRIPT_DELETED",
+    "TRANSCRIPT_RESTORED",
     "TRANSCRIPT_STATUS",
     "TRANSCRIPT_FINAL_TITLE",
     "TRANSCRIPT_DURATION",
@@ -161,6 +162,15 @@ class UserWsTranscriptDeleted(BaseModel):
     data: UserTranscriptDeletedData
 
 
+class UserTranscriptRestoredData(BaseModel):
+    id: NonEmptyString
+
+
+class UserWsTranscriptRestored(BaseModel):
+    event: Literal["TRANSCRIPT_RESTORED"] = "TRANSCRIPT_RESTORED"
+    data: UserTranscriptRestoredData
+
+
 class UserWsTranscriptStatus(BaseModel):
     event: Literal["TRANSCRIPT_STATUS"] = "TRANSCRIPT_STATUS"
     data: UserTranscriptStatusData
@@ -180,6 +190,7 @@ UserWsEvent = Annotated[
     Union[
         UserWsTranscriptCreated,
         UserWsTranscriptDeleted,
+        UserWsTranscriptRestored,
         UserWsTranscriptStatus,
         UserWsTranscriptFinalTitle,
         UserWsTranscriptDuration,

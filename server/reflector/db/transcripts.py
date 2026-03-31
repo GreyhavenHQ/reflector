@@ -24,7 +24,7 @@ from reflector.db.utils import is_postgresql
 from reflector.logger import logger
 from reflector.processors.types import Word as ProcessorWord
 from reflector.settings import settings
-from reflector.storage import get_transcripts_storage
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.utils import generate_uuid4
 from reflector.utils.webvtt import topics_to_webvtt
 
@@ -675,6 +675,126 @@ class TranscriptController:
             .values(deleted_at=now)
         )
         await get_database().execute(query)
+
+    async def restore_by_id(
+        self,
+        transcript_id: str,
+        user_id: str | None = None,
+    ) -> bool:
+        """
+        Restore a soft-deleted transcript by clearing deleted_at.
+
+        Also restores the associated recording if present.
+        Returns True if the transcript was restored, False otherwise.
+        """
+        transcript = await self.get_by_id(transcript_id)
+        if not transcript:
+            return False
+        if transcript.deleted_at is None:
+            return False
+        if user_id is not None and transcript.user_id != user_id:
+            return False
+
+        query = (
+            transcripts.update()
+            .where(transcripts.c.id == transcript_id)
+            .values(deleted_at=None)
+        )
+        await get_database().execute(query)
+
+        if transcript.recording_id:
+            try:
+                await recordings_controller.restore_by_id(transcript.recording_id)
+            except Exception as e:
+                logger.warning(
+                    "Failed to restore recording",
+                    exc_info=e,
+                    recording_id=transcript.recording_id,
+                )
+
+        return True
+
+    async def hard_delete(self, transcript_id: str) -> None:
+        """
+        Permanently delete a transcript, its recording, and all associated files.
+
+        Only deletes transcript-owned resources:
+        - Transcript row and recording row from DB (first, to make data inaccessible)
+        - Transcript audio in S3 storage
+        - Recording files in S3 (both object_key and track_keys, since a recording can have both)
+        - Local files (data_path directory)
+
+        Does NOT delete: meetings, consent records, rooms, or any shared entity.
+        Requires the transcript to be soft-deleted first (deleted_at must be set).
+        """
+        transcript = await self.get_by_id(transcript_id)
+        if not transcript:
+            return
+        if transcript.deleted_at is None:
+            return
+
+        # Collect file references before deleting DB rows
+        recording = None
+        recording_storage = None
+        if transcript.recording_id:
+            recording = await recordings_controller.get_by_id(transcript.recording_id)
+            # Determine the correct storage backend for recording files.
+            # Recordings from different platforms (daily, whereby) live in
+            # platform-specific buckets with separate credentials.
+            if recording and recording.meeting_id:
+                from reflector.db.meetings import meetings_controller  # noqa: PLC0415
+
+                meeting = await meetings_controller.get_by_id(recording.meeting_id)
+                if meeting:
+                    recording_storage = get_source_storage(meeting.platform)
+            if recording_storage is None:
+                recording_storage = get_transcripts_storage()
+
+        # 1. Hard-delete DB rows first (makes data inaccessible immediately)
+        if recording:
+            await recordings_controller.hard_delete_by_id(recording.id)
+        await get_database().execute(
+            transcripts.delete().where(transcripts.c.id == transcript_id)
+        )
+
+        # 2. Delete transcript audio from S3 (always uses transcript storage)
+        transcript_storage = get_transcripts_storage()
+        if transcript.audio_location == "storage" and not transcript.audio_deleted:
+            try:
+                await transcript_storage.delete_file(transcript.storage_audio_path)
+            except Exception as e:
+                logger.warning(
+                    "Failed to delete transcript audio from storage",
+                    exc_info=e,
+                    transcript_id=transcript_id,
+                    path=transcript.storage_audio_path,
+                )
+
+        # 3. Delete recording files from S3 (both object_key and track_keys —
+        # a recording can have both, unlike consent cleanup which uses elif).
+        # Uses platform-specific storage resolved above.
+        if recording and recording.bucket_name and recording_storage:
+            keys_to_delete = []
+            if recording.track_keys:
+                keys_to_delete = recording.track_keys
+            if recording.object_key:
+                keys_to_delete.append(recording.object_key)
+
+            for key in keys_to_delete:
+                try:
+                    await recording_storage.delete_file(
+                        key, bucket=recording.bucket_name
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to delete recording file",
+                        exc_info=e,
+                        key=key,
+                        bucket=recording.bucket_name,
+                    )
+
+        # 4. Delete local files
+        transcript.unlink()
 
     async def remove_by_recording_id(self, recording_id: str):
         """

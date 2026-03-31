@@ -1,17 +1,21 @@
 import React from "react";
-import { IconButton, Icon, Menu } from "@chakra-ui/react";
-import { LuMenu, LuTrash, LuRotateCw } from "react-icons/lu";
+import { IconButton, Menu } from "@chakra-ui/react";
+import { LuMenu, LuTrash, LuRotateCw, LuUndo2 } from "react-icons/lu";
 
 interface TranscriptActionsMenuProps {
   transcriptId: string;
-  onDelete: (transcriptId: string) => void;
-  onReprocess: (transcriptId: string) => void;
+  onDelete?: (transcriptId: string) => void;
+  onReprocess?: (transcriptId: string) => void;
+  onRestore?: (transcriptId: string) => void;
+  onDestroy?: (transcriptId: string) => void;
 }
 
 export default function TranscriptActionsMenu({
   transcriptId,
   onDelete,
   onReprocess,
+  onRestore,
+  onDestroy,
 }: TranscriptActionsMenuProps) {
   return (
     <Menu.Root closeOnSelect={true} lazyMount={true}>
@@ -22,21 +26,42 @@ export default function TranscriptActionsMenu({
       </Menu.Trigger>
       <Menu.Positioner>
         <Menu.Content>
-          <Menu.Item
-            value="reprocess"
-            onClick={() => onReprocess(transcriptId)}
-          >
-            <LuRotateCw /> Reprocess
-          </Menu.Item>
-          <Menu.Item
-            value="delete"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(transcriptId);
-            }}
-          >
-            <LuTrash /> Delete
-          </Menu.Item>
+          {onReprocess && (
+            <Menu.Item
+              value="reprocess"
+              onClick={() => onReprocess(transcriptId)}
+            >
+              <LuRotateCw /> Reprocess
+            </Menu.Item>
+          )}
+          {onDelete && (
+            <Menu.Item
+              value="delete"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(transcriptId);
+              }}
+            >
+              <LuTrash /> Delete
+            </Menu.Item>
+          )}
+          {onRestore && (
+            <Menu.Item value="restore" onClick={() => onRestore(transcriptId)}>
+              <LuUndo2 /> Restore
+            </Menu.Item>
+          )}
+          {onDestroy && (
+            <Menu.Item
+              value="destroy"
+              color="red.500"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDestroy(transcriptId);
+              }}
+            >
+              <LuTrash /> Destroy
+            </Menu.Item>
+          )}
         </Menu.Content>
       </Menu.Positioner>
     </Menu.Root>

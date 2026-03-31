@@ -95,6 +95,12 @@ DAILYCO_STORAGE_AWS_BUCKET_NAME=<your-bucket-from-daily-setup>
 DAILYCO_STORAGE_AWS_REGION=us-east-1
 DAILYCO_STORAGE_AWS_ROLE_ARN=<your-role-arn-from-daily-setup>
 
+# Worker credentials for reading/deleting recordings from Daily's S3 bucket.
+# Required when transcript storage uses a different bucket or credentials
+# (e.g., selfhosted with Garage or a separate S3 account).
+DAILYCO_STORAGE_AWS_ACCESS_KEY_ID=<your-aws-access-key>
+DAILYCO_STORAGE_AWS_SECRET_ACCESS_KEY=<your-aws-secret-key>
+
 # Transcript storage (should already be configured from main setup)
 # TRANSCRIPT_STORAGE_BACKEND=aws
 # TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID=<your-key>
@@ -102,6 +108,19 @@ DAILYCO_STORAGE_AWS_ROLE_ARN=<your-role-arn-from-daily-setup>
 # TRANSCRIPT_STORAGE_AWS_BUCKET_NAME=<your-bucket-name>
 # TRANSCRIPT_STORAGE_AWS_REGION=<your-bucket-region>
 ```
+
+:::info Two separate credential sets for Daily.co
+
+- **`ROLE_ARN`** — Used by Daily's API to *write* recordings into your S3 bucket (configured via Daily dashboard).
+- **`ACCESS_KEY_ID` / `SECRET_ACCESS_KEY`** — Used by Reflector workers to *read* recordings for transcription and *delete* them on consent denial or permanent transcript deletion.
+
+Required IAM permissions for the worker key on the Daily recordings bucket:
+- `s3:GetObject` — Download recording files for processing
+- `s3:DeleteObject` — Remove files on consent denial, trash destroy, or data retention cleanup
+- `s3:ListBucket` — Scan for recordings needing reprocessing
+
+If the worker keys are not set, Reflector falls back to the transcript storage master key, which then needs cross-bucket access to the Daily bucket.
+:::
 
 ---
 

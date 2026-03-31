@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Box, Stack, Link, Heading } from "@chakra-ui/react";
+import { Box, Stack, Link, Heading, Flex } from "@chakra-ui/react";
 import NextLink from "next/link";
+import { LuTrash2 } from "react-icons/lu";
 import type { components } from "../../../reflector-api";
 
 type Room = components["schemas"]["Room"];
@@ -13,6 +14,9 @@ interface FilterSidebarProps {
   selectedSourceKind: SourceKind | null;
   selectedRoomId: string;
   onFilterChange: (sourceKind: SourceKind | null, roomId: string) => void;
+  isTrashView: boolean;
+  onTrashClick: () => void;
+  isAuthenticated: boolean;
 }
 
 export default function FilterSidebar({
@@ -20,6 +24,9 @@ export default function FilterSidebar({
   selectedSourceKind,
   selectedRoomId,
   onFilterChange,
+  isTrashView,
+  onTrashClick,
+  isAuthenticated,
 }: FilterSidebarProps) {
   const myRooms = rooms.filter((room) => !room.is_shared);
   const sharedRooms = rooms.filter((room) => room.is_shared);
@@ -32,8 +39,14 @@ export default function FilterSidebar({
           fontSize="sm"
           href="#"
           onClick={() => onFilterChange(null, "")}
-          color={selectedSourceKind === null ? "blue.500" : "gray.600"}
-          fontWeight={selectedSourceKind === null ? "bold" : "normal"}
+          color={
+            !isTrashView && selectedSourceKind === null
+              ? "blue.500"
+              : "gray.600"
+          }
+          fontWeight={
+            !isTrashView && selectedSourceKind === null ? "bold" : "normal"
+          }
         >
           All Transcripts
         </Link>
@@ -51,12 +64,16 @@ export default function FilterSidebar({
                 href="#"
                 onClick={() => onFilterChange("room", room.id)}
                 color={
-                  selectedSourceKind === "room" && selectedRoomId === room.id
+                  !isTrashView &&
+                  selectedSourceKind === "room" &&
+                  selectedRoomId === room.id
                     ? "blue.500"
                     : "gray.600"
                 }
                 fontWeight={
-                  selectedSourceKind === "room" && selectedRoomId === room.id
+                  !isTrashView &&
+                  selectedSourceKind === "room" &&
+                  selectedRoomId === room.id
                     ? "bold"
                     : "normal"
                 }
@@ -79,12 +96,16 @@ export default function FilterSidebar({
                 href="#"
                 onClick={() => onFilterChange("room" as SourceKind, room.id)}
                 color={
-                  selectedSourceKind === "room" && selectedRoomId === room.id
+                  !isTrashView &&
+                  selectedSourceKind === "room" &&
+                  selectedRoomId === room.id
                     ? "blue.500"
                     : "gray.600"
                 }
                 fontWeight={
-                  selectedSourceKind === "room" && selectedRoomId === room.id
+                  !isTrashView &&
+                  selectedSourceKind === "room" &&
+                  selectedRoomId === room.id
                     ? "bold"
                     : "normal"
                 }
@@ -101,9 +122,15 @@ export default function FilterSidebar({
           as={NextLink}
           href="#"
           onClick={() => onFilterChange("live", "")}
-          color={selectedSourceKind === "live" ? "blue.500" : "gray.600"}
+          color={
+            !isTrashView && selectedSourceKind === "live"
+              ? "blue.500"
+              : "gray.600"
+          }
           _hover={{ color: "blue.300" }}
-          fontWeight={selectedSourceKind === "live" ? "bold" : "normal"}
+          fontWeight={
+            !isTrashView && selectedSourceKind === "live" ? "bold" : "normal"
+          }
           fontSize="sm"
         >
           Live Transcripts
@@ -112,13 +139,39 @@ export default function FilterSidebar({
           as={NextLink}
           href="#"
           onClick={() => onFilterChange("file", "")}
-          color={selectedSourceKind === "file" ? "blue.500" : "gray.600"}
+          color={
+            !isTrashView && selectedSourceKind === "file"
+              ? "blue.500"
+              : "gray.600"
+          }
           _hover={{ color: "blue.300" }}
-          fontWeight={selectedSourceKind === "file" ? "bold" : "normal"}
+          fontWeight={
+            !isTrashView && selectedSourceKind === "file" ? "bold" : "normal"
+          }
           fontSize="sm"
         >
           Uploaded Files
         </Link>
+
+        {isAuthenticated && (
+          <>
+            <Box borderBottomWidth="1px" my={2} />
+            <Link
+              as={NextLink}
+              href="#"
+              onClick={onTrashClick}
+              color={isTrashView ? "red.600" : "red.500"}
+              _hover={{ color: "red.400" }}
+              fontWeight={isTrashView ? "bold" : "normal"}
+              fontSize="sm"
+            >
+              <Flex align="center" gap={1}>
+                <LuTrash2 />
+                Trash
+              </Flex>
+            </Link>
+          </>
+        )}
       </Stack>
     </Box>
   );
