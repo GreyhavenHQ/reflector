@@ -212,8 +212,13 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
   const showConsentModalRef = useRef(showConsentModal);
   showConsentModalRef.current = showConsentModal;
 
+  const userEmail =
+    auth.status === "authenticated" || auth.status === "refreshing"
+      ? auth.user.email
+      : null;
   const { showEmailModal } = useEmailTranscriptDialog({
     meetingId: assertMeetingId(meeting.id),
+    userEmail,
   });
   const showEmailModalRef = useRef(showEmailModal);
   showEmailModalRef.current = showEmailModal;

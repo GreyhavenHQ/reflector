@@ -11,10 +11,12 @@ const TOAST_CHECK_INTERVAL_MS = 100;
 
 type UseEmailTranscriptDialogParams = {
   meetingId: MeetingId;
+  userEmail?: string | null;
 };
 
 export function useEmailTranscriptDialog({
   meetingId,
+  userEmail,
 }: UseEmailTranscriptDialogParams) {
   const [modalOpen, setModalOpen] = useState(false);
   const addEmailMutation = useMeetingAddEmailRecipient();
@@ -83,6 +85,7 @@ export function useEmailTranscriptDialog({
       duration: null,
       render: ({ dismiss }) => (
         <EmailTranscriptDialog
+          initialEmail={userEmail ?? undefined}
           onSubmit={(email) => {
             handleSubmitEmail(email);
             dismiss();
@@ -120,7 +123,7 @@ export function useEmailTranscriptDialog({
         }
       }, TOAST_CHECK_INTERVAL_MS);
     });
-  }, [handleSubmitEmail, modalOpen]);
+  }, [handleSubmitEmail, modalOpen, userEmail]);
 
   return {
     showEmailModal,
