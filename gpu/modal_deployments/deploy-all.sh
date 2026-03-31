@@ -114,8 +114,8 @@ modal secret create reflector-gpu REFLECTOR_GPU_APIKEY="$API_KEY"
 
 # --- Deploy Functions ---
 echo ""
-echo "Deploying transcriber (Whisper)..."
-TRANSCRIBER_URL=$(modal deploy reflector_transcriber.py 2>&1 | grep -o 'https://[^ ]*web.modal.run' | head -1)
+echo "Deploying transcriber (Parakeet)..."
+TRANSCRIBER_URL=$(modal deploy reflector_transcriber_parakeet.py 2>&1 | grep -o 'https://[^ ]*web.modal.run' | head -1)
 if [ -z "$TRANSCRIBER_URL" ]; then
     echo "Error: Failed to deploy transcriber. Check Modal dashboard for details."
     exit 1
