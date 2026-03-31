@@ -120,7 +120,8 @@ class Meeting(BaseModel):
     daily_composed_video_s3_key: str | None = None
     daily_composed_video_duration: int | None = None
     # Email recipients for transcript notification
-    email_recipients: list[str] | None = None
+    # Each entry is {"email": str, "include_link": bool} or a legacy plain str
+    email_recipients: list[dict | str] | None = None
 
 
 class MeetingController:
@@ -399,15 +400,27 @@ class MeetingController:
         async with get_database().transaction(isolation="serializable"):
             yield
 
-    async def add_email_recipient(self, meeting_id: str, email: str) -> list[str]:
-        """Add an email to the meeting's email_recipients list (no duplicates)."""
+    async def add_email_recipient(
+        self, meeting_id: str, email: str, *, include_link: bool = True
+    ) -> list[dict]:
+        """Add an email to the meeting's email_recipients list (no duplicates).
+
+        Each entry is stored as {"email": str, "include_link": bool}.
+        Legacy plain-string entries are normalised on read.
+        """
         async with self.transaction():
             meeting = await self.get_by_id(meeting_id)
             if not meeting:
                 raise ValueError(f"Meeting {meeting_id} not found")
-            current = meeting.email_recipients or []
-            if email not in current:
-                current.append(email)
+            # Normalise legacy string entries
+            current: list[dict] = [
+                entry
+                if isinstance(entry, dict)
+                else {"email": entry, "include_link": True}
+                for entry in (meeting.email_recipients or [])
+            ]
+            if not any(r["email"] == email for r in current):
+                current.append({"email": email, "include_link": include_link})
                 await self.update_meeting(meeting_id, email_recipients=current)
         return current
 
