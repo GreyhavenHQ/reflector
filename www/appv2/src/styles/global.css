@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+@import './tokens.css';
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-family: 'Manrope', sans-serif;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}

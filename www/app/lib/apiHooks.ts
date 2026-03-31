@@ -327,6 +327,7 @@ export function useTranscriptUploadAudio() {
         });
       },
       onError: (error) => {
+        console.log(error)
         setError(error as Error, "There was an error uploading the audio file");
       },
     },
