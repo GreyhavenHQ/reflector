@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -507,8 +508,24 @@ async def test_transcript_restore_forbidden(authenticated_client, client):
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture
+def mock_destroy_storage():
+    """Mock storage backends so hard_delete doesn't require S3 credentials."""
+    with (
+        patch(
+            "reflector.db.transcripts.get_transcripts_storage",
+            return_value=AsyncMock(delete_file=AsyncMock()),
+        ),
+        patch(
+            "reflector.db.transcripts.get_source_storage",
+            return_value=AsyncMock(delete_file=AsyncMock()),
+        ),
+    ):
+        yield
+
+
 @pytest.mark.asyncio
-async def test_transcript_destroy(authenticated_client, client):
+async def test_transcript_destroy(authenticated_client, client, mock_destroy_storage):
     """Soft-delete then destroy, verify transcript gone from DB."""
     response = await client.post("/transcripts", json={"name": "destroy-me"})
     assert response.status_code == 200
@@ -540,7 +557,9 @@ async def test_transcript_destroy_not_soft_deleted(authenticated_client, client)
 
 
 @pytest.mark.asyncio
-async def test_transcript_destroy_with_recording(authenticated_client, client):
+async def test_transcript_destroy_with_recording(
+    authenticated_client, client, mock_destroy_storage
+):
     """Destroying a transcript also hard-deletes its recording from DB."""
     recording = await recordings_controller.create(
         Recording(
@@ -590,7 +609,9 @@ async def test_transcript_destroy_forbidden(authenticated_client, client):
 
 
 @pytest.mark.asyncio
-async def test_transcript_destroy_does_not_delete_meeting(authenticated_client, client):
+async def test_transcript_destroy_does_not_delete_meeting(
+    authenticated_client, client, mock_destroy_storage
+):
     """Destroying a transcript must NOT delete its associated meeting."""
     room = await rooms_controller.add(
         name="room-for-meeting-isolation",
@@ -650,7 +671,7 @@ async def test_transcript_destroy_does_not_delete_meeting(authenticated_client, 
 
 @pytest.mark.asyncio
 async def test_transcript_destroy_does_not_affect_other_transcripts(
-    authenticated_client, client
+    authenticated_client, client, mock_destroy_storage
 ):
     """Destroying one transcript must not affect another transcript or its recording."""
     user_id = "randomuserid"
@@ -701,7 +722,7 @@ async def test_transcript_destroy_does_not_affect_other_transcripts(
 
 @pytest.mark.asyncio
 async def test_transcript_destroy_meeting_with_multiple_transcripts(
-    authenticated_client, client
+    authenticated_client, client, mock_destroy_storage
 ):
     """Destroying one transcript from a meeting must not affect the other
     transcript, its recording, or the shared meeting."""
