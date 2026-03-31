@@ -61,7 +61,7 @@ from reflector.processors.types import (
 )
 from reflector.processors.types import Transcript as TranscriptProcessorType
 from reflector.settings import settings
-from reflector.storage import get_transcripts_storage
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.views.transcripts import GetTranscriptTopic
 from reflector.ws_events import TranscriptEventName
 from reflector.ws_manager import WebsocketManager, get_ws_manager
@@ -671,6 +671,22 @@ async def cleanup_consent(transcript: Transcript, logger: Logger):
         logger.error(error_msg, exc_info=e)
         deletion_errors.append(error_msg)
 
+    # Delete cloud video if present
+    if meeting and meeting.daily_composed_video_s3_key:
+        try:
+            source_storage = get_source_storage("daily")
+            await source_storage.delete_file(meeting.daily_composed_video_s3_key)
+            await meetings_controller.update_meeting(
+                meeting.id,
+                daily_composed_video_s3_key=None,
+                daily_composed_video_duration=None,
+            )
+            logger.info(f"Deleted cloud video: {meeting.daily_composed_video_s3_key}")
+        except Exception as e:
+            error_msg = f"Failed to delete cloud video: {e}"
+            logger.error(error_msg, exc_info=e)
+            deletion_errors.append(error_msg)
+
     if deletion_errors:
         logger.warning(
             f"Consent cleanup completed with {len(deletion_errors)} errors",
@@ -678,7 +694,7 @@ async def cleanup_consent(transcript: Transcript, logger: Logger):
         )
     else:
         await transcripts_controller.update(transcript, {"audio_deleted": True})
-        logger.info("Consent cleanup done - all audio deleted")
+        logger.info("Consent cleanup done - all audio and video deleted")
 
 
 @get_transcript

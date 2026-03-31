@@ -688,7 +688,10 @@ async def cleanup_consent(input: FilePipelineInput, ctx: Context) -> ConsentResu
         )
         from reflector.db.recordings import recordings_controller  # noqa: PLC0415
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.storage import get_transcripts_storage  # noqa: PLC0415
+        from reflector.storage import (  # noqa: PLC0415
+            get_source_storage,
+            get_transcripts_storage,
+        )
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if not transcript:
@@ -697,6 +700,7 @@ async def cleanup_consent(input: FilePipelineInput, ctx: Context) -> ConsentResu
 
         consent_denied = False
         recording = None
+        meeting = None
         if transcript.recording_id:
             recording = await recordings_controller.get_by_id(transcript.recording_id)
             if recording and recording.meeting_id:
@@ -756,6 +760,22 @@ async def cleanup_consent(input: FilePipelineInput, ctx: Context) -> ConsentResu
             logger.error(error_msg, exc_info=True)
             deletion_errors.append(error_msg)
 
+        # Delete cloud video if present
+        if meeting and meeting.daily_composed_video_s3_key:
+            try:
+                source_storage = get_source_storage("daily")
+                await source_storage.delete_file(meeting.daily_composed_video_s3_key)
+                await meetings_controller.update_meeting(
+                    meeting.id,
+                    daily_composed_video_s3_key=None,
+                    daily_composed_video_duration=None,
+                )
+                ctx.log(f"Deleted cloud video: {meeting.daily_composed_video_s3_key}")
+            except Exception as e:
+                error_msg = f"Failed to delete cloud video: {e}"
+                logger.error(error_msg, exc_info=True)
+                deletion_errors.append(error_msg)
+
         if deletion_errors:
             logger.warning(
                 "[Hatchet] cleanup_consent completed with errors",
@@ -764,7 +784,7 @@ async def cleanup_consent(input: FilePipelineInput, ctx: Context) -> ConsentResu
             )
         else:
             await transcripts_controller.update(transcript, {"audio_deleted": True})
-            ctx.log("cleanup_consent: all audio deleted successfully")
+            ctx.log("cleanup_consent: all audio and video deleted successfully")
 
     return ConsentResult()
 

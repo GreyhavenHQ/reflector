@@ -388,6 +388,46 @@ export interface paths {
     patch: operations["v1_transcript_update"];
     trace?: never;
   };
+  "/v1/transcripts/{transcript_id}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Transcript Restore
+     * @description Restore a soft-deleted transcript.
+     */
+    post: operations["v1_transcript_restore"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/transcripts/{transcript_id}/destroy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Transcript Destroy
+     * @description Permanently delete a transcript and all associated files.
+     */
+    delete: operations["v1_transcript_destroy"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/transcripts/{transcript_id}/topics": {
     parameters: {
       query?: never;
@@ -2391,6 +2431,14 @@ export interface components {
        */
       title: string;
     };
+    /** UserTranscriptRestoredData */
+    UserTranscriptRestoredData: {
+      /**
+       * Id
+       * @description A non-empty string
+       */
+      id: string;
+    };
     /** UserTranscriptStatusData */
     UserTranscriptStatusData: {
       /**
@@ -2445,6 +2493,15 @@ export interface components {
        */
       event: "TRANSCRIPT_FINAL_TITLE";
       data: components["schemas"]["UserTranscriptFinalTitleData"];
+    };
+    /** UserWsTranscriptRestored */
+    UserWsTranscriptRestored: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      event: "TRANSCRIPT_RESTORED";
+      data: components["schemas"]["UserTranscriptRestoredData"];
     };
     /** UserWsTranscriptStatus */
     UserWsTranscriptStatus: {
@@ -3293,6 +3350,7 @@ export interface operations {
         from?: string | null;
         /** @description Filter transcripts created on or before this datetime (ISO 8601 with timezone) */
         to?: string | null;
+        include_deleted?: boolean;
       };
       header?: never;
       path?: never;
@@ -3414,6 +3472,68 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["GetTranscriptWithParticipants"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  v1_transcript_restore: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        transcript_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeletionStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  v1_transcript_destroy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        transcript_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeletionStatus"];
         };
       };
       /** @description Validation Error */
@@ -3995,9 +4115,7 @@ export interface operations {
   };
   v1_transcript_get_video_url: {
     parameters: {
-      query?: {
-        token?: string | null;
-      };
+      query?: never;
       header?: never;
       path: {
         transcript_id: string;
@@ -4254,6 +4372,7 @@ export interface operations {
           "application/json":
             | components["schemas"]["UserWsTranscriptCreated"]
             | components["schemas"]["UserWsTranscriptDeleted"]
+            | components["schemas"]["UserWsTranscriptRestored"]
             | components["schemas"]["UserWsTranscriptStatus"]
             | components["schemas"]["UserWsTranscriptFinalTitle"]
             | components["schemas"]["UserWsTranscriptDuration"];

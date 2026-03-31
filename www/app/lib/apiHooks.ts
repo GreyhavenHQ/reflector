@@ -57,6 +57,7 @@ export function useTranscriptsSearch(
     offset?: number;
     room_id?: string;
     source_kind?: SourceKind;
+    include_deleted?: boolean;
   } = {},
 ) {
   return $api.useQuery(
@@ -70,6 +71,7 @@ export function useTranscriptsSearch(
           offset: options.offset,
           room_id: options.room_id,
           source_kind: options.source_kind,
+          include_deleted: options.include_deleted,
         },
       },
     },
@@ -101,6 +103,38 @@ export function useTranscriptProcess() {
   return $api.useMutation("post", "/v1/transcripts/{transcript_id}/process", {
     onError: (error) => {
       setError(error as Error, "There was an error processing the transcript");
+    },
+  });
+}
+
+export function useTranscriptRestore() {
+  const { setError } = useError();
+  const queryClient = useQueryClient();
+
+  return $api.useMutation("post", "/v1/transcripts/{transcript_id}/restore", {
+    onSuccess: () => {
+      return queryClient.invalidateQueries({
+        queryKey: ["get", TRANSCRIPT_SEARCH_URL],
+      });
+    },
+    onError: (error) => {
+      setError(error as Error, "There was an error restoring the transcript");
+    },
+  });
+}
+
+export function useTranscriptDestroy() {
+  const { setError } = useError();
+  const queryClient = useQueryClient();
+
+  return $api.useMutation("delete", "/v1/transcripts/{transcript_id}/destroy", {
+    onSuccess: () => {
+      return queryClient.invalidateQueries({
+        queryKey: ["get", TRANSCRIPT_SEARCH_URL],
+      });
+    },
+    onError: (error) => {
+      setError(error as Error, "There was an error destroying the transcript");
     },
   });
 }

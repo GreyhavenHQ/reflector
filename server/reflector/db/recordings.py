@@ -78,6 +78,14 @@ class RecordingController:
         )
         await get_database().execute(query)
 
+    async def restore_by_id(self, id: str) -> None:
+        query = recordings.update().where(recordings.c.id == id).values(deleted_at=None)
+        await get_database().execute(query)
+
+    async def hard_delete_by_id(self, id: str) -> None:
+        query = recordings.delete().where(recordings.c.id == id)
+        await get_database().execute(query)
+
     async def set_meeting_id(
         self,
         recording_id: NonEmptyString,

@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
+from reflector.db.meetings import meetings_controller
 from reflector.db.recordings import Recording, recordings_controller
 from reflector.db.rooms import rooms_controller
 from reflector.db.transcripts import SourceKind, transcripts_controller
@@ -390,3 +393,443 @@ async def test_transcripts_list_filtered_by_room_id(authenticated_client, client
     ids = [t["id"] for t in items]
     assert in_room.id in ids
     assert other.id not in ids
+
+
+# ---------------------------------------------------------------------------
+# Restore tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_transcript_restore(authenticated_client, client):
+    """Soft-delete then restore, verify accessible again."""
+    response = await client.post("/transcripts", json={"name": "restore-me"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    # Soft-delete
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # 404 while deleted
+    response = await client.get(f"/transcripts/{tid}")
+    assert response.status_code == 404
+
+    # Restore
+    response = await client.post(f"/transcripts/{tid}/restore")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+    # Accessible again
+    response = await client.get(f"/transcripts/{tid}")
+    assert response.status_code == 200
+    assert response.json()["name"] == "restore-me"
+
+    # deleted_at is cleared
+    transcript = await transcripts_controller.get_by_id(tid)
+    assert transcript.deleted_at is None
+
+
+@pytest.mark.asyncio
+async def test_transcript_restore_recording_also_restored(authenticated_client, client):
+    """Restoring a transcript also restores its recording."""
+    recording = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="restore-test.mp4",
+            recorded_at=datetime.now(timezone.utc),
+        )
+    )
+    transcript = await transcripts_controller.add(
+        name="restore-with-recording",
+        source_kind=SourceKind.ROOM,
+        recording_id=recording.id,
+        user_id="randomuserid",
+    )
+
+    # Soft-delete
+    response = await client.delete(f"/transcripts/{transcript.id}")
+    assert response.status_code == 200
+
+    # Both should be soft-deleted
+    rec = await recordings_controller.get_by_id(recording.id)
+    assert rec.deleted_at is not None
+
+    # Restore
+    response = await client.post(f"/transcripts/{transcript.id}/restore")
+    assert response.status_code == 200
+
+    # Recording also restored
+    rec = await recordings_controller.get_by_id(recording.id)
+    assert rec.deleted_at is None
+
+    tr = await transcripts_controller.get_by_id(transcript.id)
+    assert tr.deleted_at is None
+
+
+@pytest.mark.asyncio
+async def test_transcript_restore_not_deleted(authenticated_client, client):
+    """Restoring a non-deleted transcript returns 400."""
+    response = await client.post("/transcripts", json={"name": "not-deleted"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    response = await client.post(f"/transcripts/{tid}/restore")
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_transcript_restore_not_found(authenticated_client, client):
+    """Restoring a nonexistent transcript returns 404."""
+    response = await client.post("/transcripts/nonexistent-id/restore")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_transcript_restore_forbidden(authenticated_client, client):
+    """Cannot restore another user's deleted transcript."""
+    # Create transcript owned by a different user
+    transcript = await transcripts_controller.add(
+        name="other-user-restore",
+        source_kind=SourceKind.FILE,
+        user_id="some-other-user",
+    )
+    # Soft-delete directly in DB
+    await transcripts_controller.remove_by_id(transcript.id, user_id="some-other-user")
+
+    # Try to restore as randomuserid (authenticated_client)
+    response = await client.post(f"/transcripts/{transcript.id}/restore")
+    assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Destroy tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy(authenticated_client, client):
+    """Soft-delete then destroy, verify transcript gone from DB."""
+    response = await client.post("/transcripts", json={"name": "destroy-me"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    # Soft-delete first
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # Destroy
+    response = await client.delete(f"/transcripts/{tid}/destroy")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+    # Gone from DB entirely
+    transcript = await transcripts_controller.get_by_id(tid)
+    assert transcript is None
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy_not_soft_deleted(authenticated_client, client):
+    """Cannot destroy a transcript that hasn't been soft-deleted."""
+    response = await client.post("/transcripts", json={"name": "not-soft-deleted"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    response = await client.delete(f"/transcripts/{tid}/destroy")
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy_with_recording(authenticated_client, client):
+    """Destroying a transcript also hard-deletes its recording from DB."""
+    recording = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="destroy-test.mp4",
+            recorded_at=datetime.now(timezone.utc),
+        )
+    )
+    transcript = await transcripts_controller.add(
+        name="destroy-with-recording",
+        source_kind=SourceKind.ROOM,
+        recording_id=recording.id,
+        user_id="randomuserid",
+    )
+
+    # Soft-delete
+    response = await client.delete(f"/transcripts/{transcript.id}")
+    assert response.status_code == 200
+
+    # Destroy
+    response = await client.delete(f"/transcripts/{transcript.id}/destroy")
+    assert response.status_code == 200
+
+    # Both gone from DB
+    assert await transcripts_controller.get_by_id(transcript.id) is None
+    assert await recordings_controller.get_by_id(recording.id) is None
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy_forbidden(authenticated_client, client):
+    """Cannot destroy another user's deleted transcript."""
+    transcript = await transcripts_controller.add(
+        name="other-user-destroy",
+        source_kind=SourceKind.FILE,
+        user_id="some-other-user",
+    )
+    await transcripts_controller.remove_by_id(transcript.id, user_id="some-other-user")
+
+    # Try to destroy as randomuserid (authenticated_client)
+    response = await client.delete(f"/transcripts/{transcript.id}/destroy")
+    assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Isolation tests — verify unrelated data is NOT deleted
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy_does_not_delete_meeting(authenticated_client, client):
+    """Destroying a transcript must NOT delete its associated meeting."""
+    room = await rooms_controller.add(
+        name="room-for-meeting-isolation",
+        user_id="randomuserid",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=False,
+        webhook_url="",
+        webhook_secret="",
+    )
+    now = datetime.now(timezone.utc)
+    meeting = await meetings_controller.create(
+        id="meeting-isolation-test",
+        room_name=room.name,
+        room_url="https://example.com/room",
+        host_room_url="https://example.com/room-host",
+        start_date=now,
+        end_date=now + timedelta(hours=1),
+        room=room,
+    )
+    recording = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="meeting-iso.mp4",
+            recorded_at=now,
+            meeting_id=meeting.id,
+        )
+    )
+    transcript = await transcripts_controller.add(
+        name="transcript-with-meeting",
+        source_kind=SourceKind.ROOM,
+        recording_id=recording.id,
+        meeting_id=meeting.id,
+        room_id=room.id,
+        user_id="randomuserid",
+    )
+
+    # Soft-delete then destroy
+    await transcripts_controller.remove_by_id(transcript.id, user_id="randomuserid")
+    response = await client.delete(f"/transcripts/{transcript.id}/destroy")
+    assert response.status_code == 200
+
+    # Transcript and recording are gone
+    assert await transcripts_controller.get_by_id(transcript.id) is None
+    assert await recordings_controller.get_by_id(recording.id) is None
+
+    # Meeting still exists
+    m = await meetings_controller.get_by_id(meeting.id)
+    assert m is not None
+    assert m.id == meeting.id
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy_does_not_affect_other_transcripts(
+    authenticated_client, client
+):
+    """Destroying one transcript must not affect another transcript or its recording."""
+    user_id = "randomuserid"
+    rec1 = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="sibling1.mp4",
+            recorded_at=datetime.now(timezone.utc),
+        )
+    )
+    rec2 = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="sibling2.mp4",
+            recorded_at=datetime.now(timezone.utc),
+        )
+    )
+    t1 = await transcripts_controller.add(
+        name="sibling-1",
+        source_kind=SourceKind.FILE,
+        recording_id=rec1.id,
+        user_id=user_id,
+    )
+    t2 = await transcripts_controller.add(
+        name="sibling-2",
+        source_kind=SourceKind.FILE,
+        recording_id=rec2.id,
+        user_id=user_id,
+    )
+
+    # Soft-delete and destroy t1
+    await transcripts_controller.remove_by_id(t1.id, user_id=user_id)
+    response = await client.delete(f"/transcripts/{t1.id}/destroy")
+    assert response.status_code == 200
+
+    # t1 and rec1 gone
+    assert await transcripts_controller.get_by_id(t1.id) is None
+    assert await recordings_controller.get_by_id(rec1.id) is None
+
+    # t2 and rec2 untouched
+    t2_after = await transcripts_controller.get_by_id(t2.id)
+    assert t2_after is not None
+    assert t2_after.deleted_at is None
+    rec2_after = await recordings_controller.get_by_id(rec2.id)
+    assert rec2_after is not None
+    assert rec2_after.deleted_at is None
+
+
+@pytest.mark.asyncio
+async def test_transcript_destroy_meeting_with_multiple_transcripts(
+    authenticated_client, client
+):
+    """Destroying one transcript from a meeting must not affect the other
+    transcript, its recording, or the shared meeting."""
+    user_id = "randomuserid"
+    room = await rooms_controller.add(
+        name="room-multi-transcript",
+        user_id=user_id,
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=False,
+        webhook_url="",
+        webhook_secret="",
+    )
+    now = datetime.now(timezone.utc)
+    meeting = await meetings_controller.create(
+        id="meeting-multi-transcript-test",
+        room_name=room.name,
+        room_url="https://example.com/room",
+        host_room_url="https://example.com/room-host",
+        start_date=now,
+        end_date=now + timedelta(hours=1),
+        room=room,
+    )
+    rec1 = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="multi1.mp4",
+            recorded_at=now,
+            meeting_id=meeting.id,
+        )
+    )
+    rec2 = await recordings_controller.create(
+        Recording(
+            bucket_name="test-bucket",
+            object_key="multi2.mp4",
+            recorded_at=now,
+            meeting_id=meeting.id,
+        )
+    )
+    t1 = await transcripts_controller.add(
+        name="multi-t1",
+        source_kind=SourceKind.ROOM,
+        recording_id=rec1.id,
+        meeting_id=meeting.id,
+        room_id=room.id,
+        user_id=user_id,
+    )
+    t2 = await transcripts_controller.add(
+        name="multi-t2",
+        source_kind=SourceKind.ROOM,
+        recording_id=rec2.id,
+        meeting_id=meeting.id,
+        room_id=room.id,
+        user_id=user_id,
+    )
+
+    # Soft-delete and destroy t1
+    await transcripts_controller.remove_by_id(t1.id, user_id=user_id)
+    response = await client.delete(f"/transcripts/{t1.id}/destroy")
+    assert response.status_code == 200
+
+    # t1 + rec1 gone
+    assert await transcripts_controller.get_by_id(t1.id) is None
+    assert await recordings_controller.get_by_id(rec1.id) is None
+
+    # t2 + rec2 + meeting all still exist
+    assert (await transcripts_controller.get_by_id(t2.id)) is not None
+    assert (await recordings_controller.get_by_id(rec2.id)) is not None
+    assert (await meetings_controller.get_by_id(meeting.id)) is not None
+
+
+# ---------------------------------------------------------------------------
+# Search tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_search_include_deleted(authenticated_client, client):
+    """Search with include_deleted=true returns only deleted transcripts."""
+    response = await client.post("/transcripts", json={"name": "search-deleted"})
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    # Soft-delete
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # Normal search should not include it
+    response = await client.get("/transcripts/search", params={"q": ""})
+    assert response.status_code == 200
+    ids = [r["id"] for r in response.json()["results"]]
+    assert tid not in ids
+
+    # Search with include_deleted should include it
+    response = await client.get(
+        "/transcripts/search", params={"q": "", "include_deleted": True}
+    )
+    assert response.status_code == 200
+    ids = [r["id"] for r in response.json()["results"]]
+    assert tid in ids
+
+
+@pytest.mark.asyncio
+async def test_search_exclude_deleted_by_default(authenticated_client, client):
+    """Normal search excludes deleted transcripts by default."""
+    response = await client.post(
+        "/transcripts", json={"name": "search-exclude-deleted"}
+    )
+    assert response.status_code == 200
+    tid = response.json()["id"]
+
+    # Verify it appears in search
+    response = await client.get("/transcripts/search", params={"q": ""})
+    assert response.status_code == 200
+    ids = [r["id"] for r in response.json()["results"]]
+    assert tid in ids
+
+    # Soft-delete
+    response = await client.delete(f"/transcripts/{tid}")
+    assert response.status_code == 200
+
+    # Verify it no longer appears in default search
+    response = await client.get("/transcripts/search", params={"q": ""})
+    assert response.status_code == 200
+    ids = [r["id"] for r in response.json()["results"]]
+    assert tid not in ids

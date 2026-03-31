@@ -136,6 +136,7 @@ export function UserEventsProvider({
           switch (msg.event) {
             case "TRANSCRIPT_CREATED":
             case "TRANSCRIPT_DELETED":
+            case "TRANSCRIPT_RESTORED":
             case "TRANSCRIPT_STATUS":
             case "TRANSCRIPT_FINAL_TITLE":
             case "TRANSCRIPT_DURATION":

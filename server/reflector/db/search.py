@@ -138,6 +138,7 @@ class SearchParameters(BaseModel):
     source_kind: SourceKind | None = None
     from_datetime: datetime | None = None
     to_datetime: datetime | None = None
+    include_deleted: bool = False
 
 
 class SearchResultDB(BaseModel):
@@ -387,7 +388,10 @@ class SearchController:
             transcripts.join(rooms, transcripts.c.room_id == rooms.c.id, isouter=True)
         )
 
-        base_query = base_query.where(transcripts.c.deleted_at.is_(None))
+        if params.include_deleted:
+            base_query = base_query.where(transcripts.c.deleted_at.isnot(None))
+        else:
+            base_query = base_query.where(transcripts.c.deleted_at.is_(None))
 
         if params.query_text is not None:
             # because already initialized based on params.query_text presence above
@@ -396,7 +400,13 @@ class SearchController:
                 transcripts.c.search_vector_en.op("@@")(search_query)
             )
 
-        if params.user_id:
+        if params.include_deleted:
+            # Trash view: only show user's own deleted transcripts.
+            # Defense-in-depth: require user_id to prevent leaking all users' trash.
+            if not params.user_id:
+                return [], 0
+            base_query = base_query.where(transcripts.c.user_id == params.user_id)
+        elif params.user_id:
             base_query = base_query.where(
                 sqlalchemy.or_(
                     transcripts.c.user_id == params.user_id, rooms.c.is_shared
@@ -421,6 +431,8 @@ class SearchController:
 
         if params.query_text is not None:
             order_by = sqlalchemy.desc(sqlalchemy.text("rank"))
+        elif params.include_deleted:
+            order_by = sqlalchemy.desc(transcripts.c.deleted_at)
         else:
             order_by = sqlalchemy.desc(transcripts.c.created_at)
 

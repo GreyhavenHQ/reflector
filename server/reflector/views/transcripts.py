@@ -309,12 +309,19 @@ async def transcripts_search(
     source_kind: Optional[SourceKind] = None,
     from_datetime: SearchFromDatetimeParam = None,
     to_datetime: SearchToDatetimeParam = None,
+    include_deleted: bool = False,
     user: Annotated[
         Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
     ] = None,
 ):
     """Full-text search across transcript titles and content."""
     user_id = user["sub"] if user else None
+
+    if include_deleted and not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to view deleted transcripts",
+        )
 
     if from_datetime and to_datetime and from_datetime > to_datetime:
         raise HTTPException(
@@ -330,6 +337,7 @@ async def transcripts_search(
         source_kind=source_kind,
         from_datetime=from_datetime,
         to_datetime=to_datetime,
+        include_deleted=include_deleted,
     )
 
     results, total = await search_controller.search_transcripts(search_params)
@@ -608,6 +616,54 @@ async def transcript_delete(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     await transcripts_controller.remove_by_id(transcript.id, user_id=user_id)
+    await get_ws_manager().send_json(
+        room_id=f"user:{user_id}",
+        message={"event": "TRANSCRIPT_DELETED", "data": {"id": transcript.id}},
+    )
+    return DeletionStatus(status="ok")
+
+
+@router.post("/transcripts/{transcript_id}/restore", response_model=DeletionStatus)
+async def transcript_restore(
+    transcript_id: str,
+    user: Annotated[auth.UserInfo, Depends(auth.current_user)],
+):
+    """Restore a soft-deleted transcript."""
+    user_id = user["sub"]
+    transcript = await transcripts_controller.get_by_id(transcript_id)
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    if transcript.deleted_at is None:
+        raise HTTPException(status_code=400, detail="Transcript is not deleted")
+    if not transcripts_controller.user_can_mutate(transcript, user_id):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    await transcripts_controller.restore_by_id(transcript.id, user_id=user_id)
+    await get_ws_manager().send_json(
+        room_id=f"user:{user_id}",
+        message={"event": "TRANSCRIPT_RESTORED", "data": {"id": transcript.id}},
+    )
+    return DeletionStatus(status="ok")
+
+
+@router.delete("/transcripts/{transcript_id}/destroy", response_model=DeletionStatus)
+async def transcript_destroy(
+    transcript_id: str,
+    user: Annotated[auth.UserInfo, Depends(auth.current_user)],
+):
+    """Permanently delete a transcript and all associated files."""
+    user_id = user["sub"]
+    transcript = await transcripts_controller.get_by_id(transcript_id)
+    if not transcript:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    if transcript.deleted_at is None:
+        raise HTTPException(
+            status_code=400, detail="Transcript must be soft-deleted first"
+        )
+    if not transcripts_controller.user_can_mutate(transcript, user_id):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    await transcripts_controller.hard_delete(transcript.id)
     await get_ws_manager().send_json(
         room_id=f"user:{user_id}",
         message={"event": "TRANSCRIPT_DELETED", "data": {"id": transcript.id}},
