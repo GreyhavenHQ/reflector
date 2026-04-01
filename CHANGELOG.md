@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.43.0](https://github.com/GreyhavenHQ/reflector/compare/v0.42.0...v0.43.0) (2026-03-31)
+
+
+### Features
+
+* show trash for soft deleted transcripts and hard delete option ([#942](https://github.com/GreyhavenHQ/reflector/issues/942)) ([ec8b497](https://github.com/GreyhavenHQ/reflector/commit/ec8b49738e8e76f6e5d2496a42cb454ef6c2d7c7))
+
+
+### Bug Fixes
+
+* add parakeet as default transcriber and fix diarizer image ([#939](https://github.com/GreyhavenHQ/reflector/issues/939)) ([cc9c5cd](https://github.com/GreyhavenHQ/reflector/commit/cc9c5cd4a5f4123ef957ad82461ca37a727d1ba6))
+* cpu usage + email improvements ([#944](https://github.com/GreyhavenHQ/reflector/issues/944)) ([8c4f5e9](https://github.com/GreyhavenHQ/reflector/commit/8c4f5e9c0f893f4cb029595505b53136f04760f4))
+
 ## [0.42.0](https://github.com/GreyhavenHQ/reflector/compare/v0.41.0...v0.42.0) (2026-03-30)
 
 
