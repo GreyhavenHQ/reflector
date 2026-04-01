@@ -170,6 +170,8 @@ These start regardless of which flags you pass:
 | `ollama-cpu` | `ollama-cpu` | Local Ollama LLM on CPU |
 | `garage` | `garage` | Local S3-compatible object storage |
 | `caddy` | `caddy` | Reverse proxy with SSL |
+| `dailyco` | `hatchet-worker-cpu` | Hatchet workflow workers for Daily.co multitrack processing |
+| `livekit` | `livekit-server`, `livekit-egress` | Self-hosted video platform + per-participant audio recording |
 
 ### The "transcription" Alias
 
@@ -206,11 +208,17 @@ Both the `gpu` and `cpu` services define a Docker network alias of `transcriptio
       │ :8000     │  └─────────┘  └─────────┘
       └───────────┘
             │
-      ┌─────┴─────┐     ┌─────────┐
-      │  ollama   │     │ garage  │
-      │(optional) │     │(optional│
-      │ :11435    │     │  S3)    │
-      └───────────┘     └─────────┘
+      ┌─────┴─────┐     ┌─────────┐     ┌──────────────┐
+      │  ollama   │     │ garage  │     │livekit-server│
+      │(optional) │     │(optional│     │  (optional)  │
+      │ :11435    │     │  S3)    │     │  :7880       │
+      └───────────┘     └─────────┘     └──────┬───────┘
+                                               │
+                                        ┌──────┴───────┐
+                                        │livekit-egress│
+                                        │ (Track Egress│
+                                        │  to S3)      │
+                                        └──────────────┘
 ```
 
 ### How Services Interact
@@ -320,7 +328,9 @@ You can point your own reverse proxy (nginx, Traefik, etc.) at these ports.
 
 ### WebRTC and UDP
 
-The server exposes UDP ports 50000-50100 for WebRTC ICE candidates. The `WEBRTC_HOST` variable tells the server which IP to advertise in ICE candidates — this must be the server's actual IP address (not a domain), because WebRTC uses UDP which doesn't go through the HTTP reverse proxy.
+The server exposes UDP ports 40000-40100 for Reflector's own WebRTC ICE candidates. When LiveKit is enabled, it additionally uses ports 44200-44300/udp for its WebRTC ICE candidates. The `WEBRTC_HOST` variable tells the server which IP to advertise in ICE candidates — this must be the server's actual IP address (not a domain), because WebRTC uses UDP which doesn't go through the HTTP reverse proxy.
+
+Port ranges are chosen to avoid collision with macOS ephemeral ports (49152-65535).
 
 ---
 
@@ -426,7 +436,10 @@ All services communicate over Docker's default bridge network. Only specific por
 | 3903 | Garage | `0.0.0.0:3903` | Garage admin API |
 | 8000 | GPU/CPU | `127.0.0.1:8000` | ML model API (localhost only) |
 | 11435 | Ollama | `127.0.0.1:11435` | Ollama API (localhost only) |
-| 50000-50100/udp | Server | `0.0.0.0:50000-50100` | WebRTC ICE candidates |
+| 40000-40100/udp | Server | `0.0.0.0:40000-40100` | Reflector WebRTC ICE candidates |
+| 7880 | LiveKit | `0.0.0.0:7880` | LiveKit signaling (WS) |
+| 7881 | LiveKit | `0.0.0.0:7881` | LiveKit RTC over TCP |
+| 44200-44300/udp | LiveKit | `0.0.0.0:44200-44300` | LiveKit WebRTC ICE candidates |
 
 Services bound to `127.0.0.1` are only accessible from the host itself (not from the network). Caddy is the only service exposed to the internet on standard HTTP/HTTPS ports.
 
@@ -443,6 +456,8 @@ Inside the Docker network, services reach each other by their compose service na
 | `transcription` | GPU or CPU container (network alias) |
 | `ollama` / `ollama-cpu` | Ollama container |
 | `garage` | Garage S3 container |
+| `livekit-server` | LiveKit SFU server |
+| `livekit-egress` | LiveKit Track Egress service |
 
 ---
 

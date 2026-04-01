@@ -598,4 +598,22 @@ async def rooms_join_meeting(
         meeting = meeting.model_copy()
         meeting.room_url = add_query_param(meeting.room_url, "t", token)
 
+    elif meeting.platform == "livekit":
+        client = create_platform_client(meeting.platform)
+        participant_identity = user_id or f"anon-{meeting_id[:8]}"
+        participant_name = (
+            getattr(user, "name", None) or participant_identity
+            if user
+            else participant_identity
+        )
+        token = client.create_access_token(
+            room_name=meeting.room_name,
+            participant_identity=participant_identity,
+            participant_name=participant_name,
+            is_admin=user_id == room.user_id if user_id else False,
+        )
+        meeting = meeting.model_copy()
+        # For LiveKit, room_url is the WS URL; token goes as a query param
+        meeting.room_url = add_query_param(meeting.room_url, "token", token)
+
     return meeting

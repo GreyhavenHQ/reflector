@@ -26,6 +26,8 @@
 #   (If omitted, configure an external OpenAI-compatible LLM in server/.env)
 #
 # Optional flags:
+#   --livekit          Enable LiveKit self-hosted video platform (generates credentials,
+#                      starts livekit-server + livekit-egress containers)
 #   --garage           Use Garage for local S3-compatible storage
 #   --caddy            Enable Caddy reverse proxy with auto-SSL
 #   --domain DOMAIN    Use a real domain for Caddy (enables Let's Encrypt auto-HTTPS)
@@ -42,10 +44,10 @@
 #   --build            Build backend and frontend images from source instead of pulling
 #
 # Examples:
-#   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy
-#   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --garage --caddy --domain reflector.example.com
-#   ./scripts/setup-selfhosted.sh --cpu --ollama-cpu --garage --caddy
-#   ./scripts/setup-selfhosted.sh --hosted --garage --caddy
+#   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --livekit --garage --caddy
+#   ./scripts/setup-selfhosted.sh --gpu --ollama-gpu --livekit --garage --caddy --domain reflector.example.com
+#   ./scripts/setup-selfhosted.sh --cpu --ollama-cpu --livekit --garage --caddy
+#   ./scripts/setup-selfhosted.sh --hosted --livekit --garage --caddy
 #   ./scripts/setup-selfhosted.sh --cpu --padding modal --garage --caddy
 #   ./scripts/setup-selfhosted.sh --gpu --translation passthrough --garage --caddy
 #   ./scripts/setup-selfhosted.sh --cpu --diarization modal --translation modal --garage
@@ -58,9 +60,11 @@
 # Config memory: after a successful run, flags are saved to data/.selfhosted-last-args.
 # Re-running with no arguments replays the saved configuration automatically.
 #
-# The script auto-detects Daily.co (DAILY_API_KEY) and Whereby (WHEREBY_API_KEY)
-# from server/.env. If Daily.co is configured, Hatchet workflow services are
-# started automatically for multitrack recording processing.
+# The script auto-detects Daily.co (DAILY_API_KEY), Whereby (WHEREBY_API_KEY),
+# and LiveKit (LIVEKIT_API_KEY) from server/.env.
+# - Daily.co: enables Hatchet workflow services for multitrack recording processing.
+# - LiveKit: enables livekit-server + livekit-egress containers (self-hosted,
+#   generates livekit.yaml and egress.yaml configs automatically).
 #
 # Idempotent — safe to re-run at any time.
 #
@@ -207,6 +211,7 @@ fi
 MODEL_MODE=""       # gpu or cpu (required, mutually exclusive)
 OLLAMA_MODE=""      # ollama-gpu or ollama-cpu (optional)
 USE_GARAGE=false
+USE_LIVEKIT=false
 USE_CADDY=false
 CUSTOM_DOMAIN=""    # optional domain for Let's Encrypt HTTPS
 BUILD_IMAGES=false  # build backend/frontend from source
@@ -261,6 +266,7 @@ for i in "${!ARGS[@]}"; do
             OLLAMA_MODEL="${ARGS[$next_i]}"
             SKIP_NEXT=true ;;
         --garage)       USE_GARAGE=true ;;
+        --livekit)      USE_LIVEKIT=true ;;
         --caddy)        USE_CADDY=true ;;
         --build)        BUILD_IMAGES=true ;;
         --password)
@@ -504,6 +510,113 @@ MODE_DISPLAY="$MODEL_MODE"
 if [[ "$HAS_OVERRIDES" == "true" ]]; then
     MODE_DISPLAY="$MODE_DISPLAY (overrides: transcript=$EFF_TRANSCRIPT, diarization=$EFF_DIARIZATION, translation=$EFF_TRANSLATION, padding=$EFF_PADDING, mixdown=$EFF_MIXDOWN)"
 fi
+
+# =========================================================
+# LiveKit config generation helper
+# =========================================================
+_generate_livekit_config() {
+    local lk_key lk_secret lk_url
+    lk_key=$(env_get "$SERVER_ENV" "LIVEKIT_API_KEY" || true)
+    lk_secret=$(env_get "$SERVER_ENV" "LIVEKIT_API_SECRET" || true)
+    lk_url=$(env_get "$SERVER_ENV" "LIVEKIT_URL" || true)
+
+    if [[ -z "$lk_key" ]] || [[ -z "$lk_secret" ]]; then
+        warn "LIVEKIT_API_KEY or LIVEKIT_API_SECRET not set — generating random credentials"
+        lk_key="reflector_$(openssl rand -hex 8)"
+        lk_secret="$(openssl rand -hex 32)"
+        env_set "$SERVER_ENV" "LIVEKIT_API_KEY" "$lk_key"
+        env_set "$SERVER_ENV" "LIVEKIT_API_SECRET" "$lk_secret"
+        env_set "$SERVER_ENV" "LIVEKIT_URL" "ws://livekit-server:7880"
+        ok "Generated LiveKit API credentials"
+    fi
+
+    # Set internal URL for server->livekit communication
+    if ! env_has_key "$SERVER_ENV" "LIVEKIT_URL" || [[ -z "$(env_get "$SERVER_ENV" "LIVEKIT_URL" || true)" ]]; then
+        env_set "$SERVER_ENV" "LIVEKIT_URL" "ws://livekit-server:7880"
+    fi
+
+    # Set public URL based on deployment mode.
+    # When Caddy is enabled (HTTPS), LiveKit WebSocket is proxied through Caddy
+    # at /lk-ws to avoid mixed-content blocking (browsers block ws:// on https:// pages).
+    # When no Caddy, browsers connect directly to LiveKit on port 7880.
+    local public_lk_url
+    if [[ "$USE_CADDY" == "true" ]]; then
+        if [[ -n "$CUSTOM_DOMAIN" ]]; then
+            public_lk_url="wss://${CUSTOM_DOMAIN}/lk-ws"
+        elif [[ -n "$PRIMARY_IP" ]]; then
+            public_lk_url="wss://${PRIMARY_IP}/lk-ws"
+        else
+            public_lk_url="wss://localhost/lk-ws"
+        fi
+    else
+        if [[ -n "$PRIMARY_IP" ]]; then
+            public_lk_url="ws://${PRIMARY_IP}:7880"
+        else
+            public_lk_url="ws://localhost:7880"
+        fi
+    fi
+    env_set "$SERVER_ENV" "LIVEKIT_PUBLIC_URL" "$public_lk_url"
+    env_set "$SERVER_ENV" "DEFAULT_VIDEO_PLATFORM" "livekit"
+
+    # LiveKit storage: reuse transcript storage credentials if not separately configured
+    if ! env_has_key "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" || [[ -z "$(env_get "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" || true)" ]]; then
+        local ts_bucket ts_region ts_key ts_secret ts_endpoint
+        ts_bucket=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_BUCKET_NAME" 2>/dev/null || echo "reflector-bucket")
+        ts_region=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_REGION" 2>/dev/null || echo "us-east-1")
+        ts_key=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID" 2>/dev/null || true)
+        ts_secret=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY" 2>/dev/null || true)
+        ts_endpoint=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL" 2>/dev/null || true)
+        env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" "$ts_bucket"
+        env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_REGION" "$ts_region"
+        [[ -n "$ts_key" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID" "$ts_key"
+        [[ -n "$ts_secret" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY" "$ts_secret"
+        [[ -n "$ts_endpoint" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_ENDPOINT_URL" "$ts_endpoint"
+        if [[ -z "$ts_key" ]] || [[ -z "$ts_secret" ]]; then
+            warn "LiveKit storage: S3 credentials not found — Track Egress recording will fail!"
+            warn "Configure LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID and LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY in server/.env"
+            warn "Or run with --garage to auto-configure local S3 storage"
+        else
+            ok "LiveKit storage: reusing transcript storage config"
+        fi
+    fi
+
+    # Generate livekit.yaml
+    cat > "$ROOT_DIR/livekit.yaml" << LKEOF
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 44200
+  port_range_end: 44300
+redis:
+  address: redis:6379
+keys:
+  ${lk_key}: ${lk_secret}
+webhook:
+  urls:
+    - http://server:1250/v1/livekit/webhook
+  api_key: ${lk_key}
+logging:
+  level: info
+room:
+  empty_timeout: 300
+  max_participants: 0
+LKEOF
+    ok "Generated livekit.yaml"
+
+    # Generate egress.yaml (Track Egress only — no composite video)
+    cat > "$ROOT_DIR/egress.yaml" << EGEOF
+api_key: ${lk_key}
+api_secret: ${lk_secret}
+ws_url: ws://livekit-server:7880
+redis:
+  address: redis:6379
+health_port: 7082
+log_level: info
+session_limits:
+  file_output_max_duration: 4h
+EGEOF
+    ok "Generated egress.yaml"
+}
 
 # =========================================================
 # Step 0: Prerequisites
@@ -1014,14 +1127,17 @@ step_www_env() {
     fi
 
     # Enable rooms if any video platform is configured in server/.env
-    local _daily_key="" _whereby_key=""
+    local _daily_key="" _whereby_key="" _livekit_key=""
     if env_has_key "$SERVER_ENV" "DAILY_API_KEY"; then
         _daily_key=$(env_get "$SERVER_ENV" "DAILY_API_KEY")
     fi
     if env_has_key "$SERVER_ENV" "WHEREBY_API_KEY"; then
         _whereby_key=$(env_get "$SERVER_ENV" "WHEREBY_API_KEY")
     fi
-    if [[ -n "$_daily_key" ]] || [[ -n "$_whereby_key" ]]; then
+    if env_has_key "$SERVER_ENV" "LIVEKIT_API_KEY"; then
+        _livekit_key=$(env_get "$SERVER_ENV" "LIVEKIT_API_KEY")
+    fi
+    if [[ -n "$_daily_key" ]] || [[ -n "$_whereby_key" ]] || [[ -n "$_livekit_key" ]]; then
         env_set "$WWW_ENV" "FEATURE_ROOMS" "true"
         ok "Rooms feature enabled (video platform configured)"
     fi
@@ -1188,6 +1304,20 @@ step_caddyfile() {
         rm -rf "$caddyfile"
     fi
 
+    # LiveKit reverse proxy snippet (inserted into Caddyfile when --livekit is active)
+    # LiveKit reverse proxy snippet (inserted into Caddyfile when --livekit is active).
+    # Strips /lk-ws prefix so LiveKit server sees requests at its root /.
+    local lk_proxy_block=""
+    if [[ "$LIVEKIT_DETECTED" == "true" ]]; then
+        lk_proxy_block="
+    handle_path /lk-ws/* {
+        reverse_proxy livekit-server:7880
+    }
+    handle_path /lk-ws {
+        reverse_proxy livekit-server:7880
+    }"
+    fi
+
     if [[ -n "$TLS_CERT_PATH" ]] && [[ -n "$CUSTOM_DOMAIN" ]]; then
         # Custom domain with user-provided TLS certificate (from --custom-ca directory)
         cat > "$caddyfile" << CADDYEOF
@@ -1199,7 +1329,7 @@ $CUSTOM_DOMAIN {
     }
     handle /health {
         reverse_proxy server:1250
-    }
+    }${lk_proxy_block}
     handle {
         reverse_proxy web:3000
     }
@@ -1216,7 +1346,7 @@ $CUSTOM_DOMAIN {
     }
     handle /health {
         reverse_proxy server:1250
-    }
+    }${lk_proxy_block}
     handle {
         reverse_proxy web:3000
     }
@@ -1235,7 +1365,7 @@ CADDYEOF
     }
     handle /health {
         reverse_proxy server:1250
-    }
+    }${lk_proxy_block}
     handle {
         reverse_proxy web:3000
     }
@@ -1621,19 +1751,33 @@ main() {
     # Auto-detect video platforms from server/.env (after step_server_env so file exists)
     DAILY_DETECTED=false
     WHEREBY_DETECTED=false
+    LIVEKIT_DETECTED=false
     if env_has_key "$SERVER_ENV" "DAILY_API_KEY" && [[ -n "$(env_get "$SERVER_ENV" "DAILY_API_KEY")" ]]; then
         DAILY_DETECTED=true
     fi
     if env_has_key "$SERVER_ENV" "WHEREBY_API_KEY" && [[ -n "$(env_get "$SERVER_ENV" "WHEREBY_API_KEY")" ]]; then
         WHEREBY_DETECTED=true
     fi
+    # LiveKit: enabled via --livekit flag OR pre-existing LIVEKIT_API_KEY in env
+    if [[ "$USE_LIVEKIT" == "true" ]]; then
+        LIVEKIT_DETECTED=true
+    elif env_has_key "$SERVER_ENV" "LIVEKIT_API_KEY" && [[ -n "$(env_get "$SERVER_ENV" "LIVEKIT_API_KEY")" ]]; then
+        LIVEKIT_DETECTED=true
+    fi
     ANY_PLATFORM_DETECTED=false
-    [[ "$DAILY_DETECTED" == "true" || "$WHEREBY_DETECTED" == "true" ]] && ANY_PLATFORM_DETECTED=true
+    [[ "$DAILY_DETECTED" == "true" || "$WHEREBY_DETECTED" == "true" || "$LIVEKIT_DETECTED" == "true" ]] && ANY_PLATFORM_DETECTED=true
 
     # Conditional profile activation for Daily.co
     if [[ "$DAILY_DETECTED" == "true" ]]; then
         COMPOSE_PROFILES+=("dailyco")
         ok "Daily.co detected — enabling Hatchet workflow services"
+    fi
+
+    # Conditional profile activation for LiveKit
+    if [[ "$LIVEKIT_DETECTED" == "true" ]]; then
+        COMPOSE_PROFILES+=("livekit")
+        _generate_livekit_config
+        ok "LiveKit enabled — livekit-server + livekit-egress"
     fi
 
     # Generate .env.hatchet for hatchet dashboard config (always needed)
@@ -1702,6 +1846,7 @@ EOF
     [[ "$USES_OLLAMA" != "true" ]] && echo "  LLM:     External (configure in server/.env)"
     [[ "$DAILY_DETECTED" == "true" ]] && echo "  Video:   Daily.co (live rooms + multitrack processing via Hatchet)"
     [[ "$WHEREBY_DETECTED" == "true" ]] && echo "  Video:   Whereby (live rooms)"
+    [[ "$LIVEKIT_DETECTED" == "true" ]] && echo "  Video:   LiveKit (self-hosted, live rooms + track egress)"
     [[ "$ANY_PLATFORM_DETECTED" != "true" ]] && echo "  Video:   None (rooms disabled)"
     if [[ "$USE_CUSTOM_CA" == "true" ]]; then
         echo "  CA:      Custom (certs/ca.crt)"

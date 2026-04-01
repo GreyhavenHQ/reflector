@@ -83,7 +83,11 @@ def build_beat_schedule(
     else:
         logger.info("Daily.co beat tasks disabled (no DAILY_API_KEY)")
 
-    _any_platform = _whereby_enabled or _daily_enabled
+    _livekit_enabled = bool(settings.LIVEKIT_API_KEY and settings.LIVEKIT_URL)
+    if _livekit_enabled:
+        logger.info("LiveKit platform detected")
+
+    _any_platform = _whereby_enabled or _daily_enabled or _livekit_enabled
     if _any_platform:
         beat_schedule["process_meetings"] = {
             "task": "reflector.worker.process.process_meetings",

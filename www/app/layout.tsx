@@ -1,4 +1,5 @@
 import "./styles/globals.scss";
+import "@livekit/components-styles";
 import { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { ErrorProvider } from "./(errors)/errorContext";

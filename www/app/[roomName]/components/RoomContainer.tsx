@@ -14,6 +14,7 @@ import MeetingSelection from "../MeetingSelection";
 import useRoomDefaultMeeting from "../useRoomDefaultMeeting";
 import WherebyRoom from "./WherebyRoom";
 import DailyRoom from "./DailyRoom";
+import LiveKitRoom from "./LiveKitRoom";
 import { useAuth } from "../../lib/AuthProvider";
 import { useError } from "../../(errors)/errorContext";
 import { parseNonEmptyString } from "../../lib/utils";
@@ -199,8 +200,9 @@ export default function RoomContainer(details: RoomDetails) {
       return <DailyRoom meeting={meeting} room={room} />;
     case "whereby":
       return <WherebyRoom meeting={meeting} room={room} />;
-    default: {
-      const _exhaustive: never = platform;
+    case "livekit":
+      return <LiveKitRoom meeting={meeting} room={room} />;
+    default:
       return (
         <Box
           display="flex"
@@ -213,6 +215,5 @@ export default function RoomContainer(details: RoomDetails) {
           <Text fontSize="lg">Unknown platform: {platform}</Text>
         </Box>
       );
-    }
   }
 }

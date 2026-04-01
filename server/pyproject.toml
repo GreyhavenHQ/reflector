@@ -42,6 +42,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "aiosmtplib>=3.0.0",
     "email-validator>=2.0.0",
+    "livekit-api>=1.1.0",
 ]
 
 [dependency-groups]
