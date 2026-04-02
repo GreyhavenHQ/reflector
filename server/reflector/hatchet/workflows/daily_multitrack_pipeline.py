@@ -534,6 +534,11 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
             earliest = min(ts for _, ts in valid_timestamps)
             for i, ts in valid_timestamps:
                 offset = (ts - earliest).total_seconds()
+                # LiveKit tracks are OGG format; even the earliest track (offset=0)
+                # must go through padding step to convert OGG→WebM for the
+                # transcription service. Use a tiny padding to force conversion.
+                if offset == 0.0:
+                    offset = 0.001
                 track_padding[i] = offset
                 ctx.log(
                     f"process_tracks: track {i} padding={offset}s (from filename timestamp)"
