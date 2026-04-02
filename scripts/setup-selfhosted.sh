@@ -1439,12 +1439,12 @@ CADDYEOF
         ok "Caddyfile already exists"
     fi
 
-    # Add Hatchet dashboard route if Daily.co is detected
-    if [[ "$DAILY_DETECTED" == "true" ]]; then
+    # Add Hatchet dashboard route (Hatchet is always-on for all multitrack pipelines)
+    if [[ "$DAILY_DETECTED" == "true" ]] || [[ "$LIVEKIT_DETECTED" == "true" ]]; then
         if ! grep -q "hatchet" "$caddyfile" 2>/dev/null; then
             cat >> "$caddyfile" << CADDYEOF
 
-# Hatchet workflow dashboard (Daily.co multitrack processing)
+# Hatchet workflow dashboard (multitrack processing)
 :8888 {
     tls internal {
         on_demand
