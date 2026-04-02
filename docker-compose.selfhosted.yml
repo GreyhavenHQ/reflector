@@ -300,7 +300,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8888:8888"   # Hatchet dashboard (proxied with TLS)
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -340,6 +339,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
+      - "0.0.0.0:8888:8888"   # Hatchet dashboard (plain HTTP — no TLS)
       - "127.0.0.1:7078:7077"
     env_file:
       - ./.env.hatchet

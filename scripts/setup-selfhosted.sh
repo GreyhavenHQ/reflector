@@ -1376,6 +1376,8 @@ step_caddyfile() {
     }"
     fi
 
+    local hatchet_proxy_block=""
+
     if [[ -n "$TLS_CERT_PATH" ]] && [[ -n "$CUSTOM_DOMAIN" ]]; then
         # Custom domain with user-provided TLS certificate (from --custom-ca directory)
         cat > "$caddyfile" << CADDYEOF
@@ -1387,7 +1389,7 @@ $CUSTOM_DOMAIN {
     }
     handle /health {
         reverse_proxy server:1250
-    }${lk_proxy_block}
+    }${lk_proxy_block}${hatchet_proxy_block}
     handle {
         reverse_proxy web:3000
     }
@@ -1404,7 +1406,7 @@ $CUSTOM_DOMAIN {
     }
     handle /health {
         reverse_proxy server:1250
-    }${lk_proxy_block}
+    }${lk_proxy_block}${hatchet_proxy_block}
     handle {
         reverse_proxy web:3000
     }
@@ -1425,7 +1427,7 @@ CADDYEOF
     }
     handle /health {
         reverse_proxy server:1250
-    }${lk_proxy_block}
+    }${lk_proxy_block}${hatchet_proxy_block}
     handle {
         reverse_proxy web:3000
     }
@@ -1439,23 +1441,8 @@ CADDYEOF
         ok "Caddyfile already exists"
     fi
 
-    # Add Hatchet dashboard route (Hatchet is always-on for all multitrack pipelines)
     if [[ "$DAILY_DETECTED" == "true" ]] || [[ "$LIVEKIT_DETECTED" == "true" ]]; then
-        if ! grep -q "hatchet" "$caddyfile" 2>/dev/null; then
-            cat >> "$caddyfile" << CADDYEOF
-
-# Hatchet workflow dashboard (multitrack processing)
-:8888 {
-    tls internal {
-        on_demand
-    }
-    reverse_proxy hatchet:8888
-}
-CADDYEOF
-            ok "Added Hatchet dashboard route to Caddyfile (port 8888)"
-        else
-            ok "Hatchet dashboard route already in Caddyfile"
-        fi
+        ok "Hatchet dashboard available at port 8888"
     fi
 }
 
