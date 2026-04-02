@@ -366,7 +366,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     image: monadicalsas/reflector-backend:latest
-    profiles: [dailyco]
+    profiles: [dailyco, livekit]
     restart: unless-stopped
     env_file:
       - ./server/.env

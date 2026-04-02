@@ -1096,6 +1096,7 @@ step_server_env() {
     # Hatchet is always required (file, live, and multitrack pipelines all use it)
     env_set "$SERVER_ENV" "HATCHET_CLIENT_SERVER_URL" "http://hatchet:8888"
     env_set "$SERVER_ENV" "HATCHET_CLIENT_HOST_PORT" "hatchet:7077"
+    env_set "$SERVER_ENV" "HATCHET_CLIENT_TLS_STRATEGY" "none"
     ok "Hatchet connectivity configured (workflow engine for processing pipelines)"
 
     # BIND_HOST controls whether server/web ports are exposed on all interfaces
