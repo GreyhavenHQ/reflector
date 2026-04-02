@@ -28,6 +28,10 @@
 # Optional flags:
 #   --livekit          Enable LiveKit self-hosted video platform (generates credentials,
 #                      starts livekit-server + livekit-egress containers)
+#   --ip IP            Set the server's IP address for all URLs. Implies --caddy
+#                      (self-signed HTTPS, required for browser mic/camera access).
+#                      Mutually exclusive with --domain. Use for LAN or cloud VM access.
+#                      On Linux, IP is auto-detected; on macOS, use --ip to specify it.
 #   --garage           Use Garage for local S3-compatible storage
 #   --caddy            Enable Caddy reverse proxy with auto-SSL
 #   --domain DOMAIN    Use a real domain for Caddy (enables Let's Encrypt auto-HTTPS)
@@ -214,6 +218,7 @@ USE_GARAGE=false
 USE_LIVEKIT=false
 USE_CADDY=false
 CUSTOM_DOMAIN=""    # optional domain for Let's Encrypt HTTPS
+CUSTOM_IP=""        # optional --ip override (mutually exclusive with --caddy)
 BUILD_IMAGES=false  # build backend/frontend from source
 ADMIN_PASSWORD=""   # optional admin password for password auth
 CUSTOM_CA=""        # --custom-ca: path to dir or CA cert file
@@ -268,6 +273,14 @@ for i in "${!ARGS[@]}"; do
         --garage)       USE_GARAGE=true ;;
         --livekit)      USE_LIVEKIT=true ;;
         --caddy)        USE_CADDY=true ;;
+        --ip)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--ip requires an IP address (e.g. --ip 192.168.0.100)"
+                exit 1
+            fi
+            CUSTOM_IP="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
         --build)        BUILD_IMAGES=true ;;
         --password)
             next_i=$((i + 1))
@@ -361,6 +374,16 @@ for i in "${!ARGS[@]}"; do
             ;;
     esac
 done
+
+# --- Validate flag combinations ---
+if [[ -n "$CUSTOM_IP" ]] && [[ -n "$CUSTOM_DOMAIN" ]]; then
+    err "--ip and --domain are mutually exclusive. Use --ip for IP-based access, or --domain for domain-based access."
+    exit 1
+fi
+# --ip implies --caddy (browsers require HTTPS for mic/camera access on non-localhost)
+if [[ -n "$CUSTOM_IP" ]]; then
+    USE_CADDY=true
+fi
 
 # --- Save CLI args for config memory (re-run without flags) ---
 if [[ $# -gt 0 ]]; then
@@ -558,26 +581,25 @@ _generate_livekit_config() {
     env_set "$SERVER_ENV" "LIVEKIT_PUBLIC_URL" "$public_lk_url"
     env_set "$SERVER_ENV" "DEFAULT_VIDEO_PLATFORM" "livekit"
 
-    # LiveKit storage: reuse transcript storage credentials if not separately configured
-    if ! env_has_key "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" || [[ -z "$(env_get "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" || true)" ]]; then
-        local ts_bucket ts_region ts_key ts_secret ts_endpoint
-        ts_bucket=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_BUCKET_NAME" 2>/dev/null || echo "reflector-bucket")
-        ts_region=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_REGION" 2>/dev/null || echo "us-east-1")
-        ts_key=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID" 2>/dev/null || true)
-        ts_secret=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY" 2>/dev/null || true)
-        ts_endpoint=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL" 2>/dev/null || true)
-        env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" "$ts_bucket"
-        env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_REGION" "$ts_region"
-        [[ -n "$ts_key" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID" "$ts_key"
-        [[ -n "$ts_secret" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY" "$ts_secret"
-        [[ -n "$ts_endpoint" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_ENDPOINT_URL" "$ts_endpoint"
-        if [[ -z "$ts_key" ]] || [[ -z "$ts_secret" ]]; then
-            warn "LiveKit storage: S3 credentials not found — Track Egress recording will fail!"
-            warn "Configure LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID and LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY in server/.env"
-            warn "Or run with --garage to auto-configure local S3 storage"
-        else
-            ok "LiveKit storage: reusing transcript storage config"
-        fi
+    # LiveKit storage: always sync from transcript storage config.
+    # Endpoint URL must match (changes between Caddy/no-Caddy runs).
+    local ts_bucket ts_region ts_key ts_secret ts_endpoint
+    ts_bucket=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_BUCKET_NAME" 2>/dev/null || echo "reflector-bucket")
+    ts_region=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_REGION" 2>/dev/null || echo "us-east-1")
+    ts_key=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ACCESS_KEY_ID" 2>/dev/null || true)
+    ts_secret=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_SECRET_ACCESS_KEY" 2>/dev/null || true)
+    ts_endpoint=$(env_get "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL" 2>/dev/null || true)
+    env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_BUCKET_NAME" "$ts_bucket"
+    env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_REGION" "$ts_region"
+    [[ -n "$ts_key" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID" "$ts_key"
+    [[ -n "$ts_secret" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY" "$ts_secret"
+    [[ -n "$ts_endpoint" ]] && env_set "$SERVER_ENV" "LIVEKIT_STORAGE_AWS_ENDPOINT_URL" "$ts_endpoint"
+    if [[ -z "$ts_key" ]] || [[ -z "$ts_secret" ]]; then
+        warn "LiveKit storage: S3 credentials not found — Track Egress recording will fail!"
+        warn "Configure LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID and LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY in server/.env"
+        warn "Or run with --garage to auto-configure local S3 storage"
+    else
+        ok "LiveKit storage: synced from transcript storage config"
     fi
 
     # Generate livekit.yaml
@@ -850,13 +872,23 @@ step_server_env() {
         fi
     else
         if [[ -n "$PRIMARY_IP" ]]; then
-            server_base_url="http://$PRIMARY_IP"
+            server_base_url="http://$PRIMARY_IP:1250"
         else
             server_base_url="http://localhost:1250"
         fi
     fi
     env_set "$SERVER_ENV" "BASE_URL" "$server_base_url"
-    env_set "$SERVER_ENV" "CORS_ORIGIN" "$server_base_url"
+    # CORS: allow the frontend origin (port 3000, not the API port)
+    local cors_origin="${server_base_url}"
+    if [[ "$USE_CADDY" != "true" ]]; then
+        # Without Caddy, frontend is on port 3000, API on 1250
+        cors_origin="${server_base_url/:1250/:3000}"
+        # Safety: if substitution didn't change anything, construct explicitly
+        if [[ "$cors_origin" == "$server_base_url" ]] && [[ -n "$PRIMARY_IP" ]]; then
+            cors_origin="http://${PRIMARY_IP}:3000"
+        fi
+    fi
+    env_set "$SERVER_ENV" "CORS_ORIGIN" "$cors_origin"
 
     # WebRTC: advertise host IP in ICE candidates so browsers can reach the server
     if [[ -n "$PRIMARY_IP" ]]; then
@@ -1066,6 +1098,18 @@ step_server_env() {
     env_set "$SERVER_ENV" "HATCHET_CLIENT_HOST_PORT" "hatchet:7077"
     ok "Hatchet connectivity configured (workflow engine for processing pipelines)"
 
+    # BIND_HOST controls whether server/web ports are exposed on all interfaces
+    local root_env="$ROOT_DIR/.env"
+    touch "$root_env"
+    if [[ "$USE_CADDY" == "true" ]]; then
+        # With Caddy, services stay on localhost (Caddy is the public entry point)
+        env_set "$root_env" "BIND_HOST" "127.0.0.1"
+    elif [[ -n "$PRIMARY_IP" ]]; then
+        # Without Caddy + detected IP, expose on all interfaces for direct access
+        env_set "$root_env" "BIND_HOST" "0.0.0.0"
+        ok "BIND_HOST=0.0.0.0 (ports exposed for direct access)"
+    fi
+
     ok "server/.env ready"
 }
 
@@ -1093,18 +1137,26 @@ step_www_env() {
             base_url="https://localhost"
         fi
     else
-        # No Caddy — user's proxy handles SSL. Use http for now, they'll override.
+        # No Caddy — clients connect directly to services on their ports.
         if [[ -n "$PRIMARY_IP" ]]; then
-            base_url="http://$PRIMARY_IP"
+            base_url="http://$PRIMARY_IP:3000"
         else
-            base_url="http://localhost"
+            base_url="http://localhost:3000"
         fi
+    fi
+
+    # API_URL: with Caddy, same origin (443 proxies both); without Caddy, API is on port 1250
+    local api_url="$base_url"
+    if [[ "$USE_CADDY" != "true" ]]; then
+        api_url="${base_url/:3000/:1250}"
+        # fallback if no port substitution happened (e.g. localhost without port)
+        [[ "$api_url" == "$base_url" ]] && api_url="${base_url}:1250"
     fi
 
     env_set "$WWW_ENV" "SITE_URL" "$base_url"
     env_set "$WWW_ENV" "NEXTAUTH_URL" "$base_url"
     env_set "$WWW_ENV" "NEXTAUTH_SECRET" "$NEXTAUTH_SECRET"
-    env_set "$WWW_ENV" "API_URL" "$base_url"
+    env_set "$WWW_ENV" "API_URL" "$api_url"
     env_set "$WWW_ENV" "WEBSOCKET_URL" "auto"
     env_set "$WWW_ENV" "SERVER_API_URL" "http://server:1250"
     env_set "$WWW_ENV" "KV_URL" "redis://redis:6379"
@@ -1226,7 +1278,13 @@ step_garage() {
 
     # Write S3 credentials to server/.env
     env_set "$SERVER_ENV" "TRANSCRIPT_STORAGE_BACKEND" "aws"
-    env_set "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL" "http://garage:3900"
+    # Endpoint URL: use public IP when no Caddy so presigned URLs work in the browser.
+    # With Caddy, internal hostname is fine (Caddy proxies or browser never sees presigned URLs directly).
+    if [[ "$USE_CADDY" != "true" ]] && [[ -n "$PRIMARY_IP" ]]; then
+        env_set "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL" "http://${PRIMARY_IP}:3900"
+    else
+        env_set "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_ENDPOINT_URL" "http://garage:3900"
+    fi
     env_set "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_BUCKET_NAME" "reflector-media"
     env_set "$SERVER_ENV" "TRANSCRIPT_STORAGE_AWS_REGION" "garage"
     if [[ "$created_key" == "true" ]]; then
@@ -1355,11 +1413,13 @@ CADDYEOF
         ok "Created Caddyfile for $CUSTOM_DOMAIN (Let's Encrypt auto-HTTPS)"
     elif [[ -n "$PRIMARY_IP" ]]; then
         # No domain, IP only: catch-all :443 with self-signed cert
-        # (IP connections don't send SNI, so we can't match by address)
+        # on_demand generates certs dynamically for any hostname/IP on first request
         cat > "$caddyfile" << CADDYEOF
 # Generated by setup-selfhosted.sh — self-signed cert for IP access
 :443 {
-    tls internal
+    tls internal {
+        on_demand
+    }
     handle /v1/* {
         reverse_proxy server:1250
     }
@@ -1386,7 +1446,9 @@ CADDYEOF
 
 # Hatchet workflow dashboard (Daily.co multitrack processing)
 :8888 {
-    tls internal
+    tls internal {
+        on_demand
+    }
     reverse_proxy hatchet:8888
 }
 CADDYEOF
@@ -1597,7 +1659,7 @@ step_health() {
     info "Waiting for Hatchet workflow engine..."
     local hatchet_ok=false
     for i in $(seq 1 60); do
-        if curl -sf http://localhost:8888/api/live > /dev/null 2>&1; then
+        if compose_cmd exec -T hatchet curl -sf http://localhost:8888/api/live > /dev/null 2>&1; then
             hatchet_ok=true
             break
         fi
@@ -1645,7 +1707,7 @@ step_hatchet_token() {
     # Wait for hatchet to be healthy
     local hatchet_ok=false
     for i in $(seq 1 60); do
-        if curl -sf http://localhost:8888/api/live > /dev/null 2>&1; then
+        if compose_cmd exec -T hatchet curl -sf http://localhost:8888/api/live > /dev/null 2>&1; then
             hatchet_ok=true
             break
         fi
@@ -1716,12 +1778,19 @@ main() {
     [[ "$BUILD_IMAGES" == "true" ]] && echo "  Build:   from source"
     echo ""
 
-    # Detect primary IP
-    PRIMARY_IP=""
-    if [[ "$OS" == "Linux" ]]; then
-        PRIMARY_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
-        if [[ "$PRIMARY_IP" == "127."* ]] || [[ -z "$PRIMARY_IP" ]]; then
-            PRIMARY_IP=$(ip -4 route get 1 2>/dev/null | sed -n 's/.*src \([0-9.]*\).*/\1/p' || true)
+    # Detect primary IP (--ip overrides auto-detection)
+    if [[ -n "$CUSTOM_IP" ]]; then
+        PRIMARY_IP="$CUSTOM_IP"
+        ok "Using provided IP: $PRIMARY_IP"
+    else
+        PRIMARY_IP=""
+        if [[ "$OS" == "Linux" ]]; then
+            PRIMARY_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+            if [[ "$PRIMARY_IP" == "127."* ]] || [[ -z "$PRIMARY_IP" ]]; then
+                PRIMARY_IP=$(ip -4 route get 1 2>/dev/null | sed -n 's/.*src \([0-9.]*\).*/\1/p' || true)
+            fi
+        elif [[ "$OS" == "Darwin" ]]; then
+            PRIMARY_IP=$(detect_lan_ip)
         fi
     fi
 
@@ -1827,10 +1896,12 @@ EOF
             echo "  App:   https://localhost  (accept self-signed cert in browser)"
             echo "  API:   https://localhost/v1/"
         fi
+    elif [[ -n "$PRIMARY_IP" ]]; then
+        echo "  App:   http://$PRIMARY_IP:3000"
+        echo "  API:   http://$PRIMARY_IP:1250"
     else
-        echo "  No Caddy — point your reverse proxy at:"
-        echo "    Frontend:  web:3000   (or localhost:3000 from host)"
-        echo "    API:       server:1250 (or localhost:1250 from host)"
+        echo "  App:   http://localhost:3000"
+        echo "  API:   http://localhost:1250"
     fi
     echo ""
     if [[ "$HAS_OVERRIDES" == "true" ]]; then

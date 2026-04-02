@@ -3259,7 +3259,9 @@ export interface operations {
   };
   v1_rooms_join_meeting: {
     parameters: {
-      query?: never;
+      query?: {
+        display_name?: string | null;
+      };
       header?: never;
       path: {
         room_name: string;

@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from livekit.api import (
     AccessToken,
+    AutoTrackEgress,
     CreateRoomRequest,
     DeleteRoomRequest,
     DirectFileOutput,
@@ -17,6 +18,7 @@ from livekit.api import (
     ListParticipantsRequest,
     LiveKitAPI,
     Room,
+    RoomEgress,
     S3Upload,
     StopEgressRequest,
     TrackEgressRequest,
@@ -55,6 +57,8 @@ class LiveKitApiClient:
         name: str,
         empty_timeout: int = 300,
         max_participants: int = 0,
+        enable_auto_track_egress: bool = False,
+        track_egress_filepath: str = "livekit/{room_name}/{publisher_identity}-{time}",
     ) -> Room:
         """Create a LiveKit room.
 
@@ -62,11 +66,25 @@ class LiveKitApiClient:
             name: Room name (unique identifier).
             empty_timeout: Seconds to keep room alive after last participant leaves.
             max_participants: 0 = unlimited.
+            enable_auto_track_egress: If True, automatically record each participant's
+                audio track to S3 as a separate file (OGG/Opus).
+            track_egress_filepath: S3 filepath template for auto track egress.
+                Supports {room_name}, {publisher_identity}, {time}.
         """
+        egress = None
+        if enable_auto_track_egress:
+            egress = RoomEgress(
+                tracks=AutoTrackEgress(
+                    filepath=track_egress_filepath,
+                    s3=self._build_s3_upload(),
+                ),
+            )
+
         req = CreateRoomRequest(
             name=name,
             empty_timeout=empty_timeout,
             max_participants=max_participants,
+            egress=egress,
         )
         return await self._api.room.create_room(req)
 

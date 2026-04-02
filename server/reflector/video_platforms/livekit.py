@@ -62,9 +62,25 @@ class LiveKitClient(VideoPlatformClient):
         remaining = int((end_date_aware - now).total_seconds())
         empty_timeout = max(300, min(remaining, 86400))  # 5 min to 24 hours
 
+        # Enable auto track egress for cloud recording (per-participant audio to S3).
+        # Gracefully degrade if S3 credentials are missing — room still works, just no recording.
+        enable_recording = room.recording_type == "cloud"
+        egress_enabled = False
+        if enable_recording:
+            try:
+                self._api_client._build_s3_upload()  # Validate credentials exist
+                egress_enabled = True
+            except ValueError:
+                logger.warning(
+                    "S3 credentials not configured — room created without auto track egress. "
+                    "Set LIVEKIT_STORAGE_AWS_* to enable recording.",
+                    room_name=room_name,
+                )
+
         lk_room = await self._api_client.create_room(
             name=room_name,
             empty_timeout=empty_timeout,
+            enable_auto_track_egress=egress_enabled,
         )
 
         logger.info(
@@ -72,6 +88,7 @@ class LiveKitClient(VideoPlatformClient):
             room_name=lk_room.name,
             room_sid=lk_room.sid,
             empty_timeout=empty_timeout,
+            auto_track_egress=egress_enabled,
         )
 
         # room_url includes the server URL + room name as query param.

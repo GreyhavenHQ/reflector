@@ -155,12 +155,17 @@ async def prepare_transcript_processing(validation: ValidationOk) -> PrepareResu
                 )
 
     if track_keys:
+        # Detect platform from recording ID prefix
+        source_platform = (
+            "livekit" if recording_id and recording_id.startswith("lk-") else "daily"
+        )
         return MultitrackProcessingConfig(
             bucket_name=bucket_name,  # type: ignore (validated above)
             track_keys=track_keys,
             transcript_id=validation.transcript_id,
             recording_id=recording_id,
             room_id=validation.room_id,
+            source_platform=source_platform,
         )
 
     return FileProcessingConfig(

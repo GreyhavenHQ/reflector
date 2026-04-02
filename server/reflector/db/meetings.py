@@ -165,6 +165,17 @@ class MeetingController:
         results = await get_database().fetch_all(query)
         return [Meeting(**result) for result in results]
 
+    async def get_all_inactive_livekit(self) -> list[Meeting]:
+        """Get inactive LiveKit meetings (for multitrack processing discovery)."""
+        query = meetings.select().where(
+            sa.and_(
+                meetings.c.is_active == sa.false(),
+                meetings.c.platform == "livekit",
+            )
+        )
+        results = await get_database().fetch_all(query)
+        return [Meeting(**result) for result in results]
+
     async def get_by_room_name(
         self,
         room_name: str,

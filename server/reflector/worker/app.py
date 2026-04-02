@@ -85,7 +85,21 @@ def build_beat_schedule(
 
     _livekit_enabled = bool(settings.LIVEKIT_API_KEY and settings.LIVEKIT_URL)
     if _livekit_enabled:
-        logger.info("LiveKit platform detected")
+        beat_schedule["process_livekit_ended_meetings"] = {
+            "task": "reflector.worker.process.process_livekit_ended_meetings",
+            "schedule": 120,  # Every 2 minutes
+        }
+        beat_schedule["reprocess_failed_livekit_recordings"] = {
+            "task": "reflector.worker.process.reprocess_failed_livekit_recordings",
+            "schedule": crontab(hour=5, minute=0),
+        }
+        logger.info(
+            "LiveKit beat tasks enabled",
+            tasks=[
+                "process_livekit_ended_meetings",
+                "reprocess_failed_livekit_recordings",
+            ],
+        )
 
     _any_platform = _whereby_enabled or _daily_enabled or _livekit_enabled
     if _any_platform:

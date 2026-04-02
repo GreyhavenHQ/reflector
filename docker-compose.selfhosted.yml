@@ -35,7 +35,7 @@ services:
     image: monadicalsas/reflector-backend:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1250:1250"
+      - "${BIND_HOST:-127.0.0.1}:1250:1250"
       - "40000-40100:40000-40100/udp"
     env_file:
       - ./server/.env
@@ -116,7 +116,7 @@ services:
     image: monadicalsas/reflector-frontend:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${BIND_HOST:-127.0.0.1}:3000:3000"
     env_file:
       - ./www/.env
     environment:
@@ -300,6 +300,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8888:8888"   # Hatchet dashboard (proxied with TLS)
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -339,7 +340,6 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8888:8888"
       - "127.0.0.1:7078:7077"
     env_file:
       - ./.env.hatchet

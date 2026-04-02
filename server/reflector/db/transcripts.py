@@ -486,6 +486,14 @@ class TranscriptController:
             return None
         return Transcript(**result)
 
+    async def get_by_meeting_id(self, meeting_id: str) -> Transcript | None:
+        """Get a transcript by meeting_id (first match)."""
+        query = transcripts.select().where(transcripts.c.meeting_id == meeting_id)
+        result = await get_database().fetch_one(query)
+        if not result:
+            return None
+        return Transcript(**result)
+
     async def get_by_recording_id(
         self, recording_id: str, **kwargs
     ) -> Transcript | None:

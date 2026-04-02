@@ -7,10 +7,9 @@ import {
   LiveKitRoom as LKRoom,
   VideoConference,
   RoomAudioRenderer,
+  PreJoin,
+  type LocalUserChoices,
 } from "@livekit/components-react";
-// LiveKit component styles — imported in the global layout to avoid
-// Next.js CSS import restrictions in client components.
-// See: app/[roomName]/layout.tsx
 import type { components } from "../../reflector-api";
 import { useAuth } from "../../lib/AuthProvider";
 import { useRoomJoinMeeting } from "../../lib/apiHooks";
@@ -68,6 +67,7 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
   const joinMutation = useRoomJoinMeeting();
   const [joinedMeeting, setJoinedMeeting] = useState<Meeting | null>(null);
   const [connectionError, setConnectionError] = useState(false);
+  const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null);
 
   // ── Consent dialog (same hooks as Daily/Whereby) ──────────
   const { showConsentButton, showRecordingIndicator } = useConsentDialog({
@@ -87,9 +87,21 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
   });
   const showEmailFeature = featureEnabled("emailTranscript");
 
-  // ── Join meeting via backend API to get token ─────────────
+  // ── PreJoin defaults ──────────────────────────────────────
+  const defaultUsername =
+    auth.status === "authenticated" || auth.status === "refreshing"
+      ? auth.user.email?.split("@")[0] || auth.user.id?.slice(0, 12) || ""
+      : "";
+
+  // ── Join meeting via backend API after PreJoin submit ─────
   useEffect(() => {
-    if (authLastUserId === undefined || !meeting?.id || !roomName) return;
+    if (
+      authLastUserId === undefined ||
+      !userChoices ||
+      !meeting?.id ||
+      !roomName
+    )
+      return;
     let cancelled = false;
 
     async function join() {
@@ -97,6 +109,7 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
         const result = await joinMutation.mutateAsync({
           params: {
             path: { room_name: roomName, meeting_id: meeting.id },
+            query: { display_name: userChoices!.username || undefined },
           },
         });
         if (!cancelled) setJoinedMeeting(result);
@@ -110,11 +123,40 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
     return () => {
       cancelled = true;
     };
-  }, [meeting?.id, roomName, authLastUserId]);
+  }, [meeting?.id, roomName, authLastUserId, userChoices]);
 
   const handleDisconnected = useCallback(() => {
     router.push("/browse");
   }, [router]);
+
+  const handlePreJoinSubmit = useCallback((choices: LocalUserChoices) => {
+    setUserChoices(choices);
+  }, []);
+
+  // ── PreJoin screen (name + device selection) ──────────────
+  if (!userChoices) {
+    return (
+      <Box
+        w="100vw"
+        h="100vh"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        bg="gray.900"
+        data-lk-theme="default"
+      >
+        <PreJoin
+          defaults={{
+            username: defaultUsername,
+            audioEnabled: true,
+            videoEnabled: true,
+          }}
+          onSubmit={handlePreJoinSubmit}
+          userLabel="Display Name"
+        />
+      </Box>
+    );
+  }
 
   // ── Loading / error states ────────────────────────────────
   if (connectionError) {
@@ -170,8 +212,8 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
         serverUrl={serverUrl}
         token={token}
         connect={true}
-        audio={true}
-        video={true}
+        audio={userChoices.audioEnabled}
+        video={userChoices.videoEnabled}
         onDisconnected={handleDisconnected}
         data-lk-theme="default"
         style={{ height: "100%" }}

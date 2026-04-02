@@ -554,6 +554,7 @@ async def rooms_join_meeting(
     room_name: str,
     meeting_id: str,
     user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
+    display_name: str | None = None,
 ):
     user_id = user["sub"] if user else None
     room = await rooms_controller.get_by_name(room_name)
@@ -599,13 +600,27 @@ async def rooms_join_meeting(
         meeting.room_url = add_query_param(meeting.room_url, "t", token)
 
     elif meeting.platform == "livekit":
+        import re
+        import uuid
+
         client = create_platform_client(meeting.platform)
-        participant_identity = user_id or f"anon-{meeting_id[:8]}"
-        participant_name = (
-            getattr(user, "name", None) or participant_identity
-            if user
-            else participant_identity
-        )
+        # Identity must be unique per participant to avoid S3 key collisions.
+        # Format: {readable_name}-{short_uuid} ensures uniqueness even for same names.
+        uid_suffix = uuid.uuid4().hex[:6]
+        if display_name:
+            safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", display_name.strip())[:40]
+            participant_identity = (
+                f"{safe_name}-{uid_suffix}" if safe_name else f"anon-{uid_suffix}"
+            )
+        elif user_id:
+            email = getattr(user, "email", None)
+            if email and "@" in email:
+                participant_identity = f"{email.split('@')[0]}-{uid_suffix}"
+            else:
+                participant_identity = f"{user_id[:12]}-{uid_suffix}"
+        else:
+            participant_identity = f"anon-{uid_suffix}"
+        participant_name = display_name or participant_identity
         token = client.create_access_token(
             room_name=meeting.room_name,
             participant_identity=participant_identity,

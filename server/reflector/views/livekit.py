@@ -5,6 +5,10 @@ Track Egress recording completion.
 
 LiveKit sends webhooks as POST requests with JWT authentication
 in the Authorization header.
+
+Webhooks are used as fast-path triggers and logging. Track discovery
+for the multitrack pipeline uses S3 listing (source of truth), not
+webhook data.
 """
 
 from fastapi import APIRouter, HTTPException, Request
@@ -77,10 +81,7 @@ async def livekit_webhook(request: Request):
                 room_name=event.room.name if event.room else None,
             )
         case "room_finished":
-            logger.info(
-                "Room finished",
-                room_name=event.room.name if event.room else None,
-            )
+            await _handle_room_finished(event)
         case "track_published" | "track_unpublished":
             logger.debug(
                 f"Track event: {event_type}",
@@ -142,49 +143,75 @@ async def _handle_participant_left(event):
 
 async def _handle_egress_started(event):
     egress = event.egress_info
-    room_name = egress.room_name if egress else None
-
     logger.info(
         "Egress started",
-        room_name=room_name,
+        room_name=egress.room_name if egress else None,
         egress_id=egress.egress_id if egress else None,
     )
 
 
 async def _handle_egress_ended(event):
-    """Handle Track Egress completion — trigger multitrack processing."""
+    """Log Track Egress completion. Files are on S3 already; pipeline uses S3 listing."""
     egress = event.egress_info
     if not egress:
         logger.warning("egress_ended: no egress info in payload")
         return
 
-    room_name = egress.room_name
-
-    # Check egress status
-    # EGRESS_COMPLETE = 3, EGRESS_FAILED = 4
-    status = egress.status
-    if status == 4:  # EGRESS_FAILED
+    # EGRESS_FAILED = 4
+    if egress.status == 4:
         logger.error(
             "Egress failed",
-            room_name=room_name,
+            room_name=egress.room_name,
             egress_id=egress.egress_id,
             error=egress.error,
         )
         return
 
-    # Extract output file info from egress results
     file_results = list(egress.file_results)
-
     logger.info(
         "Egress ended",
-        room_name=room_name,
+        room_name=egress.room_name,
         egress_id=egress.egress_id,
-        status=status,
+        status=egress.status,
         num_files=len(file_results),
         filenames=[f.filename for f in file_results] if file_results else [],
     )
 
-    # Track Egress produces one file per egress request.
-    # The multitrack pipeline will be triggered separately once all tracks
-    # for a room are collected (via periodic polling or explicit trigger).
-    # TODO: Implement track collection and pipeline trigger
+
+async def _handle_room_finished(event):
+    """Fast-path: trigger multitrack processing when room closes.
+
+    This is an optimization — if missed, the process_livekit_ended_meetings
+    beat task catches it within ~2 minutes.
+    """
+    room_name = event.room.name if event.room else None
+    if not room_name:
+        logger.warning("room_finished: no room name in payload")
+        return
+
+    logger.info("Room finished", room_name=room_name)
+
+    meeting = await meetings_controller.get_by_room_name(room_name)
+    if not meeting:
+        logger.warning("room_finished: meeting not found", room_name=room_name)
+        return
+
+    # Deactivate the meeting — LiveKit room is destroyed, so process_meetings
+    # can't detect this via API (list_participants returns empty for deleted rooms).
+    if meeting.is_active:
+        await meetings_controller.update_meeting(meeting.id, is_active=False)
+        logger.info("room_finished: meeting deactivated", meeting_id=meeting.id)
+
+    # Import here to avoid circular imports (worker imports views)
+    from reflector.worker.process import process_livekit_multitrack
+
+    process_livekit_multitrack.delay(
+        room_name=room_name,
+        meeting_id=meeting.id,
+    )
+
+    logger.info(
+        "room_finished: queued multitrack processing",
+        meeting_id=meeting.id,
+        room_name=room_name,
+    )
