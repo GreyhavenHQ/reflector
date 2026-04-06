@@ -1239,6 +1239,11 @@ async def _process_livekit_multitrack_inner(
     meeting_id: str,
 ):
     """Inner processing logic for LiveKit multitrack recording."""
+    # 1. Discover tracks by listing S3 prefix.
+    # Wait briefly for egress files to finish flushing to S3 — the room_finished
+    # webhook fires after empty_timeout, but egress finalization may still be in progress.
+    import asyncio as _asyncio  # noqa: PLC0415
+
     from reflector.storage import get_source_storage  # noqa: PLC0415
     from reflector.utils.livekit import (  # noqa: PLC0415
         extract_livekit_base_room_name,
@@ -1246,32 +1251,60 @@ async def _process_livekit_multitrack_inner(
         parse_livekit_track_filepath,
     )
 
-    # 1. Discover tracks by listing S3 prefix
+    EGRESS_FLUSH_DELAY = 10  # seconds — egress typically flushes within a few seconds
+    EGRESS_RETRY_DELAY = 30  # seconds — retry if first listing finds nothing
+
+    await _asyncio.sleep(EGRESS_FLUSH_DELAY)
+
     storage = get_source_storage("livekit")
     s3_prefix = f"livekit/{room_name}/"
     all_keys = await storage.list_objects(prefix=s3_prefix)
 
-    if not all_keys:
-        logger.warning(
-            "No track files found on S3 for LiveKit room",
-            room_name=room_name,
-            s3_prefix=s3_prefix,
-        )
-        return
-
     # Filter to audio tracks only (.ogg) — skip .json manifests and .webm video
-    audio_keys = filter_audio_tracks(all_keys)
+    audio_keys = filter_audio_tracks(all_keys) if all_keys else []
+
+    if not audio_keys:
+        # Retry once after a longer delay — egress may still be flushing
+        logger.info(
+            "No audio tracks found yet, retrying after delay",
+            room_name=room_name,
+            retry_delay=EGRESS_RETRY_DELAY,
+        )
+        await _asyncio.sleep(EGRESS_RETRY_DELAY)
+        all_keys = await storage.list_objects(prefix=s3_prefix)
+        audio_keys = filter_audio_tracks(all_keys) if all_keys else []
+
+    # Sanity check: compare audio tracks against egress manifests.
+    # Each Track Egress (audio or video) produces a .json manifest.
+    # Video tracks produce .webm files. So expected audio count ≈ manifests - video files.
+    if all_keys:
+        manifest_count = sum(1 for k in all_keys if k.endswith(".json"))
+        video_count = sum(1 for k in all_keys if k.endswith(".webm"))
+        expected_audio = manifest_count - video_count
+        if expected_audio > len(audio_keys) and expected_audio > 0:
+            # Some audio tracks may still be flushing — wait and retry
+            logger.info(
+                "Expected more audio tracks based on manifests, waiting for late flushes",
+                room_name=room_name,
+                expected=expected_audio,
+                found=len(audio_keys),
+            )
+            await _asyncio.sleep(EGRESS_RETRY_DELAY)
+            all_keys = await storage.list_objects(prefix=s3_prefix)
+            audio_keys = filter_audio_tracks(all_keys) if all_keys else []
+
     logger.info(
-        "Found track files on S3",
+        "S3 track discovery complete",
         room_name=room_name,
-        total_files=len(all_keys),
+        total_files=len(all_keys) if all_keys else 0,
         audio_files=len(audio_keys),
     )
 
     if not audio_keys:
         logger.warning(
-            "No audio track files found (only manifests/video)",
+            "No audio track files found on S3 after retries",
             room_name=room_name,
+            s3_prefix=s3_prefix,
         )
         return
 

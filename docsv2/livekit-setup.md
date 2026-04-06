@@ -202,6 +202,17 @@ This avoids mixed-content blocking (browsers reject `ws://` connections on `http
 
 Without `--caddy`, browsers connect directly to LiveKit on port 7880 via `ws://`.
 
+### Security Note: on_demand TLS
+
+When using `--ip` (Caddy with self-signed certs), the Caddyfile uses `tls internal { on_demand }`. This generates certificates dynamically for any hostname/IP on first TLS request.
+
+**Risk:** An attacker can trigger certificate generation for arbitrary hostnames by sending TLS requests with spoofed SNI values, causing disk and CPU usage. This is a low-severity resource exhaustion risk, not a data theft risk.
+
+**Mitigations:**
+- For LAN/development use: not a concern (not internet-exposed)
+- For cloud VMs: restrict port 443 access via firewall to trusted IPs
+- For production: use `--domain` with a real domain name instead of `--ip` — Caddy uses Let's Encrypt (no `on_demand` needed)
+
 | Deployment | `LIVEKIT_PUBLIC_URL` | How it works |
 |---|---|---|
 | localhost, no Caddy | `ws://localhost:7880` | Direct connection |

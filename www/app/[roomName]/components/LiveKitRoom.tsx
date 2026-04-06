@@ -87,11 +87,19 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
   });
   const showEmailFeature = featureEnabled("emailTranscript");
 
-  // ── PreJoin defaults ──────────────────────────────────────
-  const defaultUsername =
-    auth.status === "authenticated" || auth.status === "refreshing"
-      ? auth.user.email?.split("@")[0] || auth.user.id?.slice(0, 12) || ""
-      : "";
+  // ── PreJoin defaults (persisted to localStorage for page refresh) ──
+  const STORAGE_KEY = `livekit-username-${roomName}`;
+  const defaultUsername = (() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return saved;
+    }
+    if (auth.status === "authenticated" || auth.status === "refreshing") {
+      return auth.user.email?.split("@")[0] || auth.user.id?.slice(0, 12) || "";
+    }
+    return "";
+  })();
+  const isJoining = !!userChoices && !joinedMeeting && !connectionError;
 
   // ── Join meeting via backend API after PreJoin submit ─────
   useEffect(() => {
@@ -129,9 +137,16 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
     router.push("/browse");
   }, [router]);
 
-  const handlePreJoinSubmit = useCallback((choices: LocalUserChoices) => {
-    setUserChoices(choices);
-  }, []);
+  const handlePreJoinSubmit = useCallback(
+    (choices: LocalUserChoices) => {
+      // Persist username for page refresh
+      if (choices.username) {
+        localStorage.setItem(STORAGE_KEY, choices.username);
+      }
+      setUserChoices(choices);
+    },
+    [STORAGE_KEY],
+  );
 
   // ── PreJoin screen (name + device selection) ──────────────
   if (!userChoices) {
@@ -159,6 +174,14 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
   }
 
   // ── Loading / error states ────────────────────────────────
+  if (isJoining) {
+    return (
+      <Center h="100vh" bg="gray.900">
+        <Spinner color="blue.500" size="xl" />
+      </Center>
+    );
+  }
+
   if (connectionError) {
     return (
       <Center h="100vh" bg="gray.50">

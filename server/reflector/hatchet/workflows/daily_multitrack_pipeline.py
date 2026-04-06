@@ -399,7 +399,9 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
                 from reflector.db.meetings import (
                     meetings_controller as mc,  # noqa: PLC0415
                 )
-                from reflector.redis_cache import get_redis  # noqa: PLC0415
+                from reflector.redis_cache import (
+                    get_async_redis_client,  # noqa: PLC0415
+                )
 
                 meeting = (
                     await mc.get_by_id(transcript.meeting_id)
@@ -407,9 +409,9 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
                     else None
                 )
                 if meeting:
-                    redis = await get_redis()
+                    redis_client = await get_async_redis_client()
                     mapping_key = f"livekit:participant_map:{meeting.room_name}"
-                    raw_map = await redis.hgetall(mapping_key)
+                    raw_map = await redis_client.hgetall(mapping_key)
                     identity_to_user_id = {
                         k.decode() if isinstance(k, bytes) else k: v.decode()
                         if isinstance(v, bytes)
@@ -572,13 +574,18 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
         valid_timestamps = [(i, ts) for i, ts in timestamps if ts is not None]
         if valid_timestamps:
             earliest = min(ts for _, ts in valid_timestamps)
+            # LiveKit Track Egress outputs OGG/Opus files, but the transcription
+            # service only accepts WebM. The padding step converts OGG→WebM as a
+            # side effect of applying the adelay filter. For the earliest track
+            # (offset=0), we use a minimal padding to force this conversion.
+            LIVEKIT_MIN_PADDING_SECONDS = (
+                0.001  # 1ms — inaudible, forces OGG→WebM conversion
+            )
+
             for i, ts in valid_timestamps:
                 offset = (ts - earliest).total_seconds()
-                # LiveKit tracks are OGG format; even the earliest track (offset=0)
-                # must go through padding step to convert OGG→WebM for the
-                # transcription service. Use a tiny padding to force conversion.
                 if offset == 0.0:
-                    offset = 0.001
+                    offset = LIVEKIT_MIN_PADDING_SECONDS
                 track_padding[i] = offset
                 ctx.log(
                     f"process_tracks: track {i} padding={offset}s (from filename timestamp)"

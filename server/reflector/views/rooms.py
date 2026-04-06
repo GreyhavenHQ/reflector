@@ -625,12 +625,12 @@ async def rooms_join_meeting(
         # Store identity → Reflector user_id mapping for the pipeline
         # (so TranscriptParticipant.user_id can be set correctly)
         if user_id:
-            from reflector.redis_cache import get_redis  # noqa: PLC0415
+            from reflector.redis_cache import get_async_redis_client  # noqa: PLC0415
 
-            redis = await get_redis()
+            redis_client = await get_async_redis_client()
             mapping_key = f"livekit:participant_map:{meeting.room_name}"
-            await redis.hset(mapping_key, participant_identity, user_id)
-            await redis.expire(mapping_key, 7 * 86400)  # 7 day TTL
+            await redis_client.hset(mapping_key, participant_identity, user_id)
+            await redis_client.expire(mapping_key, 7 * 86400)  # 7 day TTL
 
         token = client.create_access_token(
             room_name=meeting.room_name,
@@ -638,6 +638,10 @@ async def rooms_join_meeting(
             participant_name=participant_name,
             is_admin=user_id == room.user_id if user_id else False,
         )
+        # Close the platform client to release aiohttp session
+        if hasattr(client, "close"):
+            await client.close()
+
         meeting = meeting.model_copy()
         # For LiveKit, room_url is the WS URL; token goes as a query param
         meeting.room_url = add_query_param(meeting.room_url, "token", token)
