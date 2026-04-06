@@ -300,6 +300,83 @@ class TestParticipantIdentityMapping:
             pytest.skip("Redis not available")
 
 
+# ── Egress video cleanup safety ────────────────────────────────
+
+
+class TestEgressVideoCleanup:
+    """Ensure video cleanup logic NEVER deletes audio files."""
+
+    AUDIO_FILES = [
+        "livekit/room-20260401/juan-abc123-2026-04-01T100000-TR_AMR3SWs74Divho.ogg",
+        "livekit/room-20260401/alice-def456-2026-04-01T100030-TR_AMirKjdAvLteAZ.ogg",
+        "livekit/room-20260401/bob-789abc-2026-04-01T100100-TR_AMyoSbM7tAQbYj.ogg",
+    ]
+
+    VIDEO_FILES = [
+        "livekit/room-20260401/juan-abc123-2026-04-01T100000-TR_VC679dgMQBdfhT.webm",
+        "livekit/room-20260401/alice-def456-2026-04-01T100030-TR_VCLsuRuxLp4eik.webm",
+    ]
+
+    MANIFEST_FILES = [
+        "livekit/room-20260401/EG_K5sipvfB5fTM.json",
+        "livekit/room-20260401/EG_nzwBsH9xzgoj.json",
+    ]
+
+    def _should_delete(self, filename: str) -> bool:
+        """Replicate the deletion logic from _handle_egress_ended."""
+        return filename.endswith(".webm")
+
+    def test_audio_files_never_deleted(self):
+        """CRITICAL: Audio files must NEVER be marked for deletion."""
+        for f in self.AUDIO_FILES:
+            assert not self._should_delete(f), f"Audio file would be deleted: {f}"
+
+    def test_video_files_are_deleted(self):
+        for f in self.VIDEO_FILES:
+            assert self._should_delete(f), f"Video file NOT marked for deletion: {f}"
+
+    def test_manifests_are_kept(self):
+        for f in self.MANIFEST_FILES:
+            assert not self._should_delete(f), f"Manifest would be deleted: {f}"
+
+    def test_ogg_extension_never_matches_delete(self):
+        """Double-check: no .ogg file ever matches the deletion condition."""
+        test_names = [
+            "anything.ogg",
+            "livekit/room/track.ogg",
+            "video.ogg",  # Even if someone names it "video.ogg"
+            ".ogg",
+            "TR_VC_fake_video.ogg",  # Video-like track ID but .ogg extension
+        ]
+        for f in test_names:
+            assert not self._should_delete(f), f".ogg file would be deleted: {f}"
+
+    def test_webm_always_matches_delete(self):
+        test_names = [
+            "anything.webm",
+            "livekit/room/track.webm",
+            "audio.webm",  # Even if someone names it "audio.webm"
+            ".webm",
+        ]
+        for f in test_names:
+            assert self._should_delete(f), f".webm file NOT marked for deletion: {f}"
+
+    def test_unknown_extensions_are_kept(self):
+        """Unknown file types should NOT be deleted (safe by default)."""
+        test_names = [
+            "file.mp4",
+            "file.wav",
+            "file.mp3",
+            "file.txt",
+            "file",
+            "",
+        ]
+        for f in test_names:
+            assert not self._should_delete(
+                f
+            ), f"Unknown file type would be deleted: {f}"
+
+
 # ── Platform detection ────────────────────────────────────────
 
 

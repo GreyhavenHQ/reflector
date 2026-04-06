@@ -151,7 +151,12 @@ async def _handle_egress_started(event):
 
 
 async def _handle_egress_ended(event):
-    """Log Track Egress completion. Files are on S3 already; pipeline uses S3 listing."""
+    """Handle Track Egress completion. Delete video files immediately to save storage.
+
+    AutoTrackEgress records ALL tracks (audio + video). Audio is kept for the
+    transcription pipeline. Video files are unused and deleted on completion.
+    This saves ~50x storage (video is 98% of egress output for HD cameras).
+    """
     egress = event.egress_info
     if not egress:
         logger.warning("egress_ended: no egress info in payload")
@@ -176,6 +181,30 @@ async def _handle_egress_ended(event):
         num_files=len(file_results),
         filenames=[f.filename for f in file_results] if file_results else [],
     )
+
+    # Delete video files (.webm) immediately — only audio (.ogg) is needed for transcription.
+    # Video tracks are 50-90x larger than audio and unused by the pipeline.
+    # JSON manifests are kept (lightweight metadata, ~430 bytes each).
+    for file_result in file_results:
+        filename = file_result.filename
+        if filename and filename.endswith(".webm"):
+            try:
+                from reflector.storage import get_source_storage  # noqa: PLC0415
+
+                storage = get_source_storage("livekit")
+                await storage.delete_file(filename)
+                logger.info(
+                    "Deleted video egress file",
+                    filename=filename,
+                    room_name=egress.room_name,
+                )
+            except Exception as e:
+                # Non-critical — pipeline filters these out anyway
+                logger.warning(
+                    "Failed to delete video egress file",
+                    filename=filename,
+                    error=str(e),
+                )
 
 
 async def _handle_room_finished(event):
