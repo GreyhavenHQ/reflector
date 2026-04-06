@@ -621,6 +621,17 @@ async def rooms_join_meeting(
         else:
             participant_identity = f"anon-{uid_suffix}"
         participant_name = display_name or participant_identity
+
+        # Store identity → Reflector user_id mapping for the pipeline
+        # (so TranscriptParticipant.user_id can be set correctly)
+        if user_id:
+            from reflector.redis_cache import get_redis  # noqa: PLC0415
+
+            redis = await get_redis()
+            mapping_key = f"livekit:participant_map:{meeting.room_name}"
+            await redis.hset(mapping_key, participant_identity, user_id)
+            await redis.expire(mapping_key, 7 * 86400)  # 7 day TTL
+
         token = client.create_access_token(
             room_name=meeting.room_name,
             participant_identity=participant_identity,
