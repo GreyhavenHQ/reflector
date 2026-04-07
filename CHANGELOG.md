@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.44.0](https://github.com/GreyhavenHQ/reflector/compare/v0.43.0...v0.44.0) (2026-04-07)
+
+
+### Features
+
+* allow livekit to work with tunnels udp and tcp with quickguide ([#948](https://github.com/GreyhavenHQ/reflector/issues/948)) ([f4f94a0](https://github.com/GreyhavenHQ/reflector/commit/f4f94a0d9998030e5ef7f01935d99722045165ac))
+* Livekit - Selfhost video room solution ([#946](https://github.com/GreyhavenHQ/reflector/issues/946)) ([bc8338f](https://github.com/GreyhavenHQ/reflector/commit/bc8338fa4f136534f5f27784f5dd10d47cecf412))
+
+
+### Bug Fixes
+
+* allow anonymous recording start and add light theme email icon ([#949](https://github.com/GreyhavenHQ/reflector/issues/949)) ([08c276e](https://github.com/GreyhavenHQ/reflector/commit/08c276e4f493c7960158a44e77062af1b30c3352))
+* deactivate meeting button and better deactivation heuristics ([#950](https://github.com/GreyhavenHQ/reflector/issues/950)) ([26239f0](https://github.com/GreyhavenHQ/reflector/commit/26239f05a34af07ebba764d669343c32e40e63bf))
+
 ## [0.43.0](https://github.com/GreyhavenHQ/reflector/compare/v0.42.0...v0.43.0) (2026-03-31)
 
 
