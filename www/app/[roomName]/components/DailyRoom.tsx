@@ -337,6 +337,10 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
     [],
   );
   const emailIconUrl = useMemo(
+    () => new URL("/email-icon-dark.svg", window.location.origin),
+    [],
+  );
+  const emailIconDarkModeUrl = useMemo(
     () => new URL("/email-icon.svg", window.location.origin),
     [],
   );
@@ -399,12 +403,13 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
       show
         ? {
             iconPath: emailIconUrl.href,
+            iconPathDarkMode: emailIconDarkModeUrl.href,
             label: "Email Transcript",
             tooltip: "Get transcript emailed to you",
           }
         : null,
     );
-  }, [emailIconUrl, setCustomTrayButton]);
+  }, [emailIconUrl, emailIconDarkModeUrl, setCustomTrayButton]);
 
   if (authLastUserId === undefined) {
     return (
