@@ -91,9 +91,7 @@ class StartRecordingRequest(BaseModel):
 async def start_recording(
     meeting_id: NonEmptyString,
     body: StartRecordingRequest,
-    user: Annotated[
-        Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
-    ],
+    user: Annotated[Optional[auth.UserInfo], Depends(auth.current_user_optional)],
 ) -> dict[str, Any]:
     """Start cloud or raw-tracks recording via Daily.co REST API.
 
