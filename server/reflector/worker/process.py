@@ -869,29 +869,30 @@ async def process_meetings():
                 elif has_had_sessions:
                     should_deactivate = True
                     logger_.info("Meeting ended - all participants left")
-                elif current_time > end_date:
-                    should_deactivate = True
-                    logger_.info(
-                        "Meeting deactivated - scheduled time ended with no participants",
-                    )
-                elif meeting.platform == "livekit" and not has_had_sessions:
-                    # LiveKit rooms are destroyed after empty_timeout. Once gone,
-                    # list_participants returns [] — indistinguishable from "never used".
-                    # Check if meeting was created >10 min ago; if so, assume room is gone.
+                elif not has_had_sessions:
+                    # No sessions recorded — either no one joined, or webhooks
+                    # didn't arrive (e.g. local dev without tunnel).
                     meeting_start = meeting.start_date
                     if meeting_start.tzinfo is None:
                         meeting_start = meeting_start.replace(tzinfo=timezone.utc)
                     age_minutes = (current_time - meeting_start).total_seconds() / 60
-                    if age_minutes > 10:
+                    is_scheduled = bool(meeting.calendar_event_id)
+
+                    if is_scheduled and current_time > end_date:
+                        # Scheduled meeting past its end time with no participants
                         should_deactivate = True
                         logger_.info(
-                            "LiveKit meeting deactivated - room likely destroyed (no sessions after 10 min)",
+                            "Meeting deactivated - scheduled time ended with no participants",
+                        )
+                    elif not is_scheduled and age_minutes > 30:
+                        # On-the-fly meeting with no sessions after 30 min
+                        should_deactivate = True
+                        logger_.info(
+                            "Meeting deactivated - no sessions after 30 min",
                             age_minutes=round(age_minutes, 1),
                         )
                     else:
-                        logger_.debug("LiveKit meeting still young, keep it")
-                else:
-                    logger_.debug("Meeting not yet started, keep it")
+                        logger_.debug("Meeting not yet started, keep it")
 
                 if should_deactivate:
                     await meetings_controller.update_meeting(
