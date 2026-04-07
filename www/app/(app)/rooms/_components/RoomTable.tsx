@@ -10,14 +10,17 @@ import {
   Badge,
   VStack,
   Icon,
+  Tooltip,
 } from "@chakra-ui/react";
 import { LuLink, LuRefreshCw } from "react-icons/lu";
+import { FaStop } from "react-icons/fa";
 import { FaCalendarAlt } from "react-icons/fa";
 import type { components } from "../../../reflector-api";
 import {
   useRoomActiveMeetings,
   useRoomUpcomingMeetings,
   useRoomIcsSync,
+  useMeetingDeactivate,
 } from "../../../lib/apiHooks";
 
 type Room = components["schemas"]["Room"];
@@ -107,6 +110,7 @@ const getZulipDisplay = (
 function MeetingStatus({ roomName }: { roomName: string }) {
   const activeMeetingsQuery = useRoomActiveMeetings(roomName);
   const upcomingMeetingsQuery = useRoomUpcomingMeetings(roomName);
+  const deactivateMutation = useMeetingDeactivate();
 
   const activeMeetings = activeMeetingsQuery.data || [];
   const upcomingMeetings = upcomingMeetingsQuery.data || [];
@@ -121,14 +125,46 @@ function MeetingStatus({ roomName }: { roomName: string }) {
       meeting.calendar_metadata?.["title"] || "Active Meeting",
     );
     return (
-      <VStack gap={1} alignItems="start">
-        <Text fontSize="xs" color="gray.600" lineHeight={1}>
-          {title}
-        </Text>
-        <Text fontSize="xs" color="gray.500" lineHeight={1}>
-          {meeting.num_clients} participants
-        </Text>
-      </VStack>
+      <Flex alignItems="center" gap={2}>
+        <VStack gap={1} alignItems="start">
+          <Text fontSize="xs" color="gray.600" lineHeight={1}>
+            {title}
+          </Text>
+          <Text fontSize="xs" color="gray.500" lineHeight={1}>
+            {meeting.num_clients} participants
+          </Text>
+        </VStack>
+        {activeMeetings.length === 1 && (meeting.num_clients ?? 0) < 2 && (
+          <Tooltip.Root openDelay={100}>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                aria-label="End meeting"
+                size="xs"
+                variant="ghost"
+                color="red.500"
+                _hover={{ bg: "transparent", color: "red.600" }}
+                onClick={() =>
+                  deactivateMutation.mutate({
+                    params: { path: { meeting_id: meeting.id } },
+                  })
+                }
+                disabled={deactivateMutation.isPending}
+              >
+                {deactivateMutation.isPending ? (
+                  <Spinner size="xs" />
+                ) : (
+                  <FaStop />
+                )}
+              </IconButton>
+            </Tooltip.Trigger>
+            <Tooltip.Positioner>
+              <Tooltip.Content>
+                End this meeting and stop any active recordings
+              </Tooltip.Content>
+            </Tooltip.Positioner>
+          </Tooltip.Root>
+        )}
+      </Flex>
     );
   }
 
