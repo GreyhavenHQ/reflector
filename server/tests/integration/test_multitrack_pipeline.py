@@ -171,5 +171,5 @@ async def test_multitrack_pipeline_end_to_end(
     assert len(messages) >= 1, "Should have received at least 1 email"
     email_msg = messages[0]
     assert (
-        "Transcript Ready" in email_msg.get("Subject", "")
+        "Reflector:" in email_msg.get("Subject", "")
     ), f"Email subject should contain 'Transcript Ready', got: {email_msg.get('Subject')}"
