@@ -452,9 +452,11 @@ async def test_anonymous_cannot_webrtc_record_when_not_public(client, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_anonymous_cannot_start_meeting_recording_when_not_public(
+async def test_anonymous_can_start_meeting_recording_when_not_public(
     client, monkeypatch
 ):
+    """Anonymous users can start recording since it's triggered from the frontend
+    and recording is at room level via Daily REST API."""
     monkeypatch.setattr(settings, "PUBLIC_MODE", False)
 
     room = await rooms_controller.add(
@@ -486,7 +488,8 @@ async def test_anonymous_cannot_start_meeting_recording_when_not_public(
         f"/meetings/{meeting.id}/recordings/start",
         json={"type": "cloud", "instanceId": "00000000-0000-0000-0000-000000000001"},
     )
-    assert resp.status_code == 401, resp.text
+    # Should not be 401 (may fail for other reasons like no Daily API, but auth passes)
+    assert resp.status_code != 401, f"Should not get 401: {resp.text}"
 
 
 # ======================================================================

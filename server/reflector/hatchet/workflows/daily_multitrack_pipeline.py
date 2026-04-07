@@ -524,6 +524,7 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
 @daily_multitrack_pipeline.task(
     parents=[get_participants],
     execution_timeout=timedelta(seconds=TIMEOUT_HEAVY),
+    schedule_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
     backoff_factor=2.0,
     backoff_max_seconds=30,
@@ -663,6 +664,7 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
 @daily_multitrack_pipeline.task(
     parents=[process_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_AUDIO),
+    schedule_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=2,
     backoff_factor=2.0,
     backoff_max_seconds=15,
@@ -860,6 +862,7 @@ async def generate_waveform(input: PipelineInput, ctx: Context) -> WaveformResul
 @daily_multitrack_pipeline.task(
     parents=[process_tracks],
     execution_timeout=timedelta(seconds=TIMEOUT_EXTRA_HEAVY),
+    schedule_timeout=timedelta(seconds=TIMEOUT_HEAVY),
     retries=3,
     backoff_factor=2.0,
     backoff_max_seconds=30,
