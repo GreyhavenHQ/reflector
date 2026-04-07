@@ -32,6 +32,11 @@
 #                      (self-signed HTTPS, required for browser mic/camera access).
 #                      Mutually exclusive with --domain. Use for LAN or cloud VM access.
 #                      On Linux, IP is auto-detected; on macOS, use --ip to specify it.
+#   --tunnels TCP,UDP  Configure tunnel addresses for NAT traversal (e.g. playit.gg).
+#                      TCP=host:port for web/API/signaling, UDP=host:port for WebRTC media.
+#                      Implies --caddy. Mutually exclusive with --ip and --domain.
+#   --tunnel-tcp ADDR  TCP tunnel address only (e.g. --tunnel-tcp host.playit.gg:9055)
+#   --tunnel-udp ADDR  UDP tunnel address only (e.g. --tunnel-udp host.ply.gg:14139)
 #   --garage           Use Garage for local S3-compatible storage
 #   --caddy            Enable Caddy reverse proxy with auto-SSL
 #   --domain DOMAIN    Use a real domain for Caddy (enables Let's Encrypt auto-HTTPS)
@@ -220,6 +225,8 @@ USE_CADDY=false
 CUSTOM_DOMAIN=""    # optional domain for Let's Encrypt HTTPS
 CUSTOM_IP=""        # optional --ip override (mutually exclusive with --caddy)
 BUILD_IMAGES=false  # build backend/frontend from source
+TUNNEL_TCP=""       # --tunnel-tcp: TCP tunnel address (e.g., host:port from playit.gg)
+TUNNEL_UDP=""       # --tunnel-udp: UDP tunnel address (e.g., host:port from playit.gg)
 ADMIN_PASSWORD=""   # optional admin password for password auth
 CUSTOM_CA=""        # --custom-ca: path to dir or CA cert file
 USE_CUSTOM_CA=false # derived flag: true when --custom-ca is provided
@@ -282,6 +289,33 @@ for i in "${!ARGS[@]}"; do
             CUSTOM_IP="${ARGS[$next_i]}"
             SKIP_NEXT=true ;;
         --build)        BUILD_IMAGES=true ;;
+        --tunnels)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--tunnels requires TCP,UDP addresses (e.g. --tunnels host:9055,host:14139)"
+                exit 1
+            fi
+            IFS=',' read -r TUNNEL_TCP TUNNEL_UDP <<< "${ARGS[$next_i]}"
+            # Trim whitespace
+            TUNNEL_TCP="${TUNNEL_TCP// /}"
+            TUNNEL_UDP="${TUNNEL_UDP// /}"
+            SKIP_NEXT=true ;;
+        --tunnel-tcp)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--tunnel-tcp requires a TCP tunnel address (e.g. --tunnel-tcp host:9055)"
+                exit 1
+            fi
+            TUNNEL_TCP="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
+        --tunnel-udp)
+            next_i=$((i + 1))
+            if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
+                err "--tunnel-udp requires a UDP tunnel address (e.g. --tunnel-udp host:14139)"
+                exit 1
+            fi
+            TUNNEL_UDP="${ARGS[$next_i]}"
+            SKIP_NEXT=true ;;
         --password)
             next_i=$((i + 1))
             if [[ $next_i -ge ${#ARGS[@]} ]] || [[ "${ARGS[$next_i]}" == --* ]]; then
@@ -383,6 +417,35 @@ fi
 # --ip implies --caddy (browsers require HTTPS for mic/camera access on non-localhost)
 if [[ -n "$CUSTOM_IP" ]]; then
     USE_CADDY=true
+fi
+# Validate tunnel address format (must be host:port with numeric port)
+_validate_tunnel_addr() {
+    local label="$1" addr="$2"
+    if [[ -z "$addr" ]]; then return; fi
+    if [[ "$addr" != *:* ]]; then
+        err "$label address must be host:port (got: $addr)"
+        exit 1
+    fi
+    local port="${addr##*:}"
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [[ "$port" -lt 1 ]] || [[ "$port" -gt 65535 ]]; then
+        err "$label port must be 1-65535 (got: $port)"
+        exit 1
+    fi
+}
+_validate_tunnel_addr "--tunnel-tcp" "$TUNNEL_TCP"
+_validate_tunnel_addr "--tunnel-udp" "$TUNNEL_UDP"
+
+# --tunnels / --tunnel-tcp implies --caddy
+if [[ -n "$TUNNEL_TCP" ]]; then
+    USE_CADDY=true
+fi
+if [[ -n "$TUNNEL_TCP" ]] && [[ -n "$CUSTOM_DOMAIN" ]]; then
+    err "--tunnel-tcp and --domain are mutually exclusive."
+    exit 1
+fi
+if [[ -n "$TUNNEL_TCP" ]] && [[ -n "$CUSTOM_IP" ]]; then
+    err "--tunnel-tcp and --ip are mutually exclusive."
+    exit 1
 fi
 
 # --- Save CLI args for config memory (re-run without flags) ---
@@ -563,7 +626,10 @@ _generate_livekit_config() {
     # at /lk-ws to avoid mixed-content blocking (browsers block ws:// on https:// pages).
     # When no Caddy, browsers connect directly to LiveKit on port 7880.
     local public_lk_url
-    if [[ "$USE_CADDY" == "true" ]]; then
+    if [[ -n "$TUNNEL_TCP" ]]; then
+        # Tunnel mode: LiveKit signaling proxied through Caddy on the tunnel address
+        public_lk_url="wss://${TUNNEL_TCP}/lk-ws"
+    elif [[ "$USE_CADDY" == "true" ]]; then
         if [[ -n "$CUSTOM_DOMAIN" ]]; then
             public_lk_url="wss://${CUSTOM_DOMAIN}/lk-ws"
         elif [[ -n "$PRIMARY_IP" ]]; then
@@ -603,12 +669,35 @@ _generate_livekit_config() {
     fi
 
     # Generate livekit.yaml
+    # UDP tunnel mode: use single port matching the tunnel's public port
+    local rtc_config
+    if [[ -n "$TUNNEL_UDP" ]]; then
+        local tunnel_udp_host tunnel_udp_port
+        tunnel_udp_host="${TUNNEL_UDP%:*}"
+        tunnel_udp_port="${TUNNEL_UDP##*:}"
+        # Resolve tunnel hostname to IP for node_ip
+        local tunnel_udp_ip
+        tunnel_udp_ip=$(dig +short "$tunnel_udp_host" 2>/dev/null | head -1 || nslookup "$tunnel_udp_host" 2>/dev/null | grep "Address:" | tail -1 | awk '{print $2}' || true)
+        if [[ -z "$tunnel_udp_ip" ]]; then
+            warn "Could not resolve UDP tunnel hostname: $tunnel_udp_host"
+            warn "Set node_ip manually in livekit.yaml after setup"
+            tunnel_udp_ip="0.0.0.0"
+        fi
+        rtc_config="  tcp_port: 7881
+  udp_port: ${tunnel_udp_port}
+  node_ip: ${tunnel_udp_ip}
+  use_external_ip: false"
+        ok "LiveKit UDP: single port ${tunnel_udp_port}, node_ip=${tunnel_udp_ip} (via tunnel)"
+    else
+        rtc_config="  tcp_port: 7881
+  port_range_start: 44200
+  port_range_end: 44300"
+    fi
+
     cat > "$ROOT_DIR/livekit.yaml" << LKEOF
 port: 7880
 rtc:
-  tcp_port: 7881
-  port_range_start: 44200
-  port_range_end: 44300
+${rtc_config}
 redis:
   address: redis:6379
 keys:
@@ -862,7 +951,10 @@ step_server_env() {
 
     # Public-facing URLs
     local server_base_url
-    if [[ -n "$CUSTOM_DOMAIN" ]]; then
+    if [[ -n "$TUNNEL_TCP" ]]; then
+        # Tunnel mode: public URL is the tunnel address with HTTPS (Caddy terminates TLS)
+        server_base_url="https://$TUNNEL_TCP"
+    elif [[ -n "$CUSTOM_DOMAIN" ]]; then
         server_base_url="https://$CUSTOM_DOMAIN"
     elif [[ "$USE_CADDY" == "true" ]]; then
         if [[ -n "$PRIMARY_IP" ]]; then
@@ -1111,6 +1203,16 @@ step_server_env() {
         ok "BIND_HOST=0.0.0.0 (ports exposed for direct access)"
     fi
 
+    # UDP ports for LiveKit (used by docker-compose for port mapping)
+    if [[ -n "$TUNNEL_UDP" ]]; then
+        local tunnel_udp_port="${TUNNEL_UDP##*:}"
+        env_set "$root_env" "LIVEKIT_UDP_PORTS" "${tunnel_udp_port}:${tunnel_udp_port}"
+        ok "LiveKit UDP: single port ${tunnel_udp_port} (via tunnel)"
+    else
+        # Default: full range for direct access
+        env_set "$root_env" "LIVEKIT_UDP_PORTS" "44200-44300:44200-44300"
+    fi
+
     ok "server/.env ready"
 }
 
@@ -1129,7 +1231,9 @@ step_www_env() {
 
     # Public-facing URL for frontend
     local base_url
-    if [[ -n "$CUSTOM_DOMAIN" ]]; then
+    if [[ -n "$TUNNEL_TCP" ]]; then
+        base_url="https://$TUNNEL_TCP"
+    elif [[ -n "$CUSTOM_DOMAIN" ]]; then
         base_url="https://$CUSTOM_DOMAIN"
     elif [[ "$USE_CADDY" == "true" ]]; then
         if [[ -n "$PRIMARY_IP" ]]; then
@@ -1905,7 +2009,11 @@ EOF
     [[ "$USES_OLLAMA" != "true" ]] && echo "  LLM:     External (configure in server/.env)"
     [[ "$DAILY_DETECTED" == "true" ]] && echo "  Video:   Daily.co (live rooms + multitrack processing via Hatchet)"
     [[ "$WHEREBY_DETECTED" == "true" ]] && echo "  Video:   Whereby (live rooms)"
-    [[ "$LIVEKIT_DETECTED" == "true" ]] && echo "  Video:   LiveKit (self-hosted, live rooms + track egress)"
+    if [[ "$LIVEKIT_DETECTED" == "true" ]]; then
+        echo "  Video:   LiveKit (self-hosted, live rooms + track egress)"
+        [[ -n "$TUNNEL_TCP" ]] && echo "  Tunnel:  TCP=$TUNNEL_TCP"
+        [[ -n "$TUNNEL_UDP" ]] && echo "           UDP=$TUNNEL_UDP"
+    fi
     [[ "$ANY_PLATFORM_DETECTED" != "true" ]] && echo "  Video:   None (rooms disabled)"
     if [[ "$USE_CUSTOM_CA" == "true" ]]; then
         echo "  CA:      Custom (certs/ca.crt)"

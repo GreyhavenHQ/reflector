@@ -418,7 +418,7 @@ services:
     ports:
       - "7880:7880"                     # Signaling (HTTP/WS)
       - "7881:7881"                     # WebRTC over TCP
-      - "44200-44300:44200-44300/udp"   # WebRTC ICE (avoids macOS ephemeral 49152-65535 and Reflector 40000-40100)
+      - "${LIVEKIT_UDP_PORTS:-44200-44300:44200-44300}/udp"   # WebRTC ICE (range or single port for tunnels)
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     command: ["--config", "/etc/livekit.yaml"]
