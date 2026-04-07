@@ -35,7 +35,7 @@ services:
     image: monadicalsas/reflector-backend:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1250:1250"
+      - "${BIND_HOST:-127.0.0.1}:1250:1250"
       - "40000-40100:40000-40100/udp"
     env_file:
       - ./server/.env
@@ -116,7 +116,7 @@ services:
     image: monadicalsas/reflector-frontend:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${BIND_HOST:-127.0.0.1}:3000:3000"
     env_file:
       - ./www/.env
     environment:
@@ -339,7 +339,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8888:8888"
+      - "0.0.0.0:8888:8888"   # Hatchet dashboard (plain HTTP — no TLS)
       - "127.0.0.1:7078:7077"
     env_file:
       - ./.env.hatchet
@@ -366,7 +366,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     image: monadicalsas/reflector-backend:latest
-    profiles: [dailyco]
+    profiles: [dailyco, livekit]
     restart: unless-stopped
     env_file:
       - ./server/.env
@@ -405,6 +405,40 @@ services:
         condition: service_healthy
     volumes:
       - server_data:/app/data
+
+  # ===========================================================
+  # LiveKit — self-hosted open-source video platform
+  # Activated via --profile livekit (auto-detected from LIVEKIT_API_KEY in server/.env)
+  # ===========================================================
+
+  livekit-server:
+    image: livekit/livekit-server:v1.10.1
+    profiles: [livekit]
+    restart: unless-stopped
+    ports:
+      - "7880:7880"                     # Signaling (HTTP/WS)
+      - "7881:7881"                     # WebRTC over TCP
+      - "44200-44300:44200-44300/udp"   # WebRTC ICE (avoids macOS ephemeral 49152-65535 and Reflector 40000-40100)
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    command: ["--config", "/etc/livekit.yaml"]
+    depends_on:
+      redis:
+        condition: service_started
+
+  livekit-egress:
+    image: livekit/egress:v1.12.0
+    profiles: [livekit]
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml:ro
+    depends_on:
+      redis:
+        condition: service_started
+      livekit-server:
+        condition: service_started
 
 volumes:
   postgres_data:

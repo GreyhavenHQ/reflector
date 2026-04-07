@@ -911,6 +911,32 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/livekit/webhook": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Livekit Webhook
+     * @description Handle LiveKit webhook events.
+     *
+     *     LiveKit webhook events include:
+     *     - participant_joined / participant_left
+     *     - egress_started / egress_updated / egress_ended
+     *     - room_started / room_finished
+     *     - track_published / track_unpublished
+     */
+    post: operations["v1_livekit_webhook"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/auth/login": {
     parameters: {
       query?: never;
@@ -1100,7 +1126,7 @@ export interface components {
        * Platform
        * @enum {string}
        */
-      platform: "whereby" | "daily";
+      platform: "whereby" | "daily" | "livekit";
       /**
        * Skip Consent
        * @default false
@@ -1821,7 +1847,7 @@ export interface components {
        * Platform
        * @enum {string}
        */
-      platform: "whereby" | "daily";
+      platform: "whereby" | "daily" | "livekit";
       /** Daily Composed Video S3 Key */
       daily_composed_video_s3_key?: string | null;
       /** Daily Composed Video Duration */
@@ -1921,7 +1947,7 @@ export interface components {
        * Platform
        * @enum {string}
        */
-      platform: "whereby" | "daily";
+      platform: "whereby" | "daily" | "livekit";
       /**
        * Skip Consent
        * @default false
@@ -1979,7 +2005,7 @@ export interface components {
        * Platform
        * @enum {string}
        */
-      platform: "whereby" | "daily";
+      platform: "whereby" | "daily" | "livekit";
       /**
        * Skip Consent
        * @default false
@@ -2358,7 +2384,7 @@ export interface components {
       /** Ics Enabled */
       ics_enabled?: boolean | null;
       /** Platform */
-      platform?: ("whereby" | "daily") | null;
+      platform?: ("whereby" | "daily" | "livekit") | null;
       /** Skip Consent */
       skip_consent?: boolean | null;
       /** Email Transcript To */
@@ -3233,7 +3259,9 @@ export interface operations {
   };
   v1_rooms_join_meeting: {
     parameters: {
-      query?: never;
+      query?: {
+        display_name?: string | null;
+      };
       header?: never;
       path: {
         room_name: string;
@@ -4485,6 +4513,26 @@ export interface operations {
     };
   };
   v1_webhook: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  v1_livekit_webhook: {
     parameters: {
       query?: never;
       header?: never;

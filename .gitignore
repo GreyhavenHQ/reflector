@@ -3,6 +3,8 @@ server/.env
 server/.env.production
 .env
 Caddyfile
+livekit.yaml
+egress.yaml
 .env.hatchet
 server/exportdanswer
 .vercel

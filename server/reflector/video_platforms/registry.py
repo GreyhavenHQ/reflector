@@ -1,6 +1,11 @@
 from typing import Dict, Type
 
-from ..schemas.platform import DAILY_PLATFORM, WHEREBY_PLATFORM, Platform
+from ..schemas.platform import (
+    DAILY_PLATFORM,
+    LIVEKIT_PLATFORM,
+    WHEREBY_PLATFORM,
+    Platform,
+)
 from .base import VideoPlatformClient, VideoPlatformConfig
 
 _PLATFORMS: Dict[Platform, Type[VideoPlatformClient]] = {}
@@ -26,10 +31,12 @@ def get_available_platforms() -> list[Platform]:
 
 def _register_builtin_platforms():
     from .daily import DailyClient  # noqa: PLC0415
+    from .livekit import LiveKitClient  # noqa: PLC0415
     from .whereby import WherebyClient  # noqa: PLC0415
 
     register_platform(WHEREBY_PLATFORM, WherebyClient)
     register_platform(DAILY_PLATFORM, DailyClient)
+    register_platform(LIVEKIT_PLATFORM, LiveKitClient)
 
 
 _register_builtin_platforms()

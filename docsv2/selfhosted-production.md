@@ -144,6 +144,7 @@ Browse all available models at https://ollama.com/library.
 
 | Flag | What it does |
 |------|-------------|
+| `--livekit` | Enables LiveKit self-hosted video platform. Generates API credentials, starts `livekit-server` + `livekit-egress`. See [LiveKit Setup](livekit-setup.md). |
 | `--garage` | Starts Garage (local S3-compatible storage). Auto-configures bucket, keys, and env vars. |
 | `--caddy` | Starts Caddy reverse proxy on ports 80/443 with self-signed cert. |
 | `--domain DOMAIN` | Use a real domain with Let's Encrypt auto-HTTPS (implies `--caddy`). Requires DNS A record pointing to this server and ports 80/443 open. |
@@ -153,6 +154,20 @@ Browse all available models at https://ollama.com/library.
 Without `--garage`, you **must** provide S3-compatible credentials (the script will prompt interactively or you can pre-fill `server/.env`).
 
 Without `--caddy` or `--domain`, no ports are exposed. Point your own reverse proxy at `web:3000` (frontend) and `server:1250` (API).
+
+## Video Platform (LiveKit)
+
+For self-hosted video rooms with per-participant audio recording, add `--livekit` to your setup command:
+
+```bash
+./scripts/setup-selfhosted.sh --gpu --ollama-gpu --livekit --garage --caddy
+```
+
+This generates LiveKit API credentials, creates config files (`livekit.yaml`, `egress.yaml`), and starts `livekit-server` (WebRTC SFU) + `livekit-egress` (per-participant audio recording to S3). LiveKit reuses the same Redis and S3 storage as the rest of the stack.
+
+New rooms default to LiveKit when `DEFAULT_VIDEO_PLATFORM=livekit` is set (done automatically by the setup script). Existing Daily.co and Whereby rooms continue to work. On re-runs, the script detects the existing `LIVEKIT_API_KEY` in `server/.env` automatically.
+
+> For detailed configuration, environment variables, ports, and troubleshooting, see [LiveKit Setup](livekit-setup.md).
 
 **Using a domain (recommended for production):** Point a DNS A record at your server's IP, then pass `--domain your.domain.com`. Caddy will automatically obtain and renew a Let's Encrypt certificate. Ports 80 and 443 must be open.
 

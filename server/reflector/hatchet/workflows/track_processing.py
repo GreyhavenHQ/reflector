@@ -37,6 +37,9 @@ class TrackInput(BaseModel):
     transcript_id: str
     language: str = "en"
     source_platform: str = "daily"
+    # Pre-calculated padding in seconds (from filename timestamps for LiveKit).
+    # When set, overrides container metadata extraction for start_time.
+    padding_seconds: float | None = None
 
 
 hatchet = HatchetClientManager.get_client()
@@ -53,15 +56,19 @@ track_workflow = hatchet.workflow(name="TrackProcessing", input_validator=TrackI
 async def pad_track(input: TrackInput, ctx: Context) -> PadTrackResult:
     """Pad single audio track with silence for alignment.
 
-    Extracts stream.start_time from WebM container metadata and applies
-    silence padding using PyAV filter graph (adelay).
+    For Daily: extracts stream.start_time from WebM container metadata.
+    For LiveKit: uses pre-calculated padding_seconds from filename timestamps
+    (OGG files don't have embedded start_time metadata).
     """
-    ctx.log(f"pad_track: track {input.track_index}, s3_key={input.s3_key}")
+    ctx.log(
+        f"pad_track: track {input.track_index}, s3_key={input.s3_key}, padding_seconds={input.padding_seconds}"
+    )
     logger.info(
         "[Hatchet] pad_track",
         track_index=input.track_index,
         s3_key=input.s3_key,
         transcript_id=input.transcript_id,
+        padding_seconds=input.padding_seconds,
     )
 
     try:
@@ -79,10 +86,16 @@ async def pad_track(input: TrackInput, ctx: Context) -> PadTrackResult:
             bucket=input.bucket_name,
         )
 
-        with av.open(source_url) as in_container:
-            start_time_seconds = extract_stream_start_time_from_container(
-                in_container, input.track_index, logger=logger
-            )
+        if input.padding_seconds is not None:
+            # Pre-calculated offset (LiveKit: from filename timestamps)
+            start_time_seconds = input.padding_seconds
+            ctx.log(f"pad_track: using pre-calculated padding={start_time_seconds}s")
+        else:
+            # Extract from container metadata (Daily: WebM start_time)
+            with av.open(source_url) as in_container:
+                start_time_seconds = extract_stream_start_time_from_container(
+                    in_container, input.track_index, logger=logger
+                )
 
         # If no padding needed, return original S3 key
         if start_time_seconds <= 0:

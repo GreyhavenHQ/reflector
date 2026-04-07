@@ -273,8 +273,10 @@ def with_error_handling(
 )
 @with_error_handling(TaskName.GET_RECORDING)
 async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
-    """Fetch recording metadata from Daily.co API."""
-    ctx.log(f"get_recording: starting for recording_id={input.recording_id}")
+    """Fetch recording metadata. Platform-aware: Daily calls API, LiveKit skips."""
+    ctx.log(
+        f"get_recording: starting for recording_id={input.recording_id}, platform={input.source_platform}"
+    )
     ctx.log(
         f"get_recording: transcript_id={input.transcript_id}, room_id={input.room_id}"
     )
@@ -299,6 +301,18 @@ async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
             )
             ctx.log(f"get_recording: status set to 'processing' and broadcasted")
 
+    # LiveKit: no external API call needed — metadata comes from S3 track listing
+    if input.source_platform == "livekit":
+        ctx.log(
+            "get_recording: LiveKit platform — skipping API call (metadata from S3)"
+        )
+        return RecordingResult(
+            id=input.recording_id,
+            mtg_session_id=None,
+            duration=0,  # Duration calculated from tracks later
+        )
+
+    # Daily.co: fetch recording metadata from API
     if not settings.DAILY_API_KEY:
         ctx.log("get_recording: ERROR - DAILY_API_KEY not configured")
         raise ValueError("DAILY_API_KEY not configured")
@@ -332,11 +346,12 @@ async def get_recording(input: PipelineInput, ctx: Context) -> RecordingResult:
 )
 @with_error_handling(TaskName.GET_PARTICIPANTS)
 async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsResult:
-    """Fetch participant list from Daily.co API and update transcript in database."""
-    ctx.log(f"get_participants: transcript_id={input.transcript_id}")
+    """Fetch participant list and update transcript. Platform-aware."""
+    ctx.log(
+        f"get_participants: transcript_id={input.transcript_id}, platform={input.source_platform}"
+    )
 
     recording = ctx.task_output(get_recording)
-    mtg_session_id = recording.mtg_session_id
     async with fresh_db_connection():
         from reflector.db.transcripts import (  # noqa: PLC0415
             TranscriptDuration,
@@ -347,8 +362,8 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if not transcript:
             raise ValueError(f"Transcript {input.transcript_id} not found")
-        # Note: title NOT cleared - preserves existing titles
-        # Duration from Daily API (seconds -> milliseconds) - master source
+
+        # Duration from recording metadata (seconds -> milliseconds)
         duration_ms = recording.duration * 1000 if recording.duration else 0
         await transcripts_controller.update(
             transcript,
@@ -360,65 +375,141 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
             },
         )
 
-        await append_event_and_broadcast(
-            input.transcript_id,
-            transcript,
-            "DURATION",
-            TranscriptDuration(duration=duration_ms),
-            logger=logger,
-        )
-
-        mtg_session_id = assert_non_none_and_non_empty(
-            mtg_session_id, "mtg_session_id is required"
-        )
-        daily_api_key = assert_non_none_and_non_empty(
-            settings.DAILY_API_KEY, "DAILY_API_KEY is required"
-        )
-
-        async with DailyApiClient(
-            api_key=daily_api_key, base_url=settings.DAILY_API_URL
-        ) as client:
-            participants = await client.get_meeting_participants(mtg_session_id)
-
-        id_to_name = {}
-        id_to_user_id = {}
-        for p in participants.data:
-            if p.user_name:
-                id_to_name[p.participant_id] = p.user_name
-            if p.user_id:
-                id_to_user_id[p.participant_id] = p.user_id
-
-        track_keys = [t["s3_key"] for t in input.tracks]
-        cam_audio_keys = filter_cam_audio_tracks(track_keys)
+        if duration_ms:
+            await append_event_and_broadcast(
+                input.transcript_id,
+                transcript,
+                "DURATION",
+                TranscriptDuration(duration=duration_ms),
+                logger=logger,
+            )
 
         participants_list: list[ParticipantInfo] = []
-        for idx, key in enumerate(cam_audio_keys):
+
+        if input.source_platform == "livekit":
+            # LiveKit: participant identity is in the track dict or can be parsed from filepath
+            from reflector.utils.livekit import (
+                parse_livekit_track_filepath,  # noqa: PLC0415
+            )
+
+            # Look up identity → Reflector user_id mapping from Redis
+            # (stored at join time in rooms.py)
+            identity_to_user_id: dict[str, str] = {}
             try:
-                parsed = parse_daily_recording_filename(key)
-                participant_id = parsed.participant_id
-            except ValueError as e:
-                logger.error(
-                    "Failed to parse Daily recording filename",
-                    error=str(e),
-                    key=key,
+                from reflector.db.meetings import (
+                    meetings_controller as mc,  # noqa: PLC0415
                 )
-                continue
+                from reflector.redis_cache import (
+                    get_async_redis_client,  # noqa: PLC0415
+                )
 
-            default_name = f"Speaker {idx}"
-            name = id_to_name.get(participant_id, default_name)
-            user_id = id_to_user_id.get(participant_id)
+                meeting = (
+                    await mc.get_by_id(transcript.meeting_id)
+                    if transcript.meeting_id
+                    else None
+                )
+                if meeting:
+                    redis_client = await get_async_redis_client()
+                    mapping_key = f"livekit:participant_map:{meeting.room_name}"
+                    raw_map = await redis_client.hgetall(mapping_key)
+                    identity_to_user_id = {
+                        k.decode() if isinstance(k, bytes) else k: v.decode()
+                        if isinstance(v, bytes)
+                        else v
+                        for k, v in raw_map.items()
+                    }
+                    ctx.log(
+                        f"get_participants: loaded {len(identity_to_user_id)} identity→user_id mappings from Redis"
+                    )
+            except Exception as e:
+                ctx.log(
+                    f"get_participants: could not load identity map from Redis: {e}"
+                )
 
-            participant = TranscriptParticipant(
-                id=participant_id, speaker=idx, name=name, user_id=user_id
-            )
-            await transcripts_controller.upsert_participant(transcript, participant)
-            participants_list.append(
-                ParticipantInfo(
-                    participant_id=participant_id,
-                    user_name=name,
+            for idx, track in enumerate(input.tracks):
+                identity = track.get("participant_identity")
+                if not identity:
+                    # Reprocess path: parse from S3 key
+                    try:
+                        parsed = parse_livekit_track_filepath(track["s3_key"])
+                        identity = parsed.participant_identity
+                    except (ValueError, KeyError):
+                        identity = f"speaker-{idx}"
+
+                # Strip the uuid suffix from identity for display name
+                # e.g., "Juan-2bcea0" → "Juan"
+                display_name = (
+                    identity.rsplit("-", 1)[0] if "-" in identity else identity
+                )
+                reflector_user_id = identity_to_user_id.get(identity)
+
+                participant = TranscriptParticipant(
+                    id=identity,
                     speaker=idx,
+                    name=display_name,
+                    user_id=reflector_user_id,
                 )
+                await transcripts_controller.upsert_participant(transcript, participant)
+                participants_list.append(
+                    ParticipantInfo(
+                        participant_id=identity,
+                        user_name=display_name,
+                        speaker=idx,
+                    )
+                )
+        else:
+            # Daily.co: fetch participant names from API
+            mtg_session_id = recording.mtg_session_id
+            mtg_session_id = assert_non_none_and_non_empty(
+                mtg_session_id, "mtg_session_id is required"
             )
+            daily_api_key = assert_non_none_and_non_empty(
+                settings.DAILY_API_KEY, "DAILY_API_KEY is required"
+            )
+
+            async with DailyApiClient(
+                api_key=daily_api_key, base_url=settings.DAILY_API_URL
+            ) as client:
+                participants = await client.get_meeting_participants(mtg_session_id)
+
+            id_to_name = {}
+            id_to_user_id = {}
+            for p in participants.data:
+                if p.user_name:
+                    id_to_name[p.participant_id] = p.user_name
+                if p.user_id:
+                    id_to_user_id[p.participant_id] = p.user_id
+
+            track_keys = [t["s3_key"] for t in input.tracks]
+            cam_audio_keys = filter_cam_audio_tracks(track_keys)
+
+            for idx, key in enumerate(cam_audio_keys):
+                try:
+                    parsed = parse_daily_recording_filename(key)
+                    participant_id = parsed.participant_id
+                except ValueError as e:
+                    logger.error(
+                        "Failed to parse Daily recording filename",
+                        error=str(e),
+                        key=key,
+                    )
+                    continue
+
+                default_name = f"Speaker {idx}"
+                name = id_to_name.get(participant_id, default_name)
+                user_id = id_to_user_id.get(participant_id)
+
+                participant = TranscriptParticipant(
+                    id=participant_id, speaker=idx, name=name, user_id=user_id
+                )
+                await transcripts_controller.upsert_participant(transcript, participant)
+                participants_list.append(
+                    ParticipantInfo(
+                        participant_id=participant_id,
+                        user_name=name,
+                        speaker=idx,
+                    )
+                )
 
         ctx.log(f"get_participants complete: {len(participants_list)} participants")
 
@@ -440,10 +531,65 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
 @with_error_handling(TaskName.PROCESS_TRACKS)
 async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksResult:
     """Spawn child workflows for each track (dynamic fan-out)."""
-    ctx.log(f"process_tracks: spawning {len(input.tracks)} track workflows")
+    ctx.log(
+        f"process_tracks: spawning {len(input.tracks)} track workflows, platform={input.source_platform}"
+    )
 
     participants_result = ctx.task_output(get_participants)
     source_language = participants_result.source_language
+
+    # For LiveKit: calculate padding offsets from filename timestamps.
+    # OGG files don't have embedded start_time metadata, so we pre-calculate.
+    track_padding: dict[int, float] = {}
+    if input.source_platform == "livekit":
+        from datetime import datetime  # noqa: PLC0415
+
+        from reflector.utils.livekit import (
+            parse_livekit_track_filepath,  # noqa: PLC0415
+        )
+
+        timestamps = []
+        for i, track in enumerate(input.tracks):
+            ts_str = track.get("timestamp")
+            if ts_str:
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    timestamps.append((i, ts))
+                except (ValueError, TypeError):
+                    ctx.log(
+                        f"process_tracks: could not parse timestamp for track {i}: {ts_str}"
+                    )
+                    timestamps.append((i, None))
+            else:
+                # Reprocess path: parse timestamp from S3 key
+                try:
+                    parsed = parse_livekit_track_filepath(track["s3_key"])
+                    timestamps.append((i, parsed.timestamp))
+                    ctx.log(
+                        f"process_tracks: parsed timestamp from S3 key for track {i}: {parsed.timestamp}"
+                    )
+                except (ValueError, KeyError):
+                    timestamps.append((i, None))
+
+        valid_timestamps = [(i, ts) for i, ts in timestamps if ts is not None]
+        if valid_timestamps:
+            earliest = min(ts for _, ts in valid_timestamps)
+            # LiveKit Track Egress outputs OGG/Opus files, but the transcription
+            # service only accepts WebM. The padding step converts OGG→WebM as a
+            # side effect of applying the adelay filter. For the earliest track
+            # (offset=0), we use a minimal padding to force this conversion.
+            LIVEKIT_MIN_PADDING_SECONDS = (
+                0.001  # 1ms — inaudible, forces OGG→WebM conversion
+            )
+
+            for i, ts in valid_timestamps:
+                offset = (ts - earliest).total_seconds()
+                if offset == 0.0:
+                    offset = LIVEKIT_MIN_PADDING_SECONDS
+                track_padding[i] = offset
+                ctx.log(
+                    f"process_tracks: track {i} padding={offset}s (from filename timestamp)"
+                )
 
     bulk_runs = [
         track_workflow.create_bulk_run_item(
@@ -454,6 +600,7 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
                 transcript_id=input.transcript_id,
                 language=source_language,
                 source_platform=input.source_platform,
+                padding_seconds=track_padding.get(i),
             )
         )
         for i, track in enumerate(input.tracks)
@@ -605,13 +752,31 @@ async def mixdown_tracks(input: PipelineInput, ctx: Context) -> MixdownResult:
     # else: modal backend already uploaded to output_url
 
     async with fresh_db_connection():
-        from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
+        from reflector.db.transcripts import (  # noqa: PLC0415
+            TranscriptDuration,
+            transcripts_controller,
+        )
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if transcript:
-            await transcripts_controller.update(
-                transcript, {"audio_location": "storage"}
-            )
+            update_data = {"audio_location": "storage"}
+            # Set duration from mixdown if not already set (LiveKit: duration starts at 0)
+            if not transcript.duration or transcript.duration == 0:
+                update_data["duration"] = result.duration_ms
+            await transcripts_controller.update(transcript, update_data)
+
+            # Broadcast duration update if it was missing
+            if not transcript.duration or transcript.duration == 0:
+                await append_event_and_broadcast(
+                    input.transcript_id,
+                    transcript,
+                    "DURATION",
+                    TranscriptDuration(duration=result.duration_ms),
+                    logger=logger,
+                )
+                ctx.log(
+                    f"mixdown_tracks: set duration={result.duration_ms}ms from mixdown"
+                )
 
     ctx.log(f"mixdown_tracks complete: {result.size} bytes to {storage_path}")
 

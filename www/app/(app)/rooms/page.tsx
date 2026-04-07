@@ -74,6 +74,7 @@ const recordingTypeOptions: SelectOption[] = [
 const platformOptions: SelectOption[] = [
   { label: "Whereby", value: "whereby" },
   { label: "Daily", value: "daily" },
+  { label: "LiveKit", value: "livekit" },
 ];
 
 const roomInitialState = {
@@ -309,10 +310,7 @@ export default function RoomsList() {
         return;
       }
 
-      const platform: "whereby" | "daily" =
-        room.platform === "whereby" || room.platform === "daily"
-          ? room.platform
-          : "daily";
+      const platform = room.platform as "whereby" | "daily" | "livekit";
 
       const roomData = {
         name: room.name,
@@ -544,7 +542,10 @@ export default function RoomsList() {
                       <Select.Root
                         value={[room.platform]}
                         onValueChange={(e) => {
-                          const newPlatform = e.value[0] as "whereby" | "daily";
+                          const newPlatform = e.value[0] as
+                            | "whereby"
+                            | "daily"
+                            | "livekit";
                           const updates: Partial<typeof room> = {
                             platform: newPlatform,
                           };

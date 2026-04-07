@@ -874,6 +874,22 @@ async def process_meetings():
                     logger_.info(
                         "Meeting deactivated - scheduled time ended with no participants",
                     )
+                elif meeting.platform == "livekit" and not has_had_sessions:
+                    # LiveKit rooms are destroyed after empty_timeout. Once gone,
+                    # list_participants returns [] — indistinguishable from "never used".
+                    # Check if meeting was created >10 min ago; if so, assume room is gone.
+                    meeting_start = meeting.start_date
+                    if meeting_start.tzinfo is None:
+                        meeting_start = meeting_start.replace(tzinfo=timezone.utc)
+                    age_minutes = (current_time - meeting_start).total_seconds() / 60
+                    if age_minutes > 10:
+                        should_deactivate = True
+                        logger_.info(
+                            "LiveKit meeting deactivated - room likely destroyed (no sessions after 10 min)",
+                            age_minutes=round(age_minutes, 1),
+                        )
+                    else:
+                        logger_.debug("LiveKit meeting still young, keep it")
                 else:
                     logger_.debug("Meeting not yet started, keep it")
 
@@ -1170,3 +1186,311 @@ async def trigger_daily_reconciliation() -> None:
 
     except Exception as e:
         logger.error("Reconciliation trigger failed", error=str(e), exc_info=True)
+
+
+# ============================================================
+# LiveKit multitrack recording tasks
+# ============================================================
+
+
+@shared_task
+@asynctask
+async def process_livekit_multitrack(
+    room_name: str,
+    meeting_id: str,
+):
+    """
+    Process LiveKit multitrack recording by discovering tracks on S3.
+
+    Tracks are discovered via S3 listing (source of truth), not webhooks.
+    Called from room_finished webhook (fast-path) or beat task (fallback).
+    """
+    from reflector.utils.livekit import (  # noqa: PLC0415
+        recording_lock_key,
+    )
+
+    logger.info(
+        "Processing LiveKit multitrack recording",
+        room_name=room_name,
+        meeting_id=meeting_id,
+    )
+
+    lock_key = recording_lock_key(room_name)
+    async with RedisAsyncLock(
+        key=lock_key,
+        timeout=600,
+        extend_interval=60,
+        skip_if_locked=True,
+        blocking=False,
+    ) as lock:
+        if not lock.acquired:
+            logger.warning(
+                "LiveKit processing skipped - lock already held",
+                room_name=room_name,
+                lock_key=lock_key,
+            )
+            return
+
+        await _process_livekit_multitrack_inner(room_name, meeting_id)
+
+
+async def _process_livekit_multitrack_inner(
+    room_name: str,
+    meeting_id: str,
+):
+    """Inner processing logic for LiveKit multitrack recording."""
+    # 1. Discover tracks by listing S3 prefix.
+    # Wait briefly for egress files to finish flushing to S3 — the room_finished
+    # webhook fires after empty_timeout, but egress finalization may still be in progress.
+    import asyncio as _asyncio  # noqa: PLC0415
+
+    from reflector.storage import get_source_storage  # noqa: PLC0415
+    from reflector.utils.livekit import (  # noqa: PLC0415
+        extract_livekit_base_room_name,
+        filter_audio_tracks,
+        parse_livekit_track_filepath,
+    )
+
+    EGRESS_FLUSH_DELAY = 10  # seconds — egress typically flushes within a few seconds
+    EGRESS_RETRY_DELAY = 30  # seconds — retry if first listing finds nothing
+
+    await _asyncio.sleep(EGRESS_FLUSH_DELAY)
+
+    storage = get_source_storage("livekit")
+    s3_prefix = f"livekit/{room_name}/"
+    all_keys = await storage.list_objects(prefix=s3_prefix)
+
+    # Filter to audio tracks only (.ogg) — skip .json manifests and .webm video
+    audio_keys = filter_audio_tracks(all_keys) if all_keys else []
+
+    if not audio_keys:
+        # Retry once after a longer delay — egress may still be flushing
+        logger.info(
+            "No audio tracks found yet, retrying after delay",
+            room_name=room_name,
+            retry_delay=EGRESS_RETRY_DELAY,
+        )
+        await _asyncio.sleep(EGRESS_RETRY_DELAY)
+        all_keys = await storage.list_objects(prefix=s3_prefix)
+        audio_keys = filter_audio_tracks(all_keys) if all_keys else []
+
+    # Sanity check: compare audio tracks against egress manifests.
+    # Each Track Egress (audio or video) produces a .json manifest.
+    # Video tracks produce .webm files. So expected audio count ≈ manifests - video files.
+    if all_keys:
+        manifest_count = sum(1 for k in all_keys if k.endswith(".json"))
+        video_count = sum(1 for k in all_keys if k.endswith(".webm"))
+        expected_audio = manifest_count - video_count
+        if expected_audio > len(audio_keys) and expected_audio > 0:
+            # Some audio tracks may still be flushing — wait and retry
+            logger.info(
+                "Expected more audio tracks based on manifests, waiting for late flushes",
+                room_name=room_name,
+                expected=expected_audio,
+                found=len(audio_keys),
+            )
+            await _asyncio.sleep(EGRESS_RETRY_DELAY)
+            all_keys = await storage.list_objects(prefix=s3_prefix)
+            audio_keys = filter_audio_tracks(all_keys) if all_keys else []
+
+    logger.info(
+        "S3 track discovery complete",
+        room_name=room_name,
+        total_files=len(all_keys) if all_keys else 0,
+        audio_files=len(audio_keys),
+    )
+
+    if not audio_keys:
+        logger.warning(
+            "No audio track files found on S3 after retries",
+            room_name=room_name,
+            s3_prefix=s3_prefix,
+        )
+        return
+
+    # 2. Parse track info from filenames
+    parsed_tracks = []
+    for key in audio_keys:
+        try:
+            parsed = parse_livekit_track_filepath(key)
+            parsed_tracks.append(parsed)
+        except ValueError as e:
+            logger.warning("Skipping unparseable track file", s3_key=key, error=str(e))
+
+    if not parsed_tracks:
+        logger.warning(
+            "No valid track files found after parsing",
+            room_name=room_name,
+            raw_keys=all_keys,
+        )
+        return
+
+    track_keys = [t.s3_key for t in parsed_tracks]
+
+    # 3. Find meeting and room
+    meeting = await meetings_controller.get_by_id(meeting_id)
+    if not meeting:
+        logger.error(
+            "Meeting not found for LiveKit recording",
+            meeting_id=meeting_id,
+            room_name=room_name,
+        )
+        return
+
+    base_room_name = extract_livekit_base_room_name(room_name)
+    room = await rooms_controller.get_by_name(base_room_name)
+    if not room:
+        logger.error("Room not found", room_name=base_room_name)
+        return
+
+    # 4. Create recording
+    recording_id = f"lk-{room_name}"
+    bucket_name = settings.LIVEKIT_STORAGE_AWS_BUCKET_NAME or ""
+
+    existing_recording = await recordings_controller.get_by_id(recording_id)
+    if existing_recording and existing_recording.deleted_at is not None:
+        logger.info("Skipping soft-deleted recording", recording_id=recording_id)
+        return
+
+    if not existing_recording:
+        recording = await recordings_controller.create(
+            Recording(
+                id=recording_id,
+                bucket_name=bucket_name,
+                object_key=s3_prefix,
+                recorded_at=datetime.now(timezone.utc),
+                meeting_id=meeting.id,
+                track_keys=track_keys,
+            )
+        )
+    else:
+        recording = existing_recording
+
+    # 5. Create or get transcript
+    transcript = await transcripts_controller.get_by_recording_id(recording.id)
+    if transcript and transcript.deleted_at is not None:
+        logger.info("Skipping soft-deleted transcript", recording_id=recording.id)
+        return
+    if not transcript:
+        transcript = await transcripts_controller.add(
+            "",
+            source_kind=SourceKind.ROOM,
+            source_language="en",
+            target_language="en",
+            user_id=room.user_id,
+            recording_id=recording.id,
+            share_mode="semi-private",
+            meeting_id=meeting.id,
+            room_id=room.id,
+        )
+
+    # 6. Start Hatchet pipeline (reuses DiarizationPipeline with source_platform="livekit")
+    workflow_id = await HatchetClientManager.start_workflow(
+        workflow_name="DiarizationPipeline",
+        input_data={
+            "recording_id": recording_id,
+            "tracks": [
+                {
+                    "s3_key": t.s3_key,
+                    "participant_identity": t.participant_identity,
+                    "timestamp": t.timestamp.isoformat(),
+                }
+                for t in parsed_tracks
+            ],
+            "bucket_name": bucket_name,
+            "transcript_id": transcript.id,
+            "room_id": room.id,
+            "source_platform": "livekit",
+        },
+        additional_metadata={
+            "transcript_id": transcript.id,
+            "recording_id": recording_id,
+        },
+    )
+    logger.info(
+        "Started LiveKit Hatchet workflow",
+        workflow_id=workflow_id,
+        transcript_id=transcript.id,
+        room_name=room_name,
+        num_tracks=len(parsed_tracks),
+    )
+
+    await transcripts_controller.update(transcript, {"workflow_run_id": workflow_id})
+
+
+@shared_task
+@asynctask
+async def process_livekit_ended_meetings():
+    """Check for inactive LiveKit meetings that need multitrack processing.
+
+    Runs on a beat schedule. Catches cases where room_finished webhook was missed.
+    Only processes meetings that:
+    - Platform is "livekit"
+    - is_active=False (already deactivated by process_meetings)
+    - No associated transcript yet
+    """
+    from reflector.db.transcripts import transcripts_controller as tc  # noqa: PLC0415
+
+    all_livekit = await meetings_controller.get_all_inactive_livekit()
+
+    queued = 0
+    for meeting in all_livekit:
+        # Skip if already has a transcript
+        existing = await tc.get_by_meeting_id(meeting.id)
+        if existing:
+            continue
+
+        logger.info(
+            "Found unprocessed inactive LiveKit meeting",
+            meeting_id=meeting.id,
+            room_name=meeting.room_name,
+        )
+
+        process_livekit_multitrack.delay(
+            room_name=meeting.room_name,
+            meeting_id=meeting.id,
+        )
+        queued += 1
+
+    if queued > 0:
+        logger.info("Queued LiveKit multitrack processing", count=queued)
+
+
+@shared_task
+@asynctask
+async def reprocess_failed_livekit_recordings():
+    """Reprocess LiveKit recordings that failed.
+
+    Runs daily at 5 AM. Finds recordings with livekit prefix and error status.
+    """
+    bucket_name = settings.LIVEKIT_STORAGE_AWS_BUCKET_NAME
+    if not bucket_name:
+        return
+
+    failed = await recordings_controller.get_multitrack_needing_reprocessing(
+        bucket_name
+    )
+    livekit_failed = [r for r in failed if r.id.startswith("lk-")]
+
+    for recording in livekit_failed:
+        if not recording.meeting_id:
+            logger.warning(
+                "Skipping reprocess — no meeting_id",
+                recording_id=recording.id,
+            )
+            continue
+
+        meeting = await meetings_controller.get_by_id(recording.meeting_id)
+        if not meeting:
+            continue
+
+        logger.info(
+            "Reprocessing failed LiveKit recording",
+            recording_id=recording.id,
+            meeting_id=meeting.id,
+        )
+
+        process_livekit_multitrack.delay(
+            room_name=meeting.room_name,
+            meeting_id=meeting.id,
+        )

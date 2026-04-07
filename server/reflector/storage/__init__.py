@@ -57,6 +57,22 @@ def get_source_storage(platform: str) -> Storage:
                 aws_secret_access_key=settings.WHEREBY_STORAGE_AWS_SECRET_ACCESS_KEY,
             )
 
+    elif platform == "livekit":
+        if (
+            settings.LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID
+            and settings.LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY
+            and settings.LIVEKIT_STORAGE_AWS_BUCKET_NAME
+        ):
+            from reflector.storage.storage_aws import AwsStorage
+
+            return AwsStorage(
+                aws_bucket_name=settings.LIVEKIT_STORAGE_AWS_BUCKET_NAME,
+                aws_region=settings.LIVEKIT_STORAGE_AWS_REGION or "us-east-1",
+                aws_access_key_id=settings.LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY,
+                aws_endpoint_url=settings.LIVEKIT_STORAGE_AWS_ENDPOINT_URL,
+            )
+
     return get_transcripts_storage()
 
 

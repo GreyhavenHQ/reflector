@@ -195,6 +195,23 @@ class Settings(BaseSettings):
     DAILY_WEBHOOK_UUID: str | None = (
         None  # Webhook UUID for this environment. Not used by production code
     )
+
+    # LiveKit integration (self-hosted open-source video platform)
+    LIVEKIT_URL: str | None = (
+        None  # e.g. ws://livekit:7880 (internal) or wss://livekit.example.com
+    )
+    LIVEKIT_API_KEY: str | None = None
+    LIVEKIT_API_SECRET: str | None = None
+    LIVEKIT_WEBHOOK_SECRET: str | None = None  # Defaults to API_SECRET if not set
+    # LiveKit egress S3 storage (Track Egress writes per-participant audio here)
+    LIVEKIT_STORAGE_AWS_BUCKET_NAME: str | None = None
+    LIVEKIT_STORAGE_AWS_REGION: str | None = None
+    LIVEKIT_STORAGE_AWS_ACCESS_KEY_ID: str | None = None
+    LIVEKIT_STORAGE_AWS_SECRET_ACCESS_KEY: str | None = None
+    LIVEKIT_STORAGE_AWS_ENDPOINT_URL: str | None = None  # For Garage/MinIO
+    # Public URL for LiveKit (used in frontend room_url, e.g. wss://livekit.example.com)
+    LIVEKIT_PUBLIC_URL: str | None = None
+
     # Platform Configuration
     DEFAULT_VIDEO_PLATFORM: Platform = DAILY_PLATFORM
 
