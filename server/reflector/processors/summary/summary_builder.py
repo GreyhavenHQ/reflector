@@ -48,17 +48,24 @@ TRANSCRIPTION_TYPE_PROMPT = dedent(
     """
 ).strip()
 
-SUBJECTS_PROMPT = dedent(
-    """
-    What are the main / high level topic of the meeting.
-    Do not include direct quotes or unnecessary details.
-    Be concise and focused on the main ideas.
-    A subject briefly mentioned should not be included.
-    There should be maximum 6 subjects.
-    Do not write complete narrative sentences for the subject,
-    you must write a concise subject using noun phrases.
-    """
-).strip()
+_DEFAULT_MAX_SUBJECTS = 6
+
+
+def build_subjects_prompt(max_subjects: int = _DEFAULT_MAX_SUBJECTS) -> str:
+    """Build subjects extraction prompt with a dynamic subject cap."""
+    subject_word = "subject" if max_subjects == 1 else "subjects"
+    return dedent(
+        f"""
+        What are the main / high level topics of the meeting.
+        Do not include direct quotes or unnecessary details.
+        Be concise and focused on the main ideas.
+        A subject briefly mentioned should not be included.
+        There should be maximum {max_subjects} {subject_word}.
+        Do not write complete narrative sentences for the subject,
+        you must write a concise subject using noun phrases.
+        """
+    ).strip()
+
 
 ACTION_ITEMS_PROMPT = dedent(
     """
@@ -145,7 +152,7 @@ class SubjectsResponse(BaseModel):
     """Pydantic model for extracted subjects/topics"""
 
     subjects: list[str] = Field(
-        description="List of main subjects/topics discussed, maximum 6 items",
+        description="List of main subjects/topics discussed",
     )
 
 
@@ -345,11 +352,14 @@ class SummaryBuilder:
     # Summary
     # ----------------------------------------------------------------------------
 
-    async def extract_subjects(self) -> None:
+    async def extract_subjects(self, max_subjects: int = _DEFAULT_MAX_SUBJECTS) -> None:
         """Extract main subjects/topics from the transcript."""
-        self.logger.info("--- extract main subjects using TreeSummarize")
+        self.logger.info(
+            "--- extract main subjects using TreeSummarize",
+            max_subjects=max_subjects,
+        )
 
-        subjects_prompt = SUBJECTS_PROMPT
+        subjects_prompt = build_subjects_prompt(max_subjects)
 
         try:
             response = await self._get_structured_response(
@@ -358,7 +368,7 @@ class SummaryBuilder:
                 tone_name="Meeting assistant that talk only as list item",
             )
 
-            self.subjects = response.subjects
+            self.subjects = response.subjects[:max_subjects]
             self.logger.info(f"Extracted subjects: {self.subjects}")
 
         except Exception as e:

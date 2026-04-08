@@ -43,7 +43,8 @@ DETAILED_SUBJECT_PROMPT_TEMPLATE = dedent(
       include any deadlines or timeframes discussed for completion or follow-up.
     - Mention unresolved issues or topics needing further discussion, aiding in
       planning future meetings or follow-up actions.
-    - Do not include topic unrelated to {subject}.
+    - Be specific and cite participant names when attributing statements or actions.
+    - Do not include topics unrelated to {subject}.
 
     # OUTPUT
     Your summary should be clear, concise, and structured, covering all major
@@ -58,6 +59,7 @@ PARAGRAPH_SUMMARY_PROMPT = dedent(
     """
     Summarize the mentioned topic in 1 paragraph.
     It will be integrated into the final summary, so just for this topic.
+    Preserve key decisions and action items. Do not introduce new information.
     """
 ).strip()
 

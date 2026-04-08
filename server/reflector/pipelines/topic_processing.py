@@ -18,7 +18,7 @@ from reflector.processors import (
 )
 from reflector.processors.types import TitleSummary
 from reflector.processors.types import Transcript as TranscriptType
-from reflector.utils.transcript_constants import TOPIC_CHUNK_WORD_COUNT
+from reflector.utils.transcript_constants import compute_topic_chunk_size
 
 
 class EmptyPipeline:
@@ -39,7 +39,10 @@ async def detect_topics(
     on_topic_callback: Callable,
     empty_pipeline: EmptyPipeline,
 ) -> list[TitleSummary]:
-    chunk_size = TOPIC_CHUNK_WORD_COUNT
+    duration_seconds = (
+        transcript.words[-1].end - transcript.words[0].start if transcript.words else 0
+    )
+    chunk_size = compute_topic_chunk_size(duration_seconds, len(transcript.words))
     topics: list[TitleSummary] = []
 
     async def on_topic(topic: TitleSummary):

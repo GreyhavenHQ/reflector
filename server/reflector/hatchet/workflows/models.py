@@ -102,6 +102,7 @@ class TopicsResult(BaseModel):
     """Result from detect_topics task."""
 
     topics: list[TitleSummary]
+    duration_seconds: float = 0
 
 
 class TitleResult(BaseModel):
