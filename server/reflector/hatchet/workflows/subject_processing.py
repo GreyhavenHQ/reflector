@@ -15,12 +15,14 @@ from pydantic import BaseModel
 from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.constants import LLM_RATE_LIMIT_KEY, TIMEOUT_HEAVY
 from reflector.hatchet.workflows.models import SubjectSummaryResult
+from reflector.llm import LLM
 from reflector.logger import logger
 from reflector.processors.summary.prompts import (
     DETAILED_SUBJECT_PROMPT_TEMPLATE,
     PARAGRAPH_SUMMARY_PROMPT,
     build_participant_instructions,
 )
+from reflector.settings import settings
 
 
 class SubjectInput(BaseModel):
@@ -59,11 +61,6 @@ async def generate_detailed_summary(
         subject=input.subject,
         subject_index=input.subject_index,
     )
-
-    # Deferred imports: Hatchet workers fork processes, fresh imports ensure
-    # LLM HTTP connection pools aren't shared across forks
-    from reflector.llm import LLM  # noqa: PLC0415
-    from reflector.settings import settings  # noqa: PLC0415
 
     llm = LLM(settings=settings)
 

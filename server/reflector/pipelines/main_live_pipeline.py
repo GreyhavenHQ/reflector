@@ -38,6 +38,7 @@ from reflector.db.transcripts import (
     TranscriptWaveform,
     transcripts_controller,
 )
+from reflector.hatchet.client import HatchetClientManager
 from reflector.logger import logger
 from reflector.pipelines.runner import PipelineMessage, PipelineRunner
 from reflector.processors import (
@@ -814,8 +815,6 @@ async def pipeline_post(*, transcript_id: str, room_id: str | None = None):
     """
     Run the post pipeline via Hatchet.
     """
-    from reflector.hatchet.client import HatchetClientManager  # noqa: PLC0415
-
     await HatchetClientManager.start_workflow(
         "LivePostProcessingPipeline",
         {

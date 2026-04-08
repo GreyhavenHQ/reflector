@@ -5,6 +5,7 @@ This tools help to either create a pipeline from command line,
 or read a yaml description of a pipeline and run it.
 """
 
+import importlib
 import json
 
 from reflector.logger import logger
@@ -37,8 +38,6 @@ def get_jsonl(filename, filter_processor_name=None):
 
 
 def get_processor(name):
-    import importlib
-
     module_name = f"reflector.processors.{name}"
     class_name = snake_to_camel(name) + "Processor"
     module = importlib.import_module(module_name)

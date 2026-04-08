@@ -17,6 +17,7 @@ from reflector.db.meetings import meetings_controller
 from reflector.livekit_api.webhooks import create_webhook_receiver, verify_webhook
 from reflector.logger import logger as _logger
 from reflector.settings import settings
+from reflector.storage import get_source_storage
 
 router = APIRouter()
 
@@ -189,8 +190,6 @@ async def _handle_egress_ended(event):
         filename = file_result.filename
         if filename and filename.endswith(".webm"):
             try:
-                from reflector.storage import get_source_storage  # noqa: PLC0415
-
                 storage = get_source_storage("livekit")
                 await storage.delete_file(filename)
                 logger.info(

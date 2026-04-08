@@ -14,6 +14,7 @@ are not shared across forks, avoiding connection pooling issues.
 
 from datetime import timedelta
 
+import httpx
 from hatchet_sdk import Context
 from pydantic import BaseModel
 
@@ -40,7 +41,24 @@ from reflector.hatchet.workflows.models import (
     ZulipResult,
 )
 from reflector.logger import logger
+from reflector.pipelines.main_live_pipeline import (
+    PipelineMainTitle,
+    PipelineMainWaveform,
+    pipeline_convert_to_mp3,
+    pipeline_diarization,
+    pipeline_remove_upload,
+    pipeline_summaries,
+    pipeline_upload_mp3,
+)
+from reflector.pipelines.main_live_pipeline import (
+    cleanup_consent as _cleanup_consent,
+)
 from reflector.settings import settings
+from reflector.utils.webhook import (
+    fetch_transcript_webhook_payload,
+    send_webhook_request,
+)
+from reflector.zulip import post_transcript_notification
 
 
 class LivePostPipelineInput(BaseModel):
@@ -91,9 +109,6 @@ async def waveform(input: LivePostPipelineInput, ctx: Context) -> WaveformResult
 
     async with fresh_db_connection():
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            PipelineMainWaveform,
-        )
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if not transcript:
@@ -118,10 +133,6 @@ async def generate_title(input: LivePostPipelineInput, ctx: Context) -> TitleRes
     ctx.log(f"generate_title: starting for transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            PipelineMainTitle,
-        )
-
         runner = PipelineMainTitle(transcript_id=input.transcript_id)
         await runner.run()
 
@@ -142,10 +153,6 @@ async def convert_mp3(input: LivePostPipelineInput, ctx: Context) -> ConvertMp3R
     ctx.log(f"convert_mp3: starting for transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            pipeline_convert_to_mp3,
-        )
-
         await pipeline_convert_to_mp3(transcript_id=input.transcript_id)
 
     ctx.log("convert_mp3 complete")
@@ -165,10 +172,6 @@ async def upload_mp3(input: LivePostPipelineInput, ctx: Context) -> UploadMp3Res
     ctx.log(f"upload_mp3: starting for transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            pipeline_upload_mp3,
-        )
-
         await pipeline_upload_mp3(transcript_id=input.transcript_id)
 
     ctx.log("upload_mp3 complete")
@@ -190,10 +193,6 @@ async def remove_upload(
     ctx.log(f"remove_upload: starting for transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            pipeline_remove_upload,
-        )
-
         await pipeline_remove_upload(transcript_id=input.transcript_id)
 
     ctx.log("remove_upload complete")
@@ -213,10 +212,6 @@ async def diarize(input: LivePostPipelineInput, ctx: Context) -> DiarizeResult:
     ctx.log(f"diarize: starting for transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            pipeline_diarization,
-        )
-
         await pipeline_diarization(transcript_id=input.transcript_id)
 
     ctx.log("diarize complete")
@@ -236,10 +231,6 @@ async def cleanup_consent(input: LivePostPipelineInput, ctx: Context) -> Consent
     ctx.log(f"cleanup_consent: transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            cleanup_consent as _cleanup_consent,
-        )
-
         await _cleanup_consent(transcript_id=input.transcript_id)
 
     ctx.log("cleanup_consent complete")
@@ -261,10 +252,6 @@ async def final_summaries(
     ctx.log(f"final_summaries: starting for transcript_id={input.transcript_id}")
 
     async with fresh_db_connection():
-        from reflector.pipelines.main_live_pipeline import (  # noqa: PLC0415
-            pipeline_summaries,
-        )
-
         await pipeline_summaries(transcript_id=input.transcript_id)
 
     ctx.log("final_summaries complete")
@@ -289,7 +276,6 @@ async def post_zulip(input: LivePostPipelineInput, ctx: Context) -> ZulipResult:
 
     async with fresh_db_connection():
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.zulip import post_transcript_notification  # noqa: PLC0415
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if transcript:
@@ -319,10 +305,6 @@ async def send_webhook(input: LivePostPipelineInput, ctx: Context) -> WebhookRes
 
     async with fresh_db_connection():
         from reflector.db.rooms import rooms_controller  # noqa: PLC0415
-        from reflector.utils.webhook import (  # noqa: PLC0415
-            fetch_transcript_webhook_payload,
-            send_webhook_request,
-        )
 
         room = await rooms_controller.get_by_id(input.room_id)
         if not room or not room.webhook_url:
@@ -337,8 +319,6 @@ async def send_webhook(input: LivePostPipelineInput, ctx: Context) -> WebhookRes
         if isinstance(payload, str):
             ctx.log(f"send_webhook skipped (could not build payload): {payload}")
             return WebhookResult(webhook_sent=False, skipped=True)
-
-        import httpx  # noqa: PLC0415
 
         try:
             response = await send_webhook_request(

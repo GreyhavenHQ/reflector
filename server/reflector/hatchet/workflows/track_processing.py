@@ -9,9 +9,9 @@ because Hatchet workflow DAGs are defined statically, but the number of tracks v
 at runtime. Child workflow spawning via `aio_run()` + `asyncio.gather()` is the
 standard pattern for dynamic fan-out. See `process_tracks` in daily_multitrack_pipeline.py.
 
-Note: This file uses deferred imports (inside tasks) intentionally.
+Note: DB imports (reflector.db.*) are kept inline (deferred) intentionally.
 Hatchet workers run in forked processes; fresh imports per task ensure
-storage/DB connections are not shared across forks.
+DB connections are not shared across forks.
 """
 
 from datetime import timedelta
@@ -24,6 +24,9 @@ from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.constants import TIMEOUT_AUDIO, TIMEOUT_HEAVY
 from reflector.hatchet.workflows.models import PadTrackResult, TranscribeTrackResult
 from reflector.logger import logger
+from reflector.pipelines.transcription_helpers import transcribe_file_with_processor
+from reflector.processors.audio_padding_auto import AudioPaddingAutoProcessor
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.utils.audio_constants import PRESIGNED_URL_EXPIRATION_SECONDS
 from reflector.utils.audio_padding import extract_stream_start_time_from_container
 
@@ -72,11 +75,6 @@ async def pad_track(input: TrackInput, ctx: Context) -> PadTrackResult:
     )
 
     try:
-        from reflector.storage import (  # noqa: PLC0415
-            get_source_storage,
-            get_transcripts_storage,
-        )
-
         # Source reads: use platform-specific credentials
         source_storage = get_source_storage(input.source_platform)
         source_url = await source_storage.get_file_url(
@@ -118,10 +116,6 @@ async def pad_track(input: TrackInput, ctx: Context) -> PadTrackResult:
             storage_path,
             operation="put_object",
             expires_in=PRESIGNED_URL_EXPIRATION_SECONDS,
-        )
-
-        from reflector.processors.audio_padding_auto import (  # noqa: PLC0415
-            AudioPaddingAutoProcessor,
         )
 
         processor = AudioPaddingAutoProcessor()
@@ -179,11 +173,6 @@ async def transcribe_track(input: TrackInput, ctx: Context) -> TranscribeTrackRe
             raise ValueError("Missing padded_key from pad_track")
 
         # Presign URL on demand (avoids stale URLs on workflow replay)
-        from reflector.storage import (  # noqa: PLC0415
-            get_source_storage,
-            get_transcripts_storage,
-        )
-
         # If bucket_name is set, file is still in the platform's source bucket (no padding applied).
         # If bucket_name is None, padded file was written to our transcript storage.
         if bucket_name:
@@ -196,10 +185,6 @@ async def transcribe_track(input: TrackInput, ctx: Context) -> TranscribeTrackRe
             operation="get_object",
             expires_in=PRESIGNED_URL_EXPIRATION_SECONDS,
             bucket=bucket_name,
-        )
-
-        from reflector.pipelines.transcription_helpers import (  # noqa: PLC0415
-            transcribe_file_with_processor,
         )
 
         transcript = await transcribe_file_with_processor(audio_url, input.language)

@@ -18,9 +18,13 @@ from pydantic import BaseModel
 from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.constants import LLM_RATE_LIMIT_KEY, TIMEOUT_MEDIUM
 from reflector.hatchet.workflows.models import TopicChunkResult
+from reflector.llm import LLM
 from reflector.logger import logger
 from reflector.processors.prompts import TOPIC_PROMPT
+from reflector.processors.transcript_topic_detector import TopicResponse
 from reflector.processors.types import Word
+from reflector.settings import settings
+from reflector.utils.text import clean_title
 
 
 class TopicChunkInput(BaseModel):
@@ -63,15 +67,6 @@ async def detect_chunk_topic(input: TopicChunkInput, ctx: Context) -> TopicChunk
         chunk_index=input.chunk_index,
         text_length=len(input.chunk_text),
     )
-
-    # Deferred imports: Hatchet workers fork processes, fresh imports avoid
-    # sharing LLM HTTP connection pools across forks
-    from reflector.llm import LLM  # noqa: PLC0415
-    from reflector.processors.transcript_topic_detector import (  # noqa: PLC0415
-        TopicResponse,
-    )
-    from reflector.settings import settings  # noqa: PLC0415
-    from reflector.utils.text import clean_title  # noqa: PLC0415
 
     llm = LLM(settings=settings, temperature=0.9)
 

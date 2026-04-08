@@ -15,6 +15,8 @@ import json
 from datetime import timedelta
 from pathlib import Path
 
+import av
+import httpx
 from hatchet_sdk import Context
 from pydantic import BaseModel
 
@@ -47,9 +49,30 @@ from reflector.hatchet.workflows.models import (
 )
 from reflector.logger import logger
 from reflector.pipelines import topic_processing
+from reflector.pipelines.transcription_helpers import transcribe_file_with_processor
+from reflector.processors import AudioFileWriterProcessor
+from reflector.processors.file_diarization import FileDiarizationInput
+from reflector.processors.file_diarization_auto import FileDiarizationAutoProcessor
+from reflector.processors.transcript_diarization_assembler import (
+    TranscriptDiarizationAssemblerInput,
+    TranscriptDiarizationAssemblerProcessor,
+)
+from reflector.processors.types import (
+    DiarizationSegment,
+    Word,
+)
+from reflector.processors.types import (
+    Transcript as TranscriptType,
+)
 from reflector.settings import settings
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.utils.audio_constants import WAVEFORM_SEGMENTS
 from reflector.utils.audio_waveform import get_audio_waveform
+from reflector.utils.webhook import (
+    fetch_transcript_webhook_payload,
+    send_webhook_request,
+)
+from reflector.zulip import post_transcript_notification
 
 
 class FilePipelineInput(BaseModel):
@@ -135,10 +158,6 @@ async def extract_audio(input: FilePipelineInput, ctx: Context) -> ExtractAudioR
         ctx.log(f"extract_audio: processing {audio_file}")
 
         # Extract audio and write as MP3
-        import av  # noqa: PLC0415
-
-        from reflector.processors import AudioFileWriterProcessor  # noqa: PLC0415
-
         duration_ms_container = [0.0]
 
         async def capture_duration(d):
@@ -189,8 +208,6 @@ async def upload_audio(input: FilePipelineInput, ctx: Context) -> UploadAudioRes
     extract_result = ctx.task_output(extract_audio)
     audio_path = extract_result.audio_path
 
-    from reflector.storage import get_transcripts_storage  # noqa: PLC0415
-
     storage = get_transcripts_storage()
     if not storage:
         raise ValueError(
@@ -232,10 +249,6 @@ async def transcribe(input: FilePipelineInput, ctx: Context) -> TranscribeResult
             raise ValueError(f"Transcript {input.transcript_id} not found")
         source_language = transcript.source_language
 
-    from reflector.pipelines.transcription_helpers import (  # noqa: PLC0415
-        transcribe_file_with_processor,
-    )
-
     result = await transcribe_file_with_processor(audio_url, source_language)
 
     ctx.log(f"transcribe complete: {len(result.words)} words")
@@ -263,13 +276,6 @@ async def diarize(input: FilePipelineInput, ctx: Context) -> DiarizeResult:
 
     upload_result = ctx.task_output(upload_audio)
     audio_url = upload_result.audio_url
-
-    from reflector.processors.file_diarization import (  # noqa: PLC0415
-        FileDiarizationInput,
-    )
-    from reflector.processors.file_diarization_auto import (  # noqa: PLC0415
-        FileDiarizationAutoProcessor,
-    )
 
     processor = FileDiarizationAutoProcessor()
     input_data = FileDiarizationInput(audio_url=audio_url)
@@ -353,18 +359,6 @@ async def assemble_transcript(
     transcribe_result = ctx.task_output(transcribe)
     diarize_result = ctx.task_output(diarize)
 
-    from reflector.processors.transcript_diarization_assembler import (  # noqa: PLC0415
-        TranscriptDiarizationAssemblerInput,
-        TranscriptDiarizationAssemblerProcessor,
-    )
-    from reflector.processors.types import (  # noqa: PLC0415
-        DiarizationSegment,
-        Word,
-    )
-    from reflector.processors.types import (  # noqa: PLC0415
-        Transcript as TranscriptType,
-    )
-
     words = [Word(**w) for w in transcribe_result.words]
     transcript_data = TranscriptType(
         words=words, translation=transcribe_result.translation
@@ -436,17 +430,6 @@ async def detect_topics(input: FilePipelineInput, ctx: Context) -> TopicsResult:
     from reflector.db.transcripts import (  # noqa: PLC0415
         TranscriptTopic,
         transcripts_controller,
-    )
-    from reflector.processors.transcript_diarization_assembler import (  # noqa: PLC0415
-        TranscriptDiarizationAssemblerInput,
-        TranscriptDiarizationAssemblerProcessor,
-    )
-    from reflector.processors.types import (  # noqa: PLC0415
-        DiarizationSegment,
-        Word,
-    )
-    from reflector.processors.types import (  # noqa: PLC0415
-        Transcript as TranscriptType,
     )
 
     words = [Word(**w) for w in transcribe_result.words]
@@ -688,10 +671,6 @@ async def cleanup_consent(input: FilePipelineInput, ctx: Context) -> ConsentResu
         )
         from reflector.db.recordings import recordings_controller  # noqa: PLC0415
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.storage import (  # noqa: PLC0415
-            get_source_storage,
-            get_transcripts_storage,
-        )
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if not transcript:
@@ -807,7 +786,6 @@ async def post_zulip(input: FilePipelineInput, ctx: Context) -> ZulipResult:
 
     async with fresh_db_connection():
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.zulip import post_transcript_notification  # noqa: PLC0415
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if transcript:
@@ -837,10 +815,6 @@ async def send_webhook(input: FilePipelineInput, ctx: Context) -> WebhookResult:
 
     async with fresh_db_connection():
         from reflector.db.rooms import rooms_controller  # noqa: PLC0415
-        from reflector.utils.webhook import (  # noqa: PLC0415
-            fetch_transcript_webhook_payload,
-            send_webhook_request,
-        )
 
         room = await rooms_controller.get_by_id(input.room_id)
         if not room or not room.webhook_url:
@@ -855,8 +829,6 @@ async def send_webhook(input: FilePipelineInput, ctx: Context) -> WebhookResult:
         if isinstance(payload, str):
             ctx.log(f"send_webhook skipped (could not build payload): {payload}")
             return WebhookResult(webhook_sent=False, skipped=True)
-
-        import httpx  # noqa: PLC0415
 
         try:
             response = await send_webhook_request(

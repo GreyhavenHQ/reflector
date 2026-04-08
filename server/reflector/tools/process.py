@@ -333,7 +333,9 @@ if __name__ == "__main__":
         if not s3_urls:
             parser.error("At least one S3 URL required for multitrack processing")
 
-        from reflector.tools.cli_multitrack import process_multitrack_cli
+        from reflector.tools.cli_multitrack import (
+            process_multitrack_cli,  # circular import
+        )
 
         asyncio.run(
             process_multitrack_cli(

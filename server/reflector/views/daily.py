@@ -15,6 +15,7 @@ from reflector.dailyco_api import (
 from reflector.db.meetings import meetings_controller
 from reflector.logger import logger as _logger
 from reflector.settings import settings
+from reflector.storage import get_source_storage
 from reflector.video_platforms.factory import create_platform_client
 from reflector.worker.process import (
     poll_daily_room_presence_task,
@@ -226,8 +227,6 @@ async def _handle_recording_ready(event: RecordingReadyEvent):
         if video_track_keys:
             meeting = await meetings_controller.get_by_room_name(room_name)
             if meeting is not None and not meeting.store_video:
-                from reflector.storage import get_source_storage
-
                 storage = get_source_storage("daily")
                 for video_key in video_track_keys:
                     try:

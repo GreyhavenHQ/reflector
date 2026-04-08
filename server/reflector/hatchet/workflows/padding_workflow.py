@@ -13,6 +13,8 @@ from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.constants import TIMEOUT_AUDIO
 from reflector.hatchet.workflows.models import PadTrackResult
 from reflector.logger import logger
+from reflector.processors.audio_padding_auto import AudioPaddingAutoProcessor
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.utils.audio_constants import PRESIGNED_URL_EXPIRATION_SECONDS
 from reflector.utils.audio_padding import extract_stream_start_time_from_container
 
@@ -51,11 +53,6 @@ async def pad_track(input: PaddingInput, ctx: Context) -> PadTrackResult:
     )
 
     try:
-        from reflector.storage import (  # noqa: PLC0415
-            get_source_storage,
-            get_transcripts_storage,
-        )
-
         # Source reads: use platform-specific credentials
         source_storage = get_source_storage(input.source_platform)
         source_url = await source_storage.get_file_url(
@@ -102,10 +99,6 @@ async def pad_track(input: PaddingInput, ctx: Context) -> PadTrackResult:
             storage_path,
             operation="put_object",
             expires_in=PRESIGNED_URL_EXPIRATION_SECONDS,
-        )
-
-        from reflector.processors.audio_padding_auto import (  # noqa: PLC0415
-            AudioPaddingAutoProcessor,
         )
 
         processor = AudioPaddingAutoProcessor()

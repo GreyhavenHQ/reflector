@@ -201,4 +201,4 @@ If you need to do any worker/pipeline related work, search for "Pipeline" classe
 ## Code Style
 
 - Always put imports at the top of the file. Let ruff/pre-commit handle sorting and formatting of imports.
-- Exception: In Hatchet pipeline task functions, DB controller imports (e.g., `transcripts_controller`, `meetings_controller`) stay as deferred/inline imports inside `fresh_db_connection()` blocks — this is intentional to avoid sharing DB connections across forked processes. Non-DB imports (utilities, services) should still go at the top of the file.
+- The **only** imports allowed to remain inline are from `reflector.db.*` modules (e.g., `reflector.db.transcripts`, `reflector.db.meetings`, `reflector.db.recordings`, `reflector.db.rooms`). These stay as deferred/inline imports inside `fresh_db_connection()` blocks in Hatchet pipeline task functions — this is intentional to avoid sharing DB connections across forked processes. All other imports (utilities, services, processors, storage, third-party libs) **must** go at the top of the file, even in Hatchet workflows.

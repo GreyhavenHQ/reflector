@@ -11,6 +11,8 @@ This allows running the server in Docker with bridge networking
 import asyncio
 import socket
 
+import aioice.ice
+
 from reflector.logger import logger
 
 
@@ -36,9 +38,7 @@ def patch_aioice_port_range(min_port: int, max_port: int) -> None:
     Works by temporarily wrapping loop.create_datagram_endpoint() during
     aioice's get_component_candidates() to intercept bind(addr, 0) calls.
     """
-    import aioice.ice as _ice
-
-    _original = _ice.Connection.get_component_candidates
+    _original = aioice.ice.Connection.get_component_candidates
     _state = {"next_port": min_port}
 
     async def _patched_get_component_candidates(self, component, addresses, timeout=5):
@@ -78,7 +78,7 @@ def patch_aioice_port_range(min_port: int, max_port: int) -> None:
         finally:
             loop.create_datagram_endpoint = _orig_create
 
-    _ice.Connection.get_component_candidates = _patched_get_component_candidates
+    aioice.ice.Connection.get_component_candidates = _patched_get_component_candidates
     logger.info(
         "aioice patched for WebRTC port range",
         min_port=min_port,
@@ -102,8 +102,6 @@ def rewrite_sdp_host(sdp: str, target_ip: str) -> str:
     Replace container-internal IPs in SDP with target_ip so that
     ICE candidates advertise a routable address.
     """
-    import aioice.ice
-
     container_ips = aioice.ice.get_host_addresses(use_ipv4=True, use_ipv6=False)
     for ip in container_ips:
         if ip != "127.0.0.1" and ip != target_ip:
