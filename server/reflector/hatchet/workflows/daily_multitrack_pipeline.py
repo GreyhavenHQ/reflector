@@ -106,7 +106,10 @@ from reflector.utils.daily import (
     parse_daily_recording_filename,
 )
 from reflector.utils.string import NonEmptyString, assert_non_none_and_non_empty
-from reflector.utils.transcript_constants import compute_topic_chunk_size
+from reflector.utils.transcript_constants import (
+    compute_max_subjects,
+    compute_topic_chunk_size,
+)
 from reflector.zulip import post_transcript_notification
 
 
@@ -976,7 +979,7 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
 
     ctx.log(f"detect_topics complete: found {len(topics_list)} topics")
 
-    return TopicsResult(topics=topics_list)
+    return TopicsResult(topics=topics_list, duration_seconds=duration_seconds)
 
 
 @daily_multitrack_pipeline.task(
@@ -1113,8 +1116,14 @@ async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult
                 participant_names, participant_name_to_id=participant_name_to_id
             )
 
+        max_subjects = compute_max_subjects(topics_result.duration_seconds)
+        ctx.log(
+            f"extract_subjects: duration={topics_result.duration_seconds:.0f}s, "
+            f"max_subjects={max_subjects}"
+        )
+
         ctx.log("extract_subjects: calling LLM to extract subjects")
-        await builder.extract_subjects()
+        await builder.extract_subjects(max_subjects=max_subjects)
 
         ctx.log(f"extract_subjects complete: {len(builder.subjects)} subjects")
 

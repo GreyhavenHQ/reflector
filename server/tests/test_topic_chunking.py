@@ -2,7 +2,10 @@ import math
 
 import pytest
 
-from reflector.utils.transcript_constants import compute_topic_chunk_size
+from reflector.utils.transcript_constants import (
+    compute_max_subjects,
+    compute_topic_chunk_size,
+)
 
 
 @pytest.mark.parametrize(
@@ -60,3 +63,37 @@ def test_very_long_transcript():
     chunk_size = compute_topic_chunk_size(4 * 3600, 36000)
     num_topics = math.ceil(36000 / chunk_size)
     assert num_topics <= 50
+
+
+# --- compute_max_subjects tests ---
+
+
+@pytest.mark.parametrize(
+    "duration_seconds,expected_max",
+    [
+        (0, 1),  # zero/invalid → 1
+        (-10, 1),  # negative → 1
+        (60, 1),  # 1 min → 1
+        (120, 1),  # 2 min → 1
+        (300, 1),  # 5 min (boundary) → 1
+        (301, 2),  # just over 5 min → 2
+        (900, 2),  # 15 min (boundary) → 2
+        (901, 3),  # just over 15 min → 3
+        (1800, 3),  # 30 min (boundary) → 3
+        (1801, 4),  # just over 30 min → 4
+        (2700, 4),  # 45 min (boundary) → 4
+        (2701, 5),  # just over 45 min → 5
+        (3600, 5),  # 60 min (boundary) → 5
+        (3601, 6),  # just over 60 min → 6
+        (7200, 6),  # 2 hours → 6
+        (14400, 6),  # 4 hours → 6
+    ],
+)
+def test_max_subjects_scales_with_duration(duration_seconds, expected_max):
+    assert compute_max_subjects(duration_seconds) == expected_max
+
+
+def test_max_subjects_never_exceeds_cap():
+    """Even very long recordings should cap at 6 subjects."""
+    for hours in range(1, 10):
+        assert compute_max_subjects(hours * 3600) <= 6

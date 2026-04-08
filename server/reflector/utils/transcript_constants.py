@@ -40,3 +40,31 @@ def compute_topic_chunk_size(duration_seconds: float, total_words: int) -> int:
     chunk_size = total_words // target_topics
     chunk_size = max(_MIN_CHUNK_WORDS, min(_MAX_CHUNK_WORDS, chunk_size))
     return chunk_size
+
+
+# Subject extraction: scale max subjects with recording duration
+# Short calls get fewer subjects to avoid over-analyzing trivial content
+_SUBJECT_DURATION_THRESHOLDS = [
+    (5 * 60, 1),  # ≤ 5 min  → 1 subject
+    (15 * 60, 2),  # ≤ 15 min → 2 subjects
+    (30 * 60, 3),  # ≤ 30 min → 3 subjects
+    (45 * 60, 4),  # ≤ 45 min → 4 subjects
+    (60 * 60, 5),  # ≤ 60 min → 5 subjects
+]
+_MAX_SUBJECTS = 6
+
+
+def compute_max_subjects(duration_seconds: float) -> int:
+    """Calculate maximum number of subjects to extract based on recording duration.
+
+    Uses a step function: short recordings get fewer subjects to avoid
+    generating excessive detail for trivial content.
+    """
+    if duration_seconds <= 0:
+        return 1
+
+    for threshold, max_subjects in _SUBJECT_DURATION_THRESHOLDS:
+        if duration_seconds <= threshold:
+            return max_subjects
+
+    return _MAX_SUBJECTS
