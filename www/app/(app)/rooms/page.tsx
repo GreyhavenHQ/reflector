@@ -95,6 +95,7 @@ const roomInitialState = {
   platform: "whereby",
   skipConsent: false,
   emailTranscriptTo: "",
+  storeVideo: false,
 };
 
 export default function RoomsList() {
@@ -185,6 +186,7 @@ export default function RoomsList() {
             platform: detailedEditedRoom.platform,
             skipConsent: detailedEditedRoom.skip_consent || false,
             emailTranscriptTo: detailedEditedRoom.email_transcript_to || "",
+            storeVideo: detailedEditedRoom.store_video || false,
           }
         : null,
     [detailedEditedRoom],
@@ -335,6 +337,7 @@ export default function RoomsList() {
         platform,
         skip_consent: room.skipConsent,
         email_transcript_to: room.emailTranscriptTo || null,
+        store_video: room.storeVideo,
       };
 
       if (isEditing) {
@@ -400,6 +403,7 @@ export default function RoomsList() {
       platform: roomData.platform,
       skipConsent: roomData.skip_consent || false,
       emailTranscriptTo: roomData.email_transcript_to || "",
+      storeVideo: roomData.store_video || false,
     });
     setEditRoomId(roomId);
     setIsEditing(true);
@@ -842,6 +846,38 @@ export default function RoomsList() {
                         </Field.HelperText>
                       </Field.Root>
                     )}
+                    {room.platform === "daily" &&
+                      room.recordingType === "cloud" && (
+                        <Field.Root mt={4}>
+                          <Checkbox.Root
+                            name="storeVideo"
+                            checked={room.storeVideo}
+                            onCheckedChange={(e) => {
+                              const syntheticEvent = {
+                                target: {
+                                  name: "storeVideo",
+                                  type: "checkbox",
+                                  checked: e.checked,
+                                },
+                              };
+                              handleRoomChange(syntheticEvent);
+                            }}
+                          >
+                            <Checkbox.HiddenInput />
+                            <Checkbox.Control>
+                              <Checkbox.Indicator />
+                            </Checkbox.Control>
+                            <Checkbox.Label>
+                              Store video recording
+                            </Checkbox.Label>
+                          </Checkbox.Root>
+                          <Field.HelperText>
+                            When enabled, a composed video recording will be
+                            saved alongside audio. Disabling saves significant
+                            storage.
+                          </Field.HelperText>
+                        </Field.Root>
+                      )}
                   </Tabs.Content>
 
                   <Tabs.Content value="share" pt={6}>

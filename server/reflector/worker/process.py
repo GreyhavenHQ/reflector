@@ -562,6 +562,15 @@ async def store_cloud_recording(
         )
         return False
 
+    if not meeting.store_video:
+        logger.info(
+            f"Cloud recording ({source}): skipped, store_video=false",
+            recording_id=recording_id,
+            room_name=room_name,
+            meeting_id=meeting.id,
+        )
+        return False
+
     success = await meetings_controller.set_cloud_recording_if_missing(
         meeting_id=meeting.id,
         s3_key=s3_key,

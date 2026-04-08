@@ -219,6 +219,32 @@ async def _handle_recording_ready(event: RecordingReadyEvent):
 
         track_keys = [t.s3Key for t in tracks if t.type == "audio"]
 
+        # Delete video tracks when store_video is disabled (same pattern as LiveKit).
+        # Only delete if we have a meeting AND store_video is explicitly false.
+        # If no meeting found, leave files alone (can't confirm user intent).
+        video_track_keys = [t.s3Key for t in tracks if t.type == "video"]
+        if video_track_keys:
+            meeting = await meetings_controller.get_by_room_name(room_name)
+            if meeting is not None and not meeting.store_video:
+                from reflector.storage import get_source_storage
+
+                storage = get_source_storage("daily")
+                for video_key in video_track_keys:
+                    try:
+                        await storage.delete_file(video_key)
+                        logger.info(
+                            "Deleted video track from raw-tracks recording",
+                            s3_key=video_key,
+                            room_name=room_name,
+                        )
+                    except Exception as e:
+                        # Non-critical — pipeline filters these out anyway
+                        logger.warning(
+                            "Failed to delete video track from raw-tracks recording",
+                            s3_key=video_key,
+                            error=str(e),
+                        )
+
         logger.info(
             "Raw-tracks recording queuing processing",
             recording_id=recording_id,

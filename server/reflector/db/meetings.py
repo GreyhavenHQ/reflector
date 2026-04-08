@@ -69,6 +69,7 @@ meetings = sa.Table(
     sa.Column("daily_composed_video_duration", sa.Integer, nullable=True),
     # Email recipients for transcript notification
     sa.Column("email_recipients", JSONB, nullable=True),
+    sa.Column("store_video", sa.Boolean, nullable=False, server_default=sa.false()),
     sa.Index("idx_meeting_room_id", "room_id"),
     sa.Index("idx_meeting_calendar_event", "calendar_event_id"),
 )
@@ -122,6 +123,7 @@ class Meeting(BaseModel):
     # Email recipients for transcript notification
     # Each entry is {"email": str, "include_link": bool} or a legacy plain str
     email_recipients: list[dict | str] | None = None
+    store_video: bool = False
 
 
 class MeetingController:
@@ -152,6 +154,7 @@ class MeetingController:
             calendar_event_id=calendar_event_id,
             calendar_metadata=calendar_metadata,
             platform=room.platform,
+            store_video=room.store_video,
         )
         query = meetings.insert().values(**meeting.model_dump())
         await get_database().execute(query)

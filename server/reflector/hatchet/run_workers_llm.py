@@ -10,6 +10,7 @@ from reflector.hatchet.client import HatchetClientManager
 from reflector.hatchet.workflows.daily_multitrack_pipeline import (
     daily_multitrack_pipeline,
 )
+from reflector.hatchet.workflows.failed_runs_monitor import failed_runs_monitor
 from reflector.hatchet.workflows.file_pipeline import file_pipeline
 from reflector.hatchet.workflows.live_post_pipeline import live_post_pipeline
 from reflector.hatchet.workflows.subject_processing import subject_workflow
@@ -54,10 +55,6 @@ def main():
         ]
     )
     if _zulip_dag_enabled:
-        from reflector.hatchet.workflows.failed_runs_monitor import (  # noqa: PLC0415
-            failed_runs_monitor,
-        )
-
         workflows.append(failed_runs_monitor)
         logger.info(
             "FailedRunsMonitor cron enabled",

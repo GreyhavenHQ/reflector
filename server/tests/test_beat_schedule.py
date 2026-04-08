@@ -32,6 +32,10 @@ DAILY_TASKS = {
     "trigger_daily_reconciliation",
     "reprocess_failed_daily_recordings",
 }
+LIVEKIT_TASKS = {
+    "process_livekit_ended_meetings",
+    "reprocess_failed_livekit_recordings",
+}
 PLATFORM_TASKS = {
     "process_meetings",
     "sync_all_ics_calendars",
@@ -47,6 +51,7 @@ class TestNoPlatformConfigured:
         task_names = set(schedule.keys())
         assert not task_names & WHEREBY_TASKS
         assert not task_names & DAILY_TASKS
+        assert not task_names & LIVEKIT_TASKS
         assert not task_names & PLATFORM_TASKS
 
     def test_only_healthcheck_disabled_warning(self):
@@ -72,6 +77,7 @@ class TestWherebyOnly:
         assert WHEREBY_TASKS <= task_names
         assert PLATFORM_TASKS <= task_names
         assert not task_names & DAILY_TASKS
+        assert not task_names & LIVEKIT_TASKS
 
     def test_whereby_sqs_url(self):
         schedule = build_beat_schedule(
@@ -81,6 +87,7 @@ class TestWherebyOnly:
         assert WHEREBY_TASKS <= task_names
         assert PLATFORM_TASKS <= task_names
         assert not task_names & DAILY_TASKS
+        assert not task_names & LIVEKIT_TASKS
 
     def test_whereby_task_count(self):
         schedule = build_beat_schedule(whereby_api_key="test-key")
@@ -97,11 +104,39 @@ class TestDailyOnly:
         assert DAILY_TASKS <= task_names
         assert PLATFORM_TASKS <= task_names
         assert not task_names & WHEREBY_TASKS
+        assert not task_names & LIVEKIT_TASKS
 
     def test_daily_task_count(self):
         schedule = build_beat_schedule(daily_api_key="test-daily-key")
         # Daily (3) + Platform (3) = 6
         assert len(schedule) == 6
+
+
+class TestLiveKitOnly:
+    """When only LiveKit is configured."""
+
+    def test_livekit_keys(self):
+        schedule = build_beat_schedule(
+            livekit_api_key="test-lk-key", livekit_url="ws://livekit:7880"
+        )
+        task_names = set(schedule.keys())
+        assert LIVEKIT_TASKS <= task_names
+        assert PLATFORM_TASKS <= task_names
+        assert not task_names & WHEREBY_TASKS
+        assert not task_names & DAILY_TASKS
+
+    def test_livekit_task_count(self):
+        schedule = build_beat_schedule(
+            livekit_api_key="test-lk-key", livekit_url="ws://livekit:7880"
+        )
+        # LiveKit (2) + Platform (3) = 5
+        assert len(schedule) == 5
+
+    def test_livekit_needs_both_key_and_url(self):
+        schedule_key_only = build_beat_schedule(livekit_api_key="test-lk-key")
+        schedule_url_only = build_beat_schedule(livekit_url="ws://livekit:7880")
+        assert not set(schedule_key_only.keys()) & LIVEKIT_TASKS
+        assert not set(schedule_url_only.keys()) & LIVEKIT_TASKS
 
 
 class TestBothPlatforms:
