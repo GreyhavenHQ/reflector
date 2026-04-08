@@ -106,7 +106,7 @@ from reflector.utils.daily import (
     parse_daily_recording_filename,
 )
 from reflector.utils.string import NonEmptyString, assert_non_none_and_non_empty
-from reflector.utils.transcript_constants import TOPIC_CHUNK_WORD_COUNT
+from reflector.utils.transcript_constants import compute_topic_chunk_size
 from reflector.zulip import post_transcript_notification
 
 
@@ -885,7 +885,8 @@ async def detect_topics(input: PipelineInput, ctx: Context) -> TopicsResult:
         transcripts_controller,
     )
 
-    chunk_size = TOPIC_CHUNK_WORD_COUNT
+    duration_seconds = words[-1].end - words[0].start if words else 0
+    chunk_size = compute_topic_chunk_size(duration_seconds, len(words))
     chunks = []
     for i in range(0, len(words), chunk_size):
         chunk_words = words[i : i + chunk_size]
