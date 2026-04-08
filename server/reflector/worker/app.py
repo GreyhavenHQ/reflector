@@ -30,6 +30,8 @@ def build_beat_schedule(
     whereby_api_key=None,
     aws_process_recording_queue_url=None,
     daily_api_key=None,
+    livekit_api_key=None,
+    livekit_url=None,
     public_mode=False,
     public_data_retention_days=None,
     healthcheck_url=None,
@@ -83,7 +85,7 @@ def build_beat_schedule(
     else:
         logger.info("Daily.co beat tasks disabled (no DAILY_API_KEY)")
 
-    _livekit_enabled = bool(settings.LIVEKIT_API_KEY and settings.LIVEKIT_URL)
+    _livekit_enabled = bool(livekit_api_key and livekit_url)
     if _livekit_enabled:
         beat_schedule["process_livekit_ended_meetings"] = {
             "task": "reflector.worker.process.process_livekit_ended_meetings",
@@ -175,6 +177,8 @@ else:
         whereby_api_key=settings.WHEREBY_API_KEY,
         aws_process_recording_queue_url=settings.AWS_PROCESS_RECORDING_QUEUE_URL,
         daily_api_key=settings.DAILY_API_KEY,
+        livekit_api_key=settings.LIVEKIT_API_KEY,
+        livekit_url=settings.LIVEKIT_URL,
         public_mode=settings.PUBLIC_MODE,
         public_data_retention_days=settings.PUBLIC_DATA_RETENTION_DAYS,
         healthcheck_url=settings.HEALTHCHECK_URL,

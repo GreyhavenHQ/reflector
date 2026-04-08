@@ -1134,6 +1134,11 @@ export interface components {
       skip_consent: boolean;
       /** Email Transcript To */
       email_transcript_to?: string | null;
+      /**
+       * Store Video
+       * @default false
+       */
+      store_video: boolean;
     };
     /** CreateRoomMeeting */
     CreateRoomMeeting: {
@@ -1852,6 +1857,11 @@ export interface components {
       daily_composed_video_s3_key?: string | null;
       /** Daily Composed Video Duration */
       daily_composed_video_duration?: number | null;
+      /**
+       * Store Video
+       * @default false
+       */
+      store_video: boolean;
     };
     /** MeetingConsentRequest */
     MeetingConsentRequest: {
@@ -1955,6 +1965,11 @@ export interface components {
       skip_consent: boolean;
       /** Email Transcript To */
       email_transcript_to?: string | null;
+      /**
+       * Store Video
+       * @default false
+       */
+      store_video: boolean;
     };
     /** RoomDetails */
     RoomDetails: {
@@ -2013,6 +2028,11 @@ export interface components {
       skip_consent: boolean;
       /** Email Transcript To */
       email_transcript_to?: string | null;
+      /**
+       * Store Video
+       * @default false
+       */
+      store_video: boolean;
       /** Webhook Url */
       webhook_url: string | null;
       /** Webhook Secret */
@@ -2389,6 +2409,8 @@ export interface components {
       skip_consent?: boolean | null;
       /** Email Transcript To */
       email_transcript_to?: string | null;
+      /** Store Video */
+      store_video?: boolean | null;
     };
     /** UpdateTranscript */
     UpdateTranscript: {

@@ -267,12 +267,13 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
 
   const handleFrameJoinMeeting = useCallback(() => {
     if (meeting.recording_type === "cloud") {
-      console.log("Starting dual recording via REST API", {
+      console.log("Starting recording via REST API", {
         cloudInstanceId,
         rawTracksInstanceId,
+        storeVideo: meeting.store_video,
       });
 
-      // Start both cloud and raw-tracks via backend REST API (with retry on 404)
+      // Start recordings via backend REST API (with retry on 404)
       // Daily.co needs time to register call as "hosting" for REST API
       const startRecordingWithRetry = (
         type: DailyRecordingType,
@@ -320,12 +321,17 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
         }, RECORDING_START_DELAY_MS);
       };
 
-      // Start both recordings
-      startRecordingWithRetry("cloud", cloudInstanceId);
+      // Always start raw-tracks (needed for transcription pipeline)
       startRecordingWithRetry("raw-tracks", rawTracksInstanceId);
+
+      // Only start cloud (composed video) if store_video is enabled
+      if (meeting.store_video) {
+        startRecordingWithRetry("cloud", cloudInstanceId);
+      }
     }
   }, [
     meeting.recording_type,
+    meeting.store_video,
     meeting.id,
     startRecordingMutation,
     cloudInstanceId,

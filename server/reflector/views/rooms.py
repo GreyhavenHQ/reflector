@@ -45,6 +45,7 @@ class Room(BaseModel):
     platform: Platform
     skip_consent: bool = False
     email_transcript_to: str | None = None
+    store_video: bool = False
 
 
 class RoomDetails(Room):
@@ -75,6 +76,7 @@ class Meeting(BaseModel):
     platform: Platform
     daily_composed_video_s3_key: str | None = None
     daily_composed_video_duration: int | None = None
+    store_video: bool = False
 
 
 class CreateRoom(BaseModel):
@@ -95,6 +97,7 @@ class CreateRoom(BaseModel):
     platform: Platform
     skip_consent: bool = False
     email_transcript_to: str | None = None
+    store_video: bool = False
 
 
 class UpdateRoom(BaseModel):
@@ -115,6 +118,7 @@ class UpdateRoom(BaseModel):
     platform: Optional[Platform] = None
     skip_consent: Optional[bool] = None
     email_transcript_to: Optional[str] = None
+    store_video: Optional[bool] = None
 
 
 class CreateRoomMeeting(BaseModel):
@@ -257,6 +261,7 @@ async def rooms_create(
         platform=room.platform,
         skip_consent=room.skip_consent,
         email_transcript_to=room.email_transcript_to,
+        store_video=room.store_video,
     )
 
 
@@ -325,6 +330,7 @@ async def rooms_create_meeting(
                         and meeting.recording_type == room.recording_type
                         and meeting.recording_trigger == room.recording_trigger
                         and meeting.platform == room.platform
+                        and meeting.store_video == room.store_video
                     )
                     if not settings_match:
                         logger.info(
