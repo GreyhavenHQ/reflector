@@ -33,3 +33,5 @@ Caddyfile.gpu-host
 .env.gpu-host
 vibedocs/
 server/tests/integration/logs/
+node_modules
+node_modules
