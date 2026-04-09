@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -26,15 +27,25 @@ from reflector.db.transcripts import (
     transcripts_controller,
 )
 from reflector.hatchet.client import HatchetClientManager
+from reflector.pipelines.topic_processing import EmptyPipeline
+from reflector.processors.audio_file_writer import AudioFileWriterProcessor
 from reflector.processors.audio_waveform_processor import AudioWaveformProcessor
 from reflector.redis_cache import RedisAsyncLock
 from reflector.settings import settings
-from reflector.storage import get_transcripts_storage
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.utils.daily import (
     DailyRoomName,
     extract_base_room_name,
     filter_cam_audio_tracks,
     recording_lock_key,
+)
+from reflector.utils.livekit import (
+    extract_livekit_base_room_name,
+    filter_audio_tracks,
+    parse_livekit_track_filepath,
+)
+from reflector.utils.livekit import (
+    recording_lock_key as livekit_recording_lock_key,
 )
 from reflector.utils.string import NonEmptyString
 from reflector.video_platforms.factory import create_platform_client
@@ -932,11 +943,6 @@ async def convert_audio_and_waveform(transcript) -> None:
             transcript_id=transcript.id,
         )
 
-        from reflector.pipelines.topic_processing import EmptyPipeline  # noqa: PLC0415
-        from reflector.processors.audio_file_writer import (
-            AudioFileWriterProcessor,  # noqa: PLC0415
-        )
-
         upload_path = transcript.data_path / "upload.webm"
         mp3_path = transcript.audio_mp3_filename
 
@@ -1215,17 +1221,13 @@ async def process_livekit_multitrack(
     Tracks are discovered via S3 listing (source of truth), not webhooks.
     Called from room_finished webhook (fast-path) or beat task (fallback).
     """
-    from reflector.utils.livekit import (  # noqa: PLC0415
-        recording_lock_key,
-    )
-
     logger.info(
         "Processing LiveKit multitrack recording",
         room_name=room_name,
         meeting_id=meeting_id,
     )
 
-    lock_key = recording_lock_key(room_name)
+    lock_key = livekit_recording_lock_key(room_name)
     async with RedisAsyncLock(
         key=lock_key,
         timeout=600,
@@ -1252,19 +1254,10 @@ async def _process_livekit_multitrack_inner(
     # 1. Discover tracks by listing S3 prefix.
     # Wait briefly for egress files to finish flushing to S3 — the room_finished
     # webhook fires after empty_timeout, but egress finalization may still be in progress.
-    import asyncio as _asyncio  # noqa: PLC0415
-
-    from reflector.storage import get_source_storage  # noqa: PLC0415
-    from reflector.utils.livekit import (  # noqa: PLC0415
-        extract_livekit_base_room_name,
-        filter_audio_tracks,
-        parse_livekit_track_filepath,
-    )
-
     EGRESS_FLUSH_DELAY = 10  # seconds — egress typically flushes within a few seconds
     EGRESS_RETRY_DELAY = 30  # seconds — retry if first listing finds nothing
 
-    await _asyncio.sleep(EGRESS_FLUSH_DELAY)
+    await asyncio.sleep(EGRESS_FLUSH_DELAY)
 
     storage = get_source_storage("livekit")
     s3_prefix = f"livekit/{room_name}/"
@@ -1280,7 +1273,7 @@ async def _process_livekit_multitrack_inner(
             room_name=room_name,
             retry_delay=EGRESS_RETRY_DELAY,
         )
-        await _asyncio.sleep(EGRESS_RETRY_DELAY)
+        await asyncio.sleep(EGRESS_RETRY_DELAY)
         all_keys = await storage.list_objects(prefix=s3_prefix)
         audio_keys = filter_audio_tracks(all_keys) if all_keys else []
 
@@ -1299,7 +1292,7 @@ async def _process_livekit_multitrack_inner(
                 expected=expected_audio,
                 found=len(audio_keys),
             )
-            await _asyncio.sleep(EGRESS_RETRY_DELAY)
+            await asyncio.sleep(EGRESS_RETRY_DELAY)
             all_keys = await storage.list_objects(prefix=s3_prefix)
             audio_keys = filter_audio_tracks(all_keys) if all_keys else []
 

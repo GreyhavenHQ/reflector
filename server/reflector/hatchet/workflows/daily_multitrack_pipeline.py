@@ -18,10 +18,11 @@ import json
 import tempfile
 import time
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Coroutine, Protocol, TypeVar
 
+import databases
 import httpx
 from hatchet_sdk import (
     ConcurrencyExpression,
@@ -83,6 +84,7 @@ from reflector.hatchet.workflows.topic_chunk_processing import (
     topic_chunk_workflow,
 )
 from reflector.hatchet.workflows.track_processing import TrackInput, track_workflow
+from reflector.llm import LLM
 from reflector.logger import logger
 from reflector.pipelines import topic_processing
 from reflector.processors.audio_mixdown_auto import AudioMixdownAutoProcessor
@@ -95,7 +97,9 @@ from reflector.processors.summary.prompts import (
 from reflector.processors.summary.summary_builder import SummaryBuilder
 from reflector.processors.types import TitleSummary, Word
 from reflector.processors.types import Transcript as TranscriptType
+from reflector.redis_cache import get_async_redis_client
 from reflector.settings import settings
+from reflector.storage import get_source_storage, get_transcripts_storage
 from reflector.utils.audio_constants import (
     PRESIGNED_URL_EXPIRATION_SECONDS,
     WAVEFORM_SEGMENTS,
@@ -105,10 +109,15 @@ from reflector.utils.daily import (
     filter_cam_audio_tracks,
     parse_daily_recording_filename,
 )
+from reflector.utils.livekit import parse_livekit_track_filepath
 from reflector.utils.string import NonEmptyString, assert_non_none_and_non_empty
 from reflector.utils.transcript_constants import (
     compute_max_subjects,
     compute_topic_chunk_size,
+)
+from reflector.utils.webhook import (
+    fetch_transcript_webhook_payload,
+    send_webhook_request,
 )
 from reflector.zulip import post_transcript_notification
 
@@ -138,8 +147,6 @@ async def fresh_db_connection():
     The real fix would be making the db module fork-aware instead of bypassing it.
     Current pattern is acceptable given Hatchet's process model.
     """
-    import databases  # noqa: PLC0415
-
     from reflector.db import _database_context  # noqa: PLC0415
 
     _database_context.set(None)
@@ -176,8 +183,6 @@ async def set_workflow_error_status(transcript_id: NonEmptyString) -> bool:
 
 def _spawn_storage():
     """Create fresh storage instance for writing to our transcript bucket."""
-    from reflector.storage import get_transcripts_storage  # noqa: PLC0415
-
     return get_transcripts_storage()
 
 
@@ -391,19 +396,12 @@ async def get_participants(input: PipelineInput, ctx: Context) -> ParticipantsRe
 
         if input.source_platform == "livekit":
             # LiveKit: participant identity is in the track dict or can be parsed from filepath
-            from reflector.utils.livekit import (
-                parse_livekit_track_filepath,  # noqa: PLC0415
-            )
-
             # Look up identity → Reflector user_id mapping from Redis
             # (stored at join time in rooms.py)
             identity_to_user_id: dict[str, str] = {}
             try:
                 from reflector.db.meetings import (
                     meetings_controller as mc,  # noqa: PLC0415
-                )
-                from reflector.redis_cache import (
-                    get_async_redis_client,  # noqa: PLC0415
                 )
 
                 meeting = (
@@ -546,12 +544,6 @@ async def process_tracks(input: PipelineInput, ctx: Context) -> ProcessTracksRes
     # OGG files don't have embedded start_time metadata, so we pre-calculate.
     track_padding: dict[int, float] = {}
     if input.source_platform == "livekit":
-        from datetime import datetime  # noqa: PLC0415
-
-        from reflector.utils.livekit import (
-            parse_livekit_track_filepath,  # noqa: PLC0415
-        )
-
         timestamps = []
         for i, track in enumerate(input.tracks):
             ts_str = track.get("timestamp")
@@ -1073,10 +1065,9 @@ async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult
             participant_name_to_id={},
         )
 
-    # Deferred imports: Hatchet workers fork processes, fresh imports avoid
-    # sharing DB connections and LLM HTTP pools across forks
+    # Deferred DB import: Hatchet workers fork processes, fresh imports avoid
+    # sharing DB connections across forks
     from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-    from reflector.llm import LLM  # noqa: PLC0415
 
     async with fresh_db_connection():
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
@@ -1206,14 +1197,13 @@ async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
     subjects_result = ctx.task_output(extract_subjects)
     process_result = ctx.task_output(process_subjects)
 
-    # Deferred imports: Hatchet workers fork processes, fresh imports avoid
-    # sharing DB connections and LLM HTTP pools across forks
+    # Deferred DB import: Hatchet workers fork processes, fresh imports avoid
+    # sharing DB connections across forks
     from reflector.db.transcripts import (  # noqa: PLC0415
         TranscriptFinalLongSummary,
         TranscriptFinalShortSummary,
         transcripts_controller,
     )
-    from reflector.llm import LLM  # noqa: PLC0415
 
     subject_summaries = process_result.subject_summaries
 
@@ -1302,13 +1292,12 @@ async def identify_action_items(
         ctx.log("identify_action_items: no transcript text, returning empty")
         return ActionItemsResult(action_items=ActionItemsResponse())
 
-    # Deferred imports: Hatchet workers fork processes, fresh imports avoid
-    # sharing DB connections and LLM HTTP pools across forks
+    # Deferred DB import: Hatchet workers fork processes, fresh imports avoid
+    # sharing DB connections across forks
     from reflector.db.transcripts import (  # noqa: PLC0415
         TranscriptActionItems,
         transcripts_controller,
     )
-    from reflector.llm import LLM  # noqa: PLC0415
 
     # TODO: refactor SummaryBuilder methods into standalone functions
     llm = LLM(settings=settings)
@@ -1445,10 +1434,6 @@ async def cleanup_consent(input: PipelineInput, ctx: Context) -> ConsentResult:
         )
         from reflector.db.recordings import recordings_controller  # noqa: PLC0415
         from reflector.db.transcripts import transcripts_controller  # noqa: PLC0415
-        from reflector.storage import (  # noqa: PLC0415
-            get_source_storage,
-            get_transcripts_storage,
-        )
 
         transcript = await transcripts_controller.get_by_id(input.transcript_id)
         if not transcript:
@@ -1597,10 +1582,6 @@ async def send_webhook(input: PipelineInput, ctx: Context) -> WebhookResult:
 
     async with fresh_db_connection():
         from reflector.db.rooms import rooms_controller  # noqa: PLC0415
-        from reflector.utils.webhook import (  # noqa: PLC0415
-            fetch_transcript_webhook_payload,
-            send_webhook_request,
-        )
 
         room = await rooms_controller.get_by_id(input.room_id)
         if not room or not room.webhook_url:

@@ -1,4 +1,6 @@
 import logging
+import re
+import uuid
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Annotated, Any, Literal, Optional
@@ -14,7 +16,7 @@ from reflector.db import get_database
 from reflector.db.calendar_events import calendar_events_controller
 from reflector.db.meetings import meetings_controller
 from reflector.db.rooms import rooms_controller
-from reflector.redis_cache import RedisAsyncLock
+from reflector.redis_cache import RedisAsyncLock, get_async_redis_client
 from reflector.schemas.platform import Platform
 from reflector.services.ics_sync import ics_sync_service
 from reflector.utils.url import add_query_param
@@ -606,9 +608,6 @@ async def rooms_join_meeting(
         meeting.room_url = add_query_param(meeting.room_url, "t", token)
 
     elif meeting.platform == "livekit":
-        import re
-        import uuid
-
         client = create_platform_client(meeting.platform)
         # Identity must be unique per participant to avoid S3 key collisions.
         # Format: {readable_name}-{short_uuid} ensures uniqueness even for same names.
@@ -631,8 +630,6 @@ async def rooms_join_meeting(
         # Store identity → Reflector user_id mapping for the pipeline
         # (so TranscriptParticipant.user_id can be set correctly)
         if user_id:
-            from reflector.redis_cache import get_async_redis_client  # noqa: PLC0415
-
             redis_client = await get_async_redis_client()
             mapping_key = f"livekit:participant_map:{meeting.room_name}"
             await redis_client.hset(mapping_key, participant_identity, user_id)

@@ -11,6 +11,7 @@ from reflector.events import subscribers_shutdown
 from reflector.logger import logger
 from reflector.pipelines.runner import PipelineRunner
 from reflector.settings import settings
+from reflector.webrtc_ports import resolve_webrtc_host, rewrite_sdp_host
 
 sessions = []
 router = APIRouter()
@@ -128,8 +129,6 @@ async def rtc_offer_base(
 
     # Rewrite ICE candidate IPs when running behind Docker bridge networking
     if settings.WEBRTC_HOST:
-        from reflector.webrtc_ports import resolve_webrtc_host, rewrite_sdp_host
-
         host_ip = resolve_webrtc_host(settings.WEBRTC_HOST)
         sdp = rewrite_sdp_host(sdp, host_ip)
 

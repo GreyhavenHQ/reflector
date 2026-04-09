@@ -10,6 +10,7 @@ import os
 import tempfile
 
 import av
+import requests
 
 from reflector.logger import logger
 from reflector.processors.audio_padding import AudioPaddingProcessor, PaddingResponse
@@ -65,8 +66,6 @@ class AudioPaddingPyavProcessor(AudioPaddingProcessor):
         track_index: int,
     ) -> PaddingResponse:
         """Blocking padding work: download, pad with PyAV, upload."""
-        import requests
-
         log = logger.bind(track_index=track_index, padding_seconds=start_time_seconds)
         temp_dir = tempfile.mkdtemp()
         input_path = None
