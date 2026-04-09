@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.45.0](https://github.com/GreyhavenHQ/reflector/compare/v0.44.0...v0.45.0) (2026-04-09)
+
+
+### Features
+
+* make video recording optional, deleting video tracks ([#954](https://github.com/GreyhavenHQ/reflector/issues/954)) ([ee8db36](https://github.com/GreyhavenHQ/reflector/commit/ee8db36f2cd93b8f1ff4f4318e331fe2bac219c5))
+
+
+### Bug Fixes
+
+* better topic chunking and subject extraction ([#952](https://github.com/GreyhavenHQ/reflector/issues/952)) ([5f0c563](https://github.com/GreyhavenHQ/reflector/commit/5f0c5635eb77955b70168242ad7c336a20c98dd0))
+* inline imports ([#955](https://github.com/GreyhavenHQ/reflector/issues/955)) ([739cd51](https://github.com/GreyhavenHQ/reflector/commit/739cd513751cd52d8e3d6d80b64568b1cf409414))
+
 ## [0.44.0](https://github.com/GreyhavenHQ/reflector/compare/v0.43.0...v0.44.0) (2026-04-07)
 
 
