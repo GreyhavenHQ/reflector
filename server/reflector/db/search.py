@@ -175,6 +175,9 @@ class SearchResult(BaseModel):
     total_match_count: NonNegativeInt = Field(
         default=0, description="Total number of matches found in the transcript"
     )
+    speaker_count: NonNegativeInt = Field(
+        default=0, description="Number of distinct speakers in the transcript"
+    )
     change_seq: int | None = None
 
     @field_serializer("created_at", when_used="json")
@@ -362,6 +365,7 @@ class SearchController:
             transcripts.c.change_seq,
             transcripts.c.webvtt,
             transcripts.c.long_summary,
+            transcripts.c.participants,
             sqlalchemy.case(
                 (
                     transcripts.c.room_id.isnot(None) & rooms.c.id.is_(None),
@@ -458,6 +462,12 @@ class SearchController:
             long_summary_r: str | None = r_dict.pop("long_summary", None)
             long_summary: NonEmptyString = try_parse_non_empty_string(long_summary_r)
             room_name: str | None = r_dict.pop("room_name", None)
+            participants_raw = r_dict.pop("participants", None) or []
+            speaker_count = (
+                len({p.get("speaker") for p in participants_raw if isinstance(p, dict)})
+                if isinstance(participants_raw, list)
+                else 0
+            )
             db_result = SearchResultDB.model_validate(r_dict)
 
             at_least_one_source = webvtt is not None or long_summary is not None
@@ -475,6 +485,7 @@ class SearchController:
                 room_name=room_name,
                 search_snippets=snippets,
                 total_match_count=total_match_count,
+                speaker_count=speaker_count,
             )
 
         try:

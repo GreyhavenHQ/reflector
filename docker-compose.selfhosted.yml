@@ -129,6 +129,23 @@ services:
     depends_on:
       - redis
 
+  # Reflector v2 UI — Vite SPA served at /v2 behind Caddy.
+  # Build-time env vars are baked into the bundle; pass VITE_OIDC_* via build args.
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+      args:
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-}
+        VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-}
+        VITE_OIDC_SCOPE: ${VITE_OIDC_SCOPE:-openid profile email}
+    image: monadicalsas/reflector-ui:latest
+    restart: unless-stopped
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:3001:80"
+    depends_on:
+      - server
+
   redis:
     image: redis:7.2-alpine
     restart: unless-stopped

@@ -35,3 +35,7 @@ vibedocs/
 server/tests/integration/logs/
 node_modules
 node_modules
+
+greyhaven-design-system/
+.claude/
+AGENTS.md

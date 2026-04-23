@@ -446,10 +446,19 @@ class TranscriptController:
             col for col in transcripts.c if col.name not in exclude_columns
         ]
 
+        # Cheap speaker_count via JSON array length on the participants column
+        # (same column already stored on every transcript, no extra queries).
+        # COALESCE handles transcripts where participants is NULL.
+        speaker_count_col = sqlalchemy.func.coalesce(
+            sqlalchemy.func.json_array_length(transcripts.c.participants),
+            0,
+        ).label("speaker_count")
+
         query = query.with_only_columns(
             transcript_columns
             + [
                 rooms.c.name.label("room_name"),
+                speaker_count_col,
             ]
         )
 

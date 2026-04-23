@@ -19,6 +19,9 @@
     handle /health {
         reverse_proxy server:1250
     }
+    handle /v2* {
+        reverse_proxy ui:80
+    }
     handle {
         reverse_proxy web:3000
     }

@@ -1494,6 +1494,9 @@ $CUSTOM_DOMAIN {
     }
     handle /health {
         reverse_proxy server:1250
+    }
+    handle /v2* {
+        reverse_proxy ui:80
     }${lk_proxy_block}${hatchet_proxy_block}
     handle {
         reverse_proxy web:3000
@@ -1511,6 +1514,9 @@ $CUSTOM_DOMAIN {
     }
     handle /health {
         reverse_proxy server:1250
+    }
+    handle /v2* {
+        reverse_proxy ui:80
     }${lk_proxy_block}${hatchet_proxy_block}
     handle {
         reverse_proxy web:3000
@@ -1532,6 +1538,9 @@ CADDYEOF
     }
     handle /health {
         reverse_proxy server:1250
+    }
+    handle /v2* {
+        reverse_proxy ui:80
     }${lk_proxy_block}${hatchet_proxy_block}
     handle {
         reverse_proxy web:3000
@@ -1572,9 +1581,12 @@ step_services() {
         info "Building frontend image from source..."
         compose_cmd build web
         ok "Frontend image built"
+        info "Building v2 UI image from source..."
+        compose_cmd build ui
+        ok "v2 UI image built"
     else
         info "Pulling latest backend and frontend images..."
-        compose_cmd pull server web || warn "Pull failed — using cached images"
+        compose_cmd pull server web ui || warn "Pull failed — using cached images"
     fi
 
     # Hatchet is always needed (all processing pipelines use it)
@@ -1735,6 +1747,24 @@ step_health() {
         ok "Frontend healthy"
     else
         warn "Frontend not responding. Check: docker compose logs web"
+    fi
+
+    # v2 UI
+    info "Waiting for v2 UI..."
+    local ui_ok=false
+    for i in $(seq 1 30); do
+        if curl -sf http://localhost:3001/v2/ > /dev/null 2>&1; then
+            ui_ok=true
+            break
+        fi
+        echo -ne "\r  Waiting for v2 UI... ($i/30)"
+        sleep 3
+    done
+    echo ""
+    if [[ "$ui_ok" == "true" ]]; then
+        ok "v2 UI healthy"
+    else
+        warn "v2 UI not responding. Check: docker compose logs ui"
     fi
 
     # Caddy
@@ -1979,20 +2009,25 @@ EOF
     if [[ "$USE_CADDY" == "true" ]]; then
         if [[ -n "$CUSTOM_DOMAIN" ]]; then
             echo "  App:   https://$CUSTOM_DOMAIN"
+            echo "  App v2: https://$CUSTOM_DOMAIN/v2/"
             echo "  API:   https://$CUSTOM_DOMAIN/v1/"
         elif [[ -n "$PRIMARY_IP" ]]; then
             echo "  App:   https://$PRIMARY_IP  (accept self-signed cert in browser)"
+            echo "  App v2: https://$PRIMARY_IP/v2/"
             echo "  API:   https://$PRIMARY_IP/v1/"
             echo "  Local: https://localhost"
         else
             echo "  App:   https://localhost  (accept self-signed cert in browser)"
+            echo "  App v2: https://localhost/v2/"
             echo "  API:   https://localhost/v1/"
         fi
     elif [[ -n "$PRIMARY_IP" ]]; then
         echo "  App:   http://$PRIMARY_IP:3000"
+        echo "  App v2: http://$PRIMARY_IP:3001/v2/"
         echo "  API:   http://$PRIMARY_IP:1250"
     else
         echo "  App:   http://localhost:3000"
+        echo "  App v2: http://localhost:3001/v2/"
         echo "  API:   http://localhost:1250"
     fi
     echo ""

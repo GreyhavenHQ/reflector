@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import "./greyhaven.css";
+@import "./reflector-forms.css";
+
+@custom-variant dark (&:where(body.dark, body.dark *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-card: var(--card);
+  --color-card-fg: var(--card-fg);
+  --color-popover: var(--popover);
+  --color-popover-fg: var(--popover-fg);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-secondary: var(--secondary);
+  --color-secondary-fg: var(--secondary-fg);
+  --color-muted: var(--muted);
+  --color-muted-fg: var(--muted-fg);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-destructive: var(--destructive);
+  --color-destructive-fg: var(--destructive-fg);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+}
+
+/* Reflector sub-brand accent — orange. Sits on top of Greyhaven semantics so
+   any utility that points to --primary picks it up. */
+:root {
+  --reflector-accent:       #D95E2A;
+  --reflector-accent-hover: #B34818;
+  --reflector-accent-fg:    #F9F9F7;
+  --reflector-accent-tint:  rgba(217, 94, 42, 0.08);
+  --reflector-accent-tint2: rgba(217, 94, 42, 0.15);
+  --primary:    var(--reflector-accent);
+  --primary-fg: var(--reflector-accent-fg);
+  --ring:       var(--reflector-accent);
+
+  --status-live:       #D95E2A;
+  --status-ok:         #3F9D5A;
+  --status-processing: #C89B2E;
+  --status-failed:     var(--destructive);
+  --status-idle:       var(--gh-grey-4);
+
+  --row-height: 64px;
+  --row-vpad:   14px;
+}
+
+html, body, #root { margin: 0; padding: 0; height: 100%; background: var(--bg); }
+body {
+  font-family: var(--font-sans);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--gh-grey-3); border-radius: 9999px; border: 2px solid var(--bg); }
+*::-webkit-scrollbar-thumb:hover { background: var(--gh-grey-4); }
+
+button:focus-visible, a:focus-visible, input:focus-visible, [role="button"]:focus-visible, select:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 50%, transparent);
+  outline-offset: 1px;
+}
+input:focus { outline: none; }
+
+::selection { background: var(--reflector-accent-tint2); color: var(--fg); }
+
+.rf-row { transition: background-color var(--dur-fast) var(--ease-default); }
+.rf-row:hover { background: var(--muted); }
+.rf-row .rf-actions { opacity: 0; transition: opacity var(--dur-fast) var(--ease-default); }
+.rf-row:hover .rf-actions, .rf-row:focus-within .rf-actions { opacity: 1; }
+.rf-row[data-active="true"] { background: var(--accent); }
+
+@keyframes rfSpin { to { transform: rotate(360deg); } }
+
+body.dark aside { background: var(--gh-off-black) !important; }
+body.dark aside > div:first-child { border-bottom-color: var(--gh-grey-7); }
+
+.rf-wave { display: flex; align-items: center; gap: 2px; height: 28px; }
+.rf-wave span {
+  display: inline-block; width: 2px; background: currentColor; border-radius: 1px;
+  opacity: 0.55;
+}
+
+.rf-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px 1px 6px; height: 18px;
+  font-family: var(--font-sans); font-size: 10.5px; font-weight: 500;
+  color: var(--fg-muted); background: var(--muted);
+  border: 1px solid var(--border); border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.rf-kbd {
+  font-family: var(--font-mono); font-size: 10.5px;
+  padding: 1px 5px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--card);
+  color: var(--fg-muted);
+}

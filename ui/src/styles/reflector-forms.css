@@ -1,0 +1,53 @@
+/* Shared form + modal primitives used by Reflector pages.
+   Keep visuals in sync between home and browse. */
+
+@keyframes rfSpin { to { transform: rotate(360deg); } }
+@keyframes rfPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.15); }
+}
+@keyframes rfFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes rfModalIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.98); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes rfBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Form primitives */
+.rf-input, .rf-select {
+  width: 100%; height: 40px; padding: 0 12px;
+  font-family: var(--font-sans); font-size: 14px; color: var(--fg);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.rf-select {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23575753' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center;
+  padding-right: 34px; cursor: pointer;
+}
+.rf-input::placeholder { color: var(--gh-grey-4); }
+.rf-input:hover, .rf-select:hover { border-color: var(--gh-grey-4); }
+.rf-input:focus, .rf-select:focus { border-color: var(--primary); outline: none; }
+
+.rf-label {
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  color: var(--fg); letter-spacing: 0.01em;
+  display: flex; align-items: center; gap: 6px;
+}
+.rf-hint { font-size: 11.5px; color: var(--fg-muted); margin-top: 2px; }
+
+/* Modal */
+.rf-modal-backdrop {
+  position: fixed; inset: 0; background: color-mix(in oklch, var(--gh-off-black) 55%, transparent);
+  z-index: 1000; animation: rfBackdropIn var(--dur-normal) var(--ease-default);
+}
+.rf-modal {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  z-index: 1001; display: flex; flex-direction: column;
+  animation: rfModalIn var(--dur-normal) var(--ease-default);
+}

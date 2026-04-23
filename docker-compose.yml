@@ -2,8 +2,7 @@ services:
   server:
     build:
       context: server
-    ports:
-      - "1250:1250"
+    network_mode: host
     volumes:
       - ./server/:/app/
       - /app/.venv
@@ -11,17 +10,12 @@ services:
       - ./server/.env
     environment:
       ENTRYPOINT: server
-      DATABASE_URL: postgresql+asyncpg://reflector:reflector@postgres:5432/reflector
-      REDIS_HOST: redis
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
-      HATCHET_CLIENT_SERVER_URL: http://hatchet:8888
-      HATCHET_CLIENT_HOST_PORT: hatchet:7077
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      DATABASE_URL: postgresql+asyncpg://reflector:reflector@localhost:5432/reflector
+      REDIS_HOST: localhost
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      HATCHET_CLIENT_SERVER_URL: http://localhost:8889
+      HATCHET_CLIENT_HOST_PORT: localhost:7078
 
   worker:
     build:

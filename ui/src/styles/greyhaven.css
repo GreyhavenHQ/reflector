@@ -1,0 +1,227 @@
+/* =============================================================================
+   Greyhaven Design System — Colors & Type
+   Source of truth: imported from greyhaven-design-system/tokens/*.json
+   Works with plain HTML — no Tailwind required.
+   ============================================================================= */
+
+/* ---------- Fonts ---------- */
+
+/* Aspekta — self-hosted sans (canonical UI typeface) */
+@font-face { font-family: 'Aspekta'; font-style: normal; font-weight: 300; font-display: swap; src: url('./fonts/Aspekta-300.woff2') format('woff2'); }
+@font-face { font-family: 'Aspekta'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/Aspekta-400.woff2') format('woff2'); }
+@font-face { font-family: 'Aspekta'; font-style: normal; font-weight: 500; font-display: swap; src: url('./fonts/Aspekta-500.woff2') format('woff2'); }
+@font-face { font-family: 'Aspekta'; font-style: normal; font-weight: 600; font-display: swap; src: url('./fonts/Aspekta-600.woff2') format('woff2'); }
+@font-face { font-family: 'Aspekta'; font-style: normal; font-weight: 700; font-display: swap; src: url('./fonts/Aspekta-700.woff2') format('woff2'); }
+@font-face { font-family: 'Aspekta'; font-style: normal; font-weight: 800; font-display: swap; src: url('./fonts/Aspekta-800.woff2') format('woff2'); }
+
+/* Source Serif 4 is loaded via <link> in index.html to avoid an @import ordering warning. */
+
+:root {
+  /* ---------- Color — Primitive ---------- */
+  --gh-off-white: #F9F9F7;
+  --gh-off-black: #161614;
+  --gh-orange:    #D95E2A;  /* Only accent — used sparingly */
+  --gh-destructive-red: #B43232;
+
+  --gh-grey-1: #F0F0EC;  /* 5%  — subtle bg, secondary, muted */
+  --gh-grey-2: #DDDDD7;  /* 10% — accent hover, light borders */
+  --gh-grey-3: #C4C4BD;  /* 20% — border, input */
+  --gh-grey-4: #A6A69F;  /* 50% — mid-tone */
+  --gh-grey-5: #7F7F79;  /* 60% — mid-dark */
+  --gh-grey-7: #575753;  /* 70% — secondary/muted foreground */
+  --gh-grey-8: #2F2F2C;  /* 80% — dark-mode card, dark surfaces */
+
+  /* ---------- Color — Semantic (Light) ---------- */
+  --bg:              var(--gh-grey-1);
+  --fg:              var(--gh-off-black);
+  --fg-muted:        var(--gh-grey-7);
+  --card:            var(--gh-off-white);
+  --card-fg:         var(--gh-off-black);
+  --popover:         var(--gh-off-white);
+  --popover-fg:      var(--gh-off-black);
+  --primary:         var(--gh-orange);
+  --primary-fg:      var(--gh-off-white);
+  --secondary:       var(--gh-grey-1);
+  --secondary-fg:    var(--gh-grey-8);
+  --muted:           var(--gh-grey-1);
+  --muted-fg:        var(--gh-grey-7);
+  --accent:          var(--gh-grey-2);
+  --accent-fg:       var(--gh-off-black);
+  --destructive:     var(--gh-destructive-red);
+  --destructive-fg:  var(--gh-off-white);
+  --border:          var(--gh-grey-3);
+  --input:           var(--gh-grey-3);
+  --ring:            var(--gh-orange);
+  --hero-bg:         var(--gh-grey-2);
+
+  /* Aliases that match common fg1/fg2 shorthand */
+  --fg1: var(--fg);          /* primary text */
+  --fg2: var(--fg-muted);    /* secondary/muted text */
+  --fg3: var(--gh-grey-5);   /* tertiary / disabled-ish */
+
+  /* ---------- Typography — Families ---------- */
+  --font-sans:  'Aspekta', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+  --font-mono:  ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ---------- Typography — Scale (rem) ---------- */
+  --text-xs:   0.75rem;   /* 12 — metadata, fine print */
+  --text-sm:   0.875rem;  /* 14 — nav, labels, buttons */
+  --text-base: 1rem;      /* 16 — body */
+  --text-lg:   1.125rem;  /* 18 — large body, subtitles */
+  --text-xl:   1.25rem;   /* 20 — H3 */
+  --text-2xl:  1.5rem;    /* 24 — H2 */
+  --text-3xl:  1.875rem;  /* 30 — large H2 */
+  --text-4xl:  2.25rem;   /* 36 — H1 */
+  --text-5xl:  3rem;      /* 48 — hero heading */
+
+  /* Weights */
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* Leading */
+  --leading-tight:   1.25;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.625;
+
+  /* Tracking */
+  --tracking-tight:  -0.025em;
+  --tracking-normal: 0em;
+  --tracking-wide:   0.05em;
+
+  /* ---------- Radii (tight, no playful rounding) ---------- */
+  --radius-base: 0.375rem;             /* 6px */
+  --radius-sm:   calc(0.375rem - 2px); /* 4px */
+  --radius-md:   0.375rem;             /* 6px */
+  --radius-lg:   calc(0.375rem + 2px); /* 8px */
+  --radius-xl:   calc(0.375rem + 4px); /* 10px — cards */
+  --radius-full: 9999px;
+
+  /* ---------- Shadows (subtle, warm-neutral) ---------- */
+  --shadow-xs: 0 1px 2px 0 rgba(22, 22, 20, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(22, 22, 20, 0.10);
+  --shadow-md: 0 4px 6px -1px rgba(22, 22, 20, 0.10);
+  --shadow-lg: 0 10px 15px -3px rgba(22, 22, 20, 0.10);
+
+  /* ---------- Spacing ---------- */
+  --space-0-5: 0.125rem; /* 2  */
+  --space-1:   0.25rem;  /* 4  */
+  --space-1-5: 0.375rem; /* 6  */
+  --space-2:   0.5rem;   /* 8  */
+  --space-3:   0.75rem;  /* 12 */
+  --space-4:   1rem;     /* 16 */
+  --space-5:   1.25rem;  /* 20 */
+  --space-6:   1.5rem;   /* 24 — card padding */
+  --space-8:   2rem;     /* 32 */
+  --space-10:  2.5rem;   /* 40 — section py */
+  --space-12:  3rem;     /* 48 */
+  --space-16:  4rem;     /* 64 — major sections */
+  --space-20:  5rem;     /* 80 */
+  --space-24:  6rem;     /* 96 — hero padding */
+
+  /* Component spacing */
+  --card-padding:     1.5rem;
+  --card-gap:         1.5rem;
+  --section-padding:  2.5rem;
+  --form-gap:         1rem;
+  --btn-padding-x:    1rem;
+  --navbar-h:         4rem;
+
+  /* ---------- Motion ---------- */
+  --dur-fast:   150ms;
+  --dur-normal: 200ms;
+  --dur-slow:   300ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in:      cubic-bezier(0.4, 0, 1, 1);
+  --ease-out:     cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* ---------- Dark theme (applied via .dark class) ---------- */
+.dark {
+  --bg:             var(--gh-off-black);
+  --fg:             var(--gh-off-white);
+  --fg-muted:       var(--gh-grey-3);
+  --card:           var(--gh-grey-8);
+  --card-fg:        var(--gh-off-white);
+  --popover:        var(--gh-grey-8);
+  --popover-fg:     var(--gh-off-white);
+  --primary:        var(--gh-orange);
+  --primary-fg:     var(--gh-off-white);
+  --secondary:      var(--gh-grey-7);
+  --secondary-fg:   var(--gh-off-white);
+  --muted:          var(--gh-grey-8);
+  --muted-fg:       var(--gh-grey-3);
+  --accent:         var(--gh-grey-7);
+  --accent-fg:      var(--gh-off-white);
+  --destructive:    var(--gh-destructive-red);
+  --destructive-fg: var(--gh-off-white);
+  --border:         var(--gh-grey-7);
+  --input:          var(--gh-grey-7);
+  --ring:           var(--gh-orange);
+  --hero-bg:        var(--gh-grey-8);
+
+  --fg1: var(--fg);
+  --fg2: var(--fg-muted);
+  --fg3: var(--gh-grey-4);
+}
+
+/* =============================================================================
+   Semantic element defaults — opt in with `.gh-prose` or on <body>
+   ============================================================================= */
+
+body.gh, .gh-prose {
+  font-family: var(--font-serif);
+  color: var(--fg);
+  background: var(--bg);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  -webkit-font-smoothing: antialiased;
+}
+
+.gh-prose h1, h1.gh {
+  font-family: var(--font-serif);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--fg);
+}
+.gh-prose h2, h2.gh {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--fg);
+}
+.gh-prose h3, h3.gh {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  color: var(--fg);
+}
+.gh-prose p, p.gh {
+  font-family: var(--font-serif);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--fg);
+}
+.gh-prose small, .gh-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* UI elements — Aspekta */
+.gh-ui, .gh-nav, .gh-button, .gh-label, .gh-metadata {
+  font-family: var(--font-sans);
+}
+.gh-nav   { font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.gh-button{ font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.gh-label { font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.gh-metadata { font-size: var(--text-xs); font-weight: var(--weight-medium); letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--fg-muted); }
+
+code, .gh-code { font-family: var(--font-mono); font-size: 0.9em; background: var(--muted); padding: 0.15em 0.35em; border-radius: var(--radius-sm); border: 1px solid var(--border); }

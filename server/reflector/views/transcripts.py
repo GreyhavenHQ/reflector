@@ -116,6 +116,7 @@ class GetTranscriptMinimal(BaseModel):
     change_seq: int | None = None
     has_cloud_video: bool = False
     cloud_video_duration: int | None = None
+    speaker_count: int = 0
 
 
 class TranscriptParticipantWithEmail(TranscriptParticipant):
