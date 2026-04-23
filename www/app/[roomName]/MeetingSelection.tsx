@@ -24,6 +24,7 @@ import {
 } from "../lib/apiHooks";
 import { useRouter } from "next/navigation";
 import { formatDateTime, formatStartedAgo } from "../lib/timeUtils";
+import { formatJoinError } from "../lib/errorUtils";
 import MeetingMinimalHeader from "../components/MeetingMinimalHeader";
 import { NonEmptyString } from "../lib/utils";
 import { MeetingId, assertMeetingId } from "../lib/types";
@@ -188,6 +189,19 @@ export default function MeetingSelection({
         flex="1"
         gap={{ base: 4, md: 6 }}
       >
+        {joinMeetingMutation.isError && (
+          <Box
+            p={4}
+            borderRadius="md"
+            bg="red.50"
+            borderLeft="4px solid"
+            borderColor="red.400"
+          >
+            <Text color="red.700">
+              {formatJoinError(joinMeetingMutation.error)}
+            </Text>
+          </Box>
+        )}
         {/* Current Ongoing Meetings - BIG DISPLAY */}
         {currentMeetings.length > 0 ? (
           <VStack align="stretch" gap={6} mb={8}>

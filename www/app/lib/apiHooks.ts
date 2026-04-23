@@ -863,16 +863,9 @@ export function useRoomGetMeeting(
 }
 
 export function useRoomJoinMeeting() {
-  const { setError } = useError();
-
   return $api.useMutation(
     "post",
     "/v1/rooms/{room_name}/meetings/{meeting_id}/join",
-    {
-      onError: (error) => {
-        setError(error as Error, "There was an error joining the meeting");
-      },
-    },
   );
 }
 

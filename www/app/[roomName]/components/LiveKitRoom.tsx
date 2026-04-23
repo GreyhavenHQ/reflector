@@ -13,6 +13,7 @@ import {
 import type { components } from "../../reflector-api";
 import { useAuth } from "../../lib/AuthProvider";
 import { useRoomJoinMeeting } from "../../lib/apiHooks";
+import { formatJoinError } from "../../lib/errorUtils";
 import { assertMeetingId } from "../../lib/types";
 import {
   ConsentDialogButton,
@@ -66,7 +67,6 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
 
   const joinMutation = useRoomJoinMeeting();
   const [joinedMeeting, setJoinedMeeting] = useState<Meeting | null>(null);
-  const [connectionError, setConnectionError] = useState(false);
   const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null);
 
   // ── Consent dialog (same hooks as Daily/Whereby) ──────────
@@ -99,7 +99,7 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
     }
     return "";
   })();
-  const isJoining = !!userChoices && !joinedMeeting && !connectionError;
+  const isJoining = !!userChoices && !joinedMeeting && !joinMutation.isError;
 
   // ── Join meeting via backend API after PreJoin submit ─────
   useEffect(() => {
@@ -123,7 +123,6 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
         if (!cancelled) setJoinedMeeting(result);
       } catch (err) {
         console.error("Failed to join LiveKit meeting:", err);
-        if (!cancelled) setConnectionError(true);
       }
     }
 
@@ -182,10 +181,10 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
     );
   }
 
-  if (connectionError) {
+  if (joinMutation.isError) {
     return (
       <Center h="100vh" bg="gray.50">
-        <Text fontSize="lg">Failed to connect to meeting</Text>
+        <Text fontSize="lg">{formatJoinError(joinMutation.error)}</Text>
       </Center>
     );
   }
