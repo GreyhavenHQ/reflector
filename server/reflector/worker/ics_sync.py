@@ -83,9 +83,6 @@ def _should_sync(room) -> bool:
     return time_since_sync.total_seconds() >= room.ics_fetch_interval
 
 
-MEETING_DEFAULT_DURATION = timedelta(hours=1)
-
-
 async def create_upcoming_meetings_for_event(event, create_window, room: Room):
     if event.start_time <= create_window:
         return
@@ -102,7 +99,9 @@ async def create_upcoming_meetings_for_event(event, create_window, room: Room):
     )
 
     try:
-        end_date = event.end_time or (event.start_time + MEETING_DEFAULT_DURATION)
+        # 8h rejoin window matches manual on-the-fly meetings; the scheduled
+        # DTEND stays in calendar_events.end_time for reference.
+        end_date = event.start_time + timedelta(hours=8)
 
         client = create_platform_client(room.platform)
 

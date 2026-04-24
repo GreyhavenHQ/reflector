@@ -1,5 +1,35 @@
 import { isNonEmptyArray, NonEmptyArray } from "./array";
 
+export function getErrorDetail(error: unknown, fallback: string): string {
+  if (!error) return fallback;
+  if (typeof error === "object" && error !== null) {
+    const detail = (error as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail.length > 0) return detail;
+    const response = (error as { response?: { data?: { detail?: unknown } } })
+      .response;
+    const nestedDetail = response?.data?.detail;
+    if (typeof nestedDetail === "string" && nestedDetail.length > 0)
+      return nestedDetail;
+  }
+  return fallback;
+}
+
+export function formatJoinError(error: unknown): string {
+  const detail = getErrorDetail(error, "");
+  switch (detail) {
+    case "Meeting has ended":
+      return "This meeting has ended. The organizer can start a new one.";
+    case "Meeting is not active":
+      return "This meeting is no longer active. Ask the organizer to start it again.";
+    case "Meeting not found":
+      return "This meeting no longer exists. Check the link or ask the organizer for a new one.";
+    case "Room not found":
+      return "This room doesn't exist.";
+    default:
+      return detail || "We couldn't join the meeting. Please try again.";
+  }
+}
+
 export function shouldShowError(error: Error | null | undefined) {
   if (
     error?.name == "ResponseError" &&
