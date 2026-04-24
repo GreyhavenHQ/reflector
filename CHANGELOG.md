@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.1](https://github.com/GreyhavenHQ/reflector/compare/v0.45.0...v0.45.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* past due meetings are now 8h for ics ([#958](https://github.com/GreyhavenHQ/reflector/issues/958)) ([52888f6](https://github.com/GreyhavenHQ/reflector/commit/52888f692fee2c5c06f62e51230b0ecfd54b8814))
+
 ## [0.45.0](https://github.com/GreyhavenHQ/reflector/compare/v0.44.0...v0.45.0) (2026-04-09)
 
 
