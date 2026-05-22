@@ -26,7 +26,7 @@
     "@tanstack/react-query": "^5.90.21",
     "@whereby.com/browser-sdk": "^3.18.21",
     "autoprefixer": "10.4.27",
-    "axios": "^1.13.6",
+    "axios": "^1.15.2",
     "eslint": "^10.0.2",
     "eslint-config-next": "^16.1.6",
     "fontawesome": "^5.6.3",
@@ -34,13 +34,13 @@
     "jest-worker": "^30.2.0",
     "livekit-client": "2.18.0",
     "lucide-react": "^0.575.0",
-    "next": "16.1.7",
+    "next": "16.2.6",
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "nuqs": "^2.8.9",
     "openapi-fetch": "^0.17.0",
     "openapi-react-query": "^0.5.4",
-    "postcss": "8.5.6",
+    "postcss": "8.5.10",
     "prop-types": "^15.8.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -79,7 +79,7 @@
       "webpack": "5.105.3",
       "serialize-javascript": "7.0.4",
       "immutable": "5.1.5",
-      "next": "16.1.7"
+      "next": "16.2.6"
     }
   }
 }
