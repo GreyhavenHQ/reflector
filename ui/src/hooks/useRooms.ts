@@ -24,7 +24,7 @@ function normalize(r: ServerRoom): RoomRowData {
   }
 }
 
-export function useRooms() {
+export function useRooms(enabled: boolean = true) {
   return useQuery<RoomRowData[]>({
     queryKey: ['rooms'],
     queryFn: async () => {
@@ -37,6 +37,7 @@ export function useRooms() {
       const page = data as { items?: ServerRoom[] }
       return (page.items ?? []).map(normalize)
     },
+    enabled,
     staleTime: 60_000,
   })
 }

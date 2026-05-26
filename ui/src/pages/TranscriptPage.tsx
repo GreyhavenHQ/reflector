@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/layout/AppShell'
 import { AppSidebar } from '@/components/layout/AppSidebar'
+import { PublicShell } from '@/components/layout/PublicShell'
 import { NewTranscriptDialog } from '@/components/shared/NewTranscriptDialog'
 import { ConfirmDialog } from '@/components/browse/ConfirmDialog'
 import { TranscriptHeader } from '@/components/transcript/TranscriptHeader'
@@ -33,11 +34,15 @@ import type { SidebarFilter } from '@/lib/types'
 
 const TERMINAL = new Set(['ended', 'error'])
 
-export function TranscriptPage() {
+type TranscriptPageProps = {
+  anonymous?: boolean
+}
+
+export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const { data: rooms = [] } = useRooms()
+  const { user, authenticated } = useAuth()
+  const { data: rooms = [] } = useRooms(!anonymous)
   const [collapsed, setCollapsed] = useState(false)
   const [newOpen, setNewOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -53,7 +58,8 @@ export function TranscriptPage() {
   const transcript = transcriptQuery.data
   const status = transcript?.status ?? 'idle'
   const isTerminal = TERMINAL.has(status)
-  const audioAvailable = !!transcript && !transcript.audio_deleted && status === 'ended'
+  const audioAvailable =
+    !!transcript && !transcript.audio_deleted && status === 'ended' && authenticated
 
   const topicsQuery = useTranscriptTopics(id, isTerminal)
   const waveformQuery = useTranscriptWaveform(id, audioAvailable)
@@ -65,7 +71,7 @@ export function TranscriptPage() {
 
   const { update, softDelete, sendEmail, postToZulip } = useTranscriptMutations(id)
 
-  useTranscriptWs(id)
+  useTranscriptWs(id, { enabled: !anonymous })
 
   const canEdit = useMemo(() => {
     if (!transcript) return false
@@ -87,6 +93,36 @@ export function TranscriptPage() {
     else if (f.kind === 'source') navigate(`/browse?source=${f.value}`)
     else if (f.kind === 'room') navigate(`/browse?source=room&room=${f.value}`)
     else navigate('/browse')
+  }
+
+  const renderShell = (body: ReactNode, title: string) => {
+    if (anonymous) {
+      return (
+        <PublicShell title={title} crumb={['shared', 'transcript']}>
+          {body}
+        </PublicShell>
+      )
+    }
+    return (
+      <AppShell
+        title={title}
+        crumb={['browse', 'detail']}
+        sidebar={
+          <AppSidebar
+            filter={sidebarFilter}
+            onFilter={onSidebarFilter}
+            rooms={rooms}
+            tags={[]}
+            showTags={false}
+            collapsed={collapsed}
+            onToggle={() => setCollapsed((v) => !v)}
+            onNewRecording={() => setNewOpen(true)}
+          />
+        }
+      >
+        {body}
+      </AppShell>
+    )
   }
 
   const seekTo = (seconds: number) => {
@@ -171,68 +207,41 @@ export function TranscriptPage() {
   }
 
   if (transcriptQuery.isLoading) {
-    return (
-      <AppShell
-        title="Transcript"
-        sidebar={
-          <AppSidebar
-            filter={sidebarFilter}
-            onFilter={onSidebarFilter}
-            rooms={rooms}
-            tags={[]}
-            showTags={false}
-            collapsed={collapsed}
-            onToggle={() => setCollapsed((v) => !v)}
-            onNewRecording={() => setNewOpen(true)}
-          />
-        }
+    return renderShell(
+      <div
+        style={{
+          padding: 40,
+          textAlign: 'center',
+          color: 'var(--fg-muted)',
+          fontFamily: 'var(--font-sans)',
+        }}
       >
-        <div
-          style={{
-            padding: 40,
-            textAlign: 'center',
-            color: 'var(--fg-muted)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          Loading transcript…
-        </div>
-        {newOpen && <NewTranscriptDialog onClose={() => setNewOpen(false)} />}
-      </AppShell>
+        Loading transcript…
+      </div>,
+      'Transcript',
     )
   }
 
   if (transcriptQuery.isError || !transcript) {
-    const status404 =
-      (transcriptQuery.error as { status?: number } | null)?.status === 404
-    return (
-      <AppShell
-        title="Transcript"
-        sidebar={
-          <AppSidebar
-            filter={sidebarFilter}
-            onFilter={onSidebarFilter}
-            rooms={rooms}
-            tags={[]}
-            showTags={false}
-            collapsed={collapsed}
-            onToggle={() => setCollapsed((v) => !v)}
-            onNewRecording={() => setNewOpen(true)}
-          />
-        }
+    const errStatus = (transcriptQuery.error as { status?: number } | null)?.status
+    const status404 = errStatus === 404
+    const status403 = errStatus === 403 || errStatus === 401
+    return renderShell(
+      <div
+        style={{
+          padding: 40,
+          textAlign: 'center',
+          color: 'var(--fg-muted)',
+          fontFamily: 'var(--font-sans)',
+        }}
       >
-        <div
-          style={{
-            padding: 40,
-            textAlign: 'center',
-            color: 'var(--fg-muted)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          {status404 ? 'Transcript not found.' : 'Failed to load transcript.'}
-        </div>
-        {newOpen && <NewTranscriptDialog onClose={() => setNewOpen(false)} />}
-      </AppShell>
+        {status403
+          ? "This transcript isn't available."
+          : status404
+            ? 'Transcript not found.'
+            : 'Failed to load transcript.'}
+      </div>,
+      'Transcript',
     )
   }
 
@@ -243,23 +252,8 @@ export function TranscriptPage() {
   const showVideo =
     transcript.has_cloud_video && isTerminal && !!user?.sub && canEdit
 
-  return (
-    <AppShell
-      title="Transcript"
-      crumb={['browse', 'detail']}
-      sidebar={
-        <AppSidebar
-          filter={sidebarFilter}
-          onFilter={onSidebarFilter}
-          rooms={rooms}
-          tags={[]}
-          showTags={false}
-          collapsed={collapsed}
-          onToggle={() => setCollapsed((v) => !v)}
-          onNewRecording={() => setNewOpen(true)}
-        />
-      }
-    >
+  const body = (
+    <>
       <div
         style={{
           display: 'flex',
@@ -289,6 +283,7 @@ export function TranscriptPage() {
               showVideo ? () => setVideoOpen((v) => !v) : null
             }
             videoOpen={videoOpen}
+            readOnly={anonymous}
           />
           <div style={{ padding: '12px 20px 16px' }}>
             <MetadataStrip transcript={transcript} speakerCount={speakerCount} />
@@ -305,7 +300,11 @@ export function TranscriptPage() {
           <>
             {transcript.audio_deleted ? (
               <AudioDeletedBanner />
-            ) : status === 'ended' ? (
+            ) : status === 'ended' && authenticated ? (
+              // Anonymous viewers don't get audio — the backend audio
+              // endpoint is owner/semi-private/logged-in only (same as
+              // www's useMp3 behavior). Skip the player cleanly so public
+              // shared transcripts don't surface a 401.
               <AudioPlayer
                 transcriptId={transcript.id}
                 peaks={peaks}
@@ -365,9 +364,11 @@ export function TranscriptPage() {
         )}
       </div>
 
-      {newOpen && <NewTranscriptDialog onClose={() => setNewOpen(false)} />}
+      {!anonymous && newOpen && (
+        <NewTranscriptDialog onClose={() => setNewOpen(false)} />
+      )}
 
-      {shareOpen && (
+      {!anonymous && shareOpen && (
         <ShareDialog
           transcript={transcript}
           canEdit={canEdit}
@@ -388,7 +389,7 @@ export function TranscriptPage() {
         />
       )}
 
-      {confirmDelete && (
+      {!anonymous && confirmDelete && (
         <ConfirmDialog
           title="Move to trash?"
           message={
@@ -409,8 +410,10 @@ export function TranscriptPage() {
           onClose={() => setConfirmDelete(false)}
         />
       )}
-    </AppShell>
+    </>
   )
+
+  return renderShell(body, 'Transcript')
 }
 
 function Navigate() {

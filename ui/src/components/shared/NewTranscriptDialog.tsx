@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
 import { apiClient } from '@/api/client'
-import { useRooms } from '@/hooks/useRooms'
 import { REFLECTOR_LANGS } from '@/lib/types'
 
 type Props = {
@@ -13,11 +12,9 @@ type Props = {
 
 export function NewTranscriptDialog({ onClose }: Props) {
   const navigate = useNavigate()
-  const { data: rooms = [] } = useRooms()
   const [title, setTitle] = useState('')
-  const [sourceLang, setSourceLang] = useState('auto')
+  const [sourceLang, setSourceLang] = useState('en')
   const [targetLang, setTargetLang] = useState('')
-  const [roomId, setRoomId] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -28,30 +25,30 @@ export function NewTranscriptDialog({ onClose }: Props) {
     return () => document.removeEventListener('keydown', k)
   }, [onClose, submitting])
 
-  const submit = async () => {
+  const createAndGo = async (kind: 'live' | 'file') => {
     setSubmitting(true)
     try {
+      // Backend's CreateTranscript requires real strings for name + both
+      // language fields. Fall back to sensible defaults instead of sending
+      // null, which triggers a 422. Target defaults to source — meaning no
+      // effective translation — when the user doesn't pick one.
       const { data, response } = await apiClient.POST('/v1/transcripts', {
         body: {
-          name: title || null,
-          source_language: sourceLang === 'auto' ? null : sourceLang,
-          target_language: targetLang || null,
-          room_id: roomId || null,
+          name: title.trim() || 'Untitled',
+          source_language: sourceLang,
+          target_language: targetLang || sourceLang,
+          source_kind: kind,
         } as never,
       })
       if (!response.ok || !data) throw new Error('Could not create transcript')
       const id = (data as { id: string }).id
       onClose()
-      navigate(`/browse?active=${id}`)
+      navigate(kind === 'file' ? `/transcripts/${id}/upload` : `/transcripts/${id}/record`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create transcript')
     } finally {
       setSubmitting(false)
     }
-  }
-
-  const handleUpload = () => {
-    toast.info('Upload flow lives on the transcript detail page — ship next pass.')
   }
 
   return (
@@ -170,7 +167,7 @@ export function NewTranscriptDialog({ onClose }: Props) {
               style={{ marginTop: 6 }}
             >
               <option value="">— None (same as spoken) —</option>
-              {REFLECTOR_LANGS.filter((l) => l.code !== 'auto').map((l) => (
+              {REFLECTOR_LANGS.map((l) => (
                 <option key={l.code} value={l.code}>
                   {l.flag} {l.name}
                 </option>
@@ -179,26 +176,6 @@ export function NewTranscriptDialog({ onClose }: Props) {
             <div className="rf-hint">Leave blank to skip translation.</div>
           </div>
 
-          <div>
-            <label className="rf-label" htmlFor="rf-nd-room">
-              {I.Folder(13)} Attach to room{' '}
-              <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>— optional</span>
-            </label>
-            <select
-              id="rf-nd-room"
-              className="rf-select"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              style={{ marginTop: 6 }}
-            >
-              <option value="">— None —</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <footer
@@ -224,10 +201,20 @@ export function NewTranscriptDialog({ onClose }: Props) {
             {I.Lock(12)}
             Audio stays on your infrastructure.
           </div>
-          <Button variant="secondary" size="md" onClick={handleUpload} disabled={submitting}>
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => void createAndGo('file')}
+            disabled={submitting}
+          >
             {I.Upload(14)} Upload file
           </Button>
-          <Button variant="primary" size="md" onClick={submit} disabled={submitting}>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => void createAndGo('live')}
+            disabled={submitting}
+          >
             {I.Mic(14)} {submitting ? 'Starting…' : 'Start recording'}
           </Button>
         </footer>

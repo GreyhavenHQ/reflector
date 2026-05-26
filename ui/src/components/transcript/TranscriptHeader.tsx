@@ -26,6 +26,7 @@ type Props = {
   onDelete: () => void
   onToggleVideo?: (() => void) | null
   videoOpen?: boolean
+  readOnly?: boolean
 }
 
 export function TranscriptHeader({
@@ -39,6 +40,7 @@ export function TranscriptHeader({
   onDelete,
   onToggleVideo,
   videoOpen,
+  readOnly,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(titleFor(transcript))
@@ -163,40 +165,53 @@ export function TranscriptHeader({
         </Button>
       )}
 
-      <Button variant="outline" size="sm" onClick={onOpenShare} title="Share">
-        {I.Share(13)} Share
-      </Button>
+      {!readOnly && (
+        <Button variant="outline" size="sm" onClick={onOpenShare} title="Share">
+          {I.Share(13)} Share
+        </Button>
+      )}
 
-      <RowMenuTrigger
-        items={[
-          {
-            label: 'Rename',
-            icon: I.Edit(14),
-            onClick: startEdit,
-            disabled: !canEdit,
-          },
-          {
-            label: 'Copy as markdown',
-            icon: I.Copy(14),
-            onClick: onCopyMarkdown,
-          },
-          {
-            label: 'Download ZIP',
-            icon: I.Download(14),
-            onClick: onDownloadZip,
-            disabled: !canDownload,
-          },
-          { separator: true as const },
-          {
-            label: 'Delete',
-            icon: I.Trash(14),
-            danger: true,
-            disabled: !canEdit,
-            onClick: onDelete,
-          },
-        ]}
-        label="Transcript options"
-      />
+      {readOnly ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCopyMarkdown}
+          title="Copy transcript as markdown"
+        >
+          {I.Copy(13)} Copy
+        </Button>
+      ) : (
+        <RowMenuTrigger
+          items={[
+            {
+              label: 'Rename',
+              icon: I.Edit(14),
+              onClick: startEdit,
+              disabled: !canEdit,
+            },
+            {
+              label: 'Copy as markdown',
+              icon: I.Copy(14),
+              onClick: onCopyMarkdown,
+            },
+            {
+              label: 'Download ZIP',
+              icon: I.Download(14),
+              onClick: onDownloadZip,
+              disabled: !canDownload,
+            },
+            { separator: true as const },
+            {
+              label: 'Delete',
+              icon: I.Trash(14),
+              danger: true,
+              disabled: !canEdit,
+              onClick: onDelete,
+            },
+          ]}
+          label="Transcript options"
+        />
+      )}
     </div>
   )
 }

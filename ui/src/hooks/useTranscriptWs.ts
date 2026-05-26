@@ -49,6 +49,7 @@ type LiveHandler = (text: string, translation: string) => void
 
 type Options = {
   onLiveText?: LiveHandler
+  enabled?: boolean
 }
 
 export function useTranscriptWs(id: string | undefined, opts: Options = {}) {
@@ -57,13 +58,14 @@ export function useTranscriptWs(id: string | undefined, opts: Options = {}) {
   const retryRef = useRef(0)
   const aliveRef = useRef(true)
   const onLiveRef = useRef(opts.onLiveText)
+  const enabled = opts.enabled ?? true
 
   useEffect(() => {
     onLiveRef.current = opts.onLiveText
   }, [opts.onLiveText])
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !enabled) return
     aliveRef.current = true
 
     const connect = () => {
@@ -213,5 +215,5 @@ export function useTranscriptWs(id: string | undefined, opts: Options = {}) {
       socketRef.current = null
       if (ws && ws.readyState === WebSocket.OPEN) ws.close()
     }
-  }, [id, queryClient])
+  }, [id, queryClient, enabled])
 }

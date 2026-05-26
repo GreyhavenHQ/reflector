@@ -1,6 +1,5 @@
 import { Fragment } from 'react'
-import { I } from '@/components/icons'
-import { Button } from '@/components/ui/primitives'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 
 type TopBarProps = {
   title: string
@@ -77,23 +76,7 @@ export function TopBar({ title, crumb }: TopBarProps) {
 
       <div style={{ flex: 1 }} />
 
-      <Button variant="ghost" size="icon" title="Notifications">
-        <span style={{ position: 'relative', display: 'inline-flex' }}>
-          {I.Bell(16)}
-          <span
-            style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              width: 6,
-              height: 6,
-              borderRadius: 9999,
-              background: 'var(--primary)',
-              border: '1.5px solid var(--card)',
-            }}
-          />
-        </span>
-      </Button>
+      <ThemeToggle />
     </header>
   )
 }

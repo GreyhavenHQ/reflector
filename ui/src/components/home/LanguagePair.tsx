@@ -84,7 +84,7 @@ export function LanguagePair({
           style={{ marginTop: 6 }}
         >
           <option value="">— None (same as spoken) —</option>
-          {REFLECTOR_LANGS.filter((l) => l.code !== 'auto').map((l) => (
+          {REFLECTOR_LANGS.map((l) => (
             <option key={l.code} value={l.code}>
               {l.flag} {l.name}
             </option>

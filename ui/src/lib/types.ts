@@ -64,8 +64,11 @@ export const LANG_LABELS: Record<string, string> = {
   es: 'ES',
 }
 
+// Backend's CreateTranscript requires a concrete language string (defaults to
+// "en"). It does NOT support a null/auto-detect mode — Whisper performs the
+// actual detection internally regardless, but the API still needs a seed
+// value. Keep the list to real languages only.
 export const REFLECTOR_LANGS = [
-  { code: 'auto', name: 'Auto-detect', flag: '🌐' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'es', name: 'Spanish', flag: '🇪🇸' },
   { code: 'fr', name: 'French', flag: '🇫🇷' },

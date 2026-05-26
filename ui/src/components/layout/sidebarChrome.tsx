@@ -111,6 +111,7 @@ export function UserChip({
   user: { name?: string | null; email?: string | null } | null | undefined
 }) {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const displayName = user?.name || user?.email || 'Signed in'
@@ -158,8 +159,10 @@ export function UserChip({
           <MenuRow
             icon={I.Settings(14)}
             label="Settings"
-            onClick={() => setOpen(false)}
-            disabled
+            onClick={() => {
+              setOpen(false)
+              navigate('/settings')
+            }}
           />
           <div style={{ height: 1, background: 'var(--border)', margin: '4px 2px' }} />
           <MenuRow

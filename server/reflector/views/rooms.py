@@ -458,6 +458,7 @@ async def rooms_ics_status(
     )
 
 
+## TODO: Only active meetings from non logged in so UI works but doesn't show historical
 @router.get("/rooms/{room_name}/meetings", response_model=list[CalendarEventResponse])
 async def rooms_list_meetings(
     room_name: str,

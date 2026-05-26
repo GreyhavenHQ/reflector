@@ -24,7 +24,9 @@ function platformLabel(p: Room['platform']) {
 }
 
 function roomUrl(room: Room) {
-  return `${window.location.origin}/${room.name}`
+  // Keep the shareable link pointing at the SPA basename so external
+  // guests land on our React page, not the legacy `www` handler.
+  return `${window.location.origin}/v2/${room.name}`
 }
 
 function openRoom(room: Room) {

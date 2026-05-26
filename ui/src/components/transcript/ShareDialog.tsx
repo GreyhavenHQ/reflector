@@ -107,11 +107,16 @@ function ShareDialogInner({
     return () => document.removeEventListener('keydown', k)
   }, [onClose])
 
+  const mode = (transcript.share_mode ?? 'private') as ShareMode
+  // Public transcripts copy the anonymous-viewer URL (`/shared/:id`) so the
+  // link works for non-logged-in recipients. Owner/semi-private links keep
+  // pointing at the authenticated detail page.
   const url =
     typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}`
+      ? mode === 'public'
+        ? `${window.location.origin}/v2/shared/${transcript.id}`
+        : `${window.location.origin}${window.location.pathname}`
       : ''
-  const mode = (transcript.share_mode ?? 'private') as ShareMode
   const zulipEnabled = (config as { zulip_enabled?: boolean } | undefined)?.zulip_enabled
   const emailEnabled = (config as { email_enabled?: boolean } | undefined)?.email_enabled
   const canZulip = zulipEnabled && mode !== 'public'
