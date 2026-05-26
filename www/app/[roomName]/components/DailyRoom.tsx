@@ -28,6 +28,7 @@ import {
   useRoomJoinMeeting,
   useMeetingStartRecording,
 } from "../../lib/apiHooks";
+import { formatJoinError } from "../../lib/errorUtils";
 import { omit } from "remeda";
 import {
   assertExists,
@@ -428,7 +429,7 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
   if (joinMutation.isError) {
     return (
       <Center width="100vw" height="100vh">
-        <Text color="red.500">Failed to join meeting. Please try again.</Text>
+        <Text color="red.500">{formatJoinError(joinMutation.error)}</Text>
       </Center>
     );
   }

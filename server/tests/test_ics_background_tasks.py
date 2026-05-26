@@ -5,11 +5,14 @@ import pytest
 from icalendar import Calendar, Event
 
 from reflector.db import get_database
-from reflector.db.calendar_events import calendar_events_controller
+from reflector.db.calendar_events import CalendarEvent, calendar_events_controller
+from reflector.db.meetings import meetings_controller
 from reflector.db.rooms import rooms, rooms_controller
 from reflector.services.ics_sync import ics_sync_service
+from reflector.video_platforms.models import MeetingData
 from reflector.worker.ics_sync import (
     _should_sync,
+    create_upcoming_meetings_for_event,
     sync_room_ics,
 )
 
@@ -223,6 +226,68 @@ async def test_sync_respects_fetch_interval():
 
         assert mock_delay.call_count == 1
         assert mock_delay.call_args[0][0] == room2.id
+
+
+@pytest.mark.asyncio
+async def test_create_upcoming_meeting_uses_8h_end_date():
+    # ICS-pre-created meetings get an 8h rejoin window anchored to the
+    # scheduled start, ignoring the calendar event's DTEND. Regression
+    # guard for the "Meeting has ended" bug when participants run over a
+    # short scheduled window.
+    room = await rooms_controller.add(
+        name="ics-8h-room",
+        user_id="test-user",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=False,
+        ics_url="https://calendar.example.com/ics-8h.ics",
+        ics_enabled=True,
+    )
+
+    now = datetime.now(timezone.utc)
+    event_start = now + timedelta(minutes=1)
+    event_end = event_start + timedelta(minutes=30)
+
+    event = await calendar_events_controller.upsert(
+        CalendarEvent(
+            room_id=room.id,
+            ics_uid="ics-8h-evt",
+            title="Short meeting that runs over",
+            start_time=event_start,
+            end_time=event_end,
+        )
+    )
+
+    create_window = now - timedelta(minutes=6)
+
+    fake_client = MagicMock()
+    fake_client.create_meeting = AsyncMock(
+        return_value=MeetingData(
+            meeting_id="ics-8h-meeting",
+            room_name=room.name,
+            room_url="https://daily.example/ics-8h",
+            host_room_url="https://daily.example/ics-8h",
+            platform=room.platform,
+            extra_data={},
+        )
+    )
+    fake_client.upload_logo = AsyncMock(return_value=True)
+
+    with patch(
+        "reflector.worker.ics_sync.create_platform_client",
+        return_value=fake_client,
+    ):
+        await create_upcoming_meetings_for_event(event, create_window, room)
+
+    meeting = await meetings_controller.get_by_calendar_event(event.id, room)
+    assert meeting is not None
+    assert meeting.start_date == event_start
+    assert meeting.end_date == event_start + timedelta(hours=8)
 
 
 @pytest.mark.asyncio
