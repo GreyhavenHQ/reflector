@@ -11,15 +11,7 @@ export function AuthCallbackPage() {
   }, [authenticated, loading, navigate])
 
   return (
-    <div
-      style={{
-        height: '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        color: 'var(--fg-muted)',
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
+    <div className="h-screen grid place-items-center text-fg-muted font-sans">
       Signing you in…
     </div>
   )

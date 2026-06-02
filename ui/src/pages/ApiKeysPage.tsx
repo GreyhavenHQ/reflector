@@ -25,55 +25,15 @@ export function ApiKeysPage() {
 
   return (
     <SettingsShell title="Settings" crumb={['settings', 'api-keys']}>
-      <div
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-xs)',
-          overflow: 'hidden',
-        }}
-      >
-        <header
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1
-              style={{
-                margin: 0,
-                fontFamily: 'var(--font-serif)',
-                fontSize: 20,
-                fontWeight: 600,
-                letterSpacing: '-0.015em',
-                color: 'var(--fg)',
-              }}
-            >
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden">
+        <header className="px-5 py-4 border-b border-border flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="m-0 font-serif text-xl font-semibold tracking-[-0.015em] text-fg">
               API Keys
             </h1>
-            <p
-              style={{
-                margin: '4px 0 0',
-                fontSize: 12.5,
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+            <p className="mt-1 mb-0 text-[12.5px] text-fg-muted font-sans">
               Programmatic access to Reflector. Send the key as the{' '}
-              <code
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11.5,
-                  padding: '1px 4px',
-                  background: 'var(--muted)',
-                  borderRadius: 3,
-                }}
-              >
+              <code className="font-mono text-[11.5px] px-1 py-px bg-muted rounded-[3px]">
                 X-API-Key
               </code>{' '}
               header.
@@ -88,83 +48,36 @@ export function ApiKeysPage() {
           </Button>
         </header>
 
-        <div style={{ padding: '0 20px' }}>
+        <div className="px-5">
           {isLoading ? (
-            <div
-              style={{
-                padding: 32,
-                textAlign: 'center',
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 13,
-              }}
-            >
+            <div className="p-8 text-center text-fg-muted font-sans text-[13px]">
               Loading keys…
             </div>
           ) : isError ? (
-            <div
-              style={{
-                padding: 32,
-                textAlign: 'center',
-                color: 'var(--destructive)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 13,
-              }}
-            >
+            <div className="p-8 text-center text-destructive font-sans text-[13px]">
               Failed to load keys.
             </div>
           ) : keys.length === 0 ? (
             <EmptyState onCreate={() => setCreateOpen(true)} />
           ) : (
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 13,
-              }}
-            >
+            <table className="w-full border-collapse font-sans text-[13px]">
               <thead>
-                <tr
-                  style={{
-                    textAlign: 'left',
-                    color: 'var(--fg-muted)',
-                    fontSize: 11,
-                    letterSpacing: '0.03em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  <th style={{ padding: '10px 0', fontWeight: 600 }}>Name</th>
-                  <th style={{ padding: '10px 0', fontWeight: 600 }}>Created</th>
-                  <th style={{ padding: '10px 0', fontWeight: 600, width: 40 }} />
+                <tr className="text-left text-fg-muted text-[11px] tracking-[0.03em] uppercase">
+                  <th className="py-2.5 font-semibold">Name</th>
+                  <th className="py-2.5 font-semibold">Created</th>
+                  <th className="py-2.5 font-semibold w-10" />
                 </tr>
               </thead>
               <tbody>
                 {keys.map((k) => (
-                  <tr
-                    key={k.id}
-                    style={{ borderTop: '1px solid var(--border)' }}
-                  >
-                    <td
-                      style={{
-                        padding: '12px 0',
-                        color: 'var(--fg)',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {k.name || <span style={{ color: 'var(--fg-muted)' }}>Unnamed</span>}
+                  <tr key={k.id} className="border-t border-border">
+                    <td className="py-3 text-fg font-medium">
+                      {k.name || <span className="text-fg-muted">Unnamed</span>}
                     </td>
-                    <td
-                      style={{
-                        padding: '12px 0',
-                        color: 'var(--fg-muted)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 11.5,
-                      }}
-                    >
+                    <td className="py-3 text-fg-muted font-mono text-[11.5px]">
                       {fmtDate(k.created_at)}
                     </td>
-                    <td style={{ padding: '12px 0', textAlign: 'right' }}>
+                    <td className="py-3 text-right">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -211,7 +124,7 @@ export function ApiKeysPage() {
           title="Delete API key?"
           message={
             <>
-              <strong style={{ color: 'var(--fg)' }}>
+              <strong className="text-fg">
                 {deleting.name || 'Unnamed key'}
               </strong>{' '}
               will be revoked immediately. Any service using it will start to fail.
@@ -239,41 +152,14 @@ export function ApiKeysPage() {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div
-      style={{
-        padding: '48px 20px',
-        textAlign: 'center',
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
-      <div
-        style={{
-          color: 'var(--fg-muted)',
-          display: 'inline-flex',
-          marginBottom: 12,
-        }}
-      >
+    <div className="px-5 py-12 text-center font-sans">
+      <div className="text-fg-muted inline-flex mb-3">
         {I.Shield(28)}
       </div>
-      <div
-        style={{
-          fontSize: 15,
-          fontWeight: 600,
-          color: 'var(--fg)',
-          marginBottom: 4,
-        }}
-      >
+      <div className="text-[15px] font-semibold text-fg mb-1">
         No API keys yet
       </div>
-      <p
-        style={{
-          margin: '0 auto 16px',
-          maxWidth: 380,
-          fontSize: 13,
-          color: 'var(--fg-muted)',
-          lineHeight: 1.5,
-        }}
-      >
+      <p className="mx-auto mt-0 mb-4 max-w-[380px] text-[13px] text-fg-muted leading-[1.5]">
         Generate one to start calling the Reflector API from your own scripts or services.
       </p>
       <Button variant="primary" size="sm" onClick={onCreate}>
@@ -297,50 +183,17 @@ function CreateKeyDialog({
   return (
     <div className="rf-modal-backdrop" onClick={onClose}>
       <div
-        className="rf-modal"
+        className="rf-modal w-[440px] max-w-[92vw]"
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 440, maxWidth: '92vw' }}
       >
-        <header
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-              color: 'var(--fg)',
-              flex: 1,
-            }}
-          >
+        <header className="px-5 py-4 border-b border-border flex items-center">
+          <h2 className="m-0 font-serif text-lg font-semibold tracking-[-0.01em] text-fg flex-1">
             New API key
           </h2>
         </header>
-        <div
-          style={{
-            padding: 20,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            fontFamily: 'var(--font-sans)',
-            fontSize: 13,
-          }}
-        >
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span
-              style={{
-                fontSize: 12.5,
-                fontWeight: 500,
-                color: 'var(--fg)',
-              }}
-            >
+        <div className="p-5 flex flex-col gap-3 font-sans text-[13px]">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12.5px] font-medium text-fg">
               Name
             </span>
             <input
@@ -358,25 +211,12 @@ function CreateKeyDialog({
               }}
               disabled={saving}
             />
-            <span
-              style={{
-                fontSize: 11.5,
-                color: 'var(--fg-muted)',
-              }}
-            >
+            <span className="text-[11.5px] text-fg-muted">
               Optional — helps you remember what this key is for.
             </span>
           </label>
         </div>
-        <footer
-          style={{
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 8,
-          }}
-        >
+        <footer className="px-5 py-3 border-t border-border flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
@@ -413,94 +253,37 @@ function RevealKeyDialog({
   return (
     <div className="rf-modal-backdrop" onClick={onClose}>
       <div
-        className="rf-modal"
+        className="rf-modal w-[520px] max-w-[92vw]"
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 520, maxWidth: '92vw' }}
       >
-        <header
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-              color: 'var(--fg)',
-            }}
-          >
+        <header className="px-5 py-4 border-b border-border">
+          <h2 className="m-0 font-serif text-lg font-semibold tracking-[-0.01em] text-fg">
             API key created
           </h2>
         </header>
-        <div
-          style={{
-            padding: 20,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            fontFamily: 'var(--font-sans)',
-            fontSize: 13,
-            lineHeight: 1.5,
-          }}
-        >
-          <p style={{ margin: 0, color: 'var(--fg)' }}>
+        <div className="p-5 flex flex-col gap-3 font-sans text-[13px] leading-[1.5]">
+          <p className="m-0 text-fg">
             Copy this key now. <strong>It won't be shown again.</strong>
           </p>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: 8,
-            }}
-          >
-            <code
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: '10px 12px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 12,
-                background: 'var(--muted)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                wordBreak: 'break-all',
-                color: 'var(--fg)',
-              }}
-            >
+          <div className="flex items-stretch gap-2">
+            <code className="flex-1 min-w-0 px-3 py-2.5 font-mono text-xs bg-muted border border-border rounded-md break-all text-fg">
               {apiKey.key}
             </code>
             <Button
               variant="outline"
               size="sm"
               onClick={copy}
-              style={{ flexShrink: 0 }}
+              className="shrink-0"
             >
               {I.Copy(13)} Copy
             </Button>
           </div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              color: 'var(--fg-muted)',
-            }}
-          >
-            Use it as the <code style={{ fontFamily: 'var(--font-mono)' }}>X-API-Key</code>{' '}
+          <p className="m-0 text-xs text-fg-muted">
+            Use it as the <code className="font-mono">X-API-Key</code>{' '}
             header on every request.
           </p>
         </div>
-        <footer
-          style={{
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-          }}
-        >
+        <footer className="px-5 py-3 border-t border-border flex justify-end">
           <Button variant="primary" size="sm" onClick={onClose}>
             Done
           </Button>

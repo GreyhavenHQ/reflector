@@ -18,109 +18,40 @@ type PublicShellProps = {
 export function PublicShell({ title, crumb, children }: PublicShellProps) {
   const { authenticated } = useAuth()
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-        background: 'var(--bg)',
-      }}
-    >
-      <header
-        style={{
-          height: 65,
-          background: 'var(--card)',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 24px',
-          gap: 16,
-          fontFamily: 'var(--font-sans)',
-          flexShrink: 0,
-        }}
-      >
-        <Link
-          to="/"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            textDecoration: 'none',
-            color: 'var(--fg)',
-          }}
-        >
+    <div className="flex flex-col min-h-screen bg-bg">
+      <header className="h-[65px] bg-card border-b border-border flex items-center px-6 gap-4 font-sans shrink-0">
+        <Link to="/" className="flex items-center gap-2.5 no-underline text-fg">
           <ReflectorMark size={26} />
-          <span
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 17,
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-            }}
-          >
+          <span className="font-serif text-[17px] font-semibold tracking-[-0.01em]">
             Reflector
           </span>
         </Link>
 
         {(title || (crumb && crumb.length > 0)) && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              marginLeft: 18,
-              paddingLeft: 18,
-              borderLeft: '1px solid var(--border)',
-              minWidth: 0,
-            }}
-          >
+          <div className="flex flex-col gap-px ml-[18px] pl-[18px] border-l border-border min-w-0">
             {crumb && crumb.length > 0 && (
-              <div
-                style={{
-                  fontSize: 11,
-                  color: 'var(--fg-muted)',
-                  display: 'flex',
-                  gap: 6,
-                  alignItems: 'center',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
+              <div className="text-[11px] text-fg-muted flex gap-1.5 items-center font-mono">
                 {crumb.map((c, i) => (
                   <Fragment key={i}>
-                    <span
-                      style={{
-                        color: i === crumb.length - 1 ? 'var(--fg)' : 'var(--fg-muted)',
-                      }}
-                    >
+                    <span className={i === crumb.length - 1 ? 'text-fg' : 'text-fg-muted'}>
                       {c}
                     </span>
                     {i < crumb.length - 1 && (
-                      <span style={{ color: 'var(--gh-grey-4)' }}>/</span>
+                      <span className="text-[var(--gh-grey-4)]">/</span>
                     )}
                   </Fragment>
                 ))}
               </div>
             )}
             {title && (
-              <div
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  letterSpacing: '-0.015em',
-                  color: 'var(--fg)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
+              <div className="font-serif text-base font-semibold tracking-[-0.015em] text-fg whitespace-nowrap overflow-hidden text-ellipsis">
                 {title}
               </div>
             )}
           </div>
         )}
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
         <ThemeToggle />
 
@@ -131,32 +62,14 @@ export function PublicShell({ title, crumb, children }: PublicShellProps) {
                 ? window.location.pathname + window.location.search
                 : '/',
             )}`}
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--fg)',
-              textDecoration: 'none',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border)',
-              background: 'var(--card)',
-              boxShadow: 'var(--shadow-xs)',
-            }}
+            className="font-sans text-[13px] font-medium text-fg no-underline py-1.5 px-3 rounded-md border border-border bg-card shadow-xs"
           >
             Sign in
           </Link>
         )}
       </header>
 
-      <main
-        style={{
-          flex: 1,
-          padding: '24px',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
+      <main className="flex-1 p-6 w-full box-border">
         {children}
       </main>
     </div>

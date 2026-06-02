@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/primitives'
 import { useAuth } from '@/auth/AuthContext'
@@ -29,55 +29,28 @@ export function LoginForm() {
     }
   }
 
-  const inputStyle: CSSProperties = {
-    width: '100%',
-    height: 40,
-    padding: '0 12px',
-    background: 'var(--bg)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-    color: 'var(--fg)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 14,
-    outline: 'none',
-  }
+  const inputClass =
+    'w-full h-10 px-3 bg-bg border border-border rounded-md text-fg font-sans text-sm outline-none'
 
   return (
-    <main style={{ maxWidth: 400, margin: '0 auto', padding: '100px 24px 60px' }}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <h1
-          style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: 32,
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            margin: 0,
-            lineHeight: 1.1,
-            color: 'var(--fg)',
-          }}
-        >
+    <main className="max-w-[400px] mx-auto pt-[100px] px-6 pb-[60px]">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-[22px]">
+        <h1 className="font-serif text-3xl font-semibold tracking-[-0.02em] m-0 leading-[1.1] text-fg">
           Log in
         </h1>
 
         {error && (
           <div
             role="alert"
-            style={{
-              fontSize: 13,
-              color: 'var(--destructive)',
-              background: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--destructive) 25%, transparent)',
-              borderRadius: 'var(--radius-md)',
-              padding: '8px 12px',
-            }}
+            className="text-[13px] text-destructive bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)] border border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] rounded-md px-3 py-2"
           >
             {error}
           </div>
         )}
 
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>
-            Email <span style={{ color: 'var(--destructive)' }}>*</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-fg">
+            Email <span className="text-destructive">*</span>
           </span>
           <input
             type="email"
@@ -85,20 +58,20 @@ export function LoginForm() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
+            className={inputClass}
           />
         </label>
 
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>
-            Password <span style={{ color: 'var(--destructive)' }}>*</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-fg">
+            Password <span className="text-destructive">*</span>
           </span>
           <input
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
+            className={inputClass}
           />
         </label>
 
@@ -106,7 +79,7 @@ export function LoginForm() {
           type="submit"
           variant="primary"
           disabled={loading}
-          style={{ width: '100%', height: 40 }}
+          className="w-full h-10"
         >
           {loading ? 'Signing in…' : 'Log in'}
         </Button>
@@ -114,16 +87,7 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => navigate('/welcome')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--fg-muted)',
-            fontSize: 13,
-            fontFamily: 'var(--font-sans)',
-            cursor: 'pointer',
-            textAlign: 'center',
-            padding: 0,
-          }}
+          className="bg-transparent border-none text-fg-muted text-[13px] font-sans cursor-pointer text-center p-0"
         >
           ← Back
         </button>

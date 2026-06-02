@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/primitives'
 
 type Props = {
@@ -52,62 +53,29 @@ export function VideoPanel({ transcriptId, enabled }: Props) {
   if (!enabled) return null
 
   return (
-    <div
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-      }}
-    >
+    <div className="bg-card border border-border rounded-lg">
       <button
         onClick={() => setOpen((v) => !v)}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '12px 16px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          fontFamily: 'var(--font-sans)',
-          color: 'var(--fg)',
-        }}
+        className="w-full flex items-center gap-2.5 px-4 py-3 bg-transparent border-none cursor-pointer font-sans text-fg"
       >
         <span
-          style={{
-            transform: open ? 'rotate(90deg)' : 'rotate(0)',
-            transition: 'transform var(--dur-fast)',
-            color: 'var(--fg-muted)',
-            display: 'inline-flex',
-          }}
+          className={cn(
+            'inline-flex text-fg-muted transition-transform duration-[var(--dur-fast)]',
+            open ? 'rotate-90' : 'rotate-0',
+          )}
         >
           {I.ChevronRight(14)}
         </span>
-        <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>Video recording</span>
-        <span style={{ color: 'var(--fg-muted)', fontSize: 12 }}>
-          {open ? 'Hide' : 'Show'}
-        </span>
+        <span className="flex-1 font-semibold text-sm">Video recording</span>
+        <span className="text-fg-muted text-xs">{open ? 'Hide' : 'Show'}</span>
       </button>
       {open && (
-        <div style={{ padding: 16, paddingTop: 0 }}>
+        <div className="px-4 pb-4">
           {loading && (
-            <div
-              style={{ padding: 20, textAlign: 'center', color: 'var(--fg-muted)' }}
-            >
-              Loading video…
-            </div>
+            <div className="p-5 text-center text-fg-muted">Loading video…</div>
           )}
           {error && (
-            <div
-              style={{
-                padding: 12,
-                color: 'var(--destructive)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
+            <div className="p-3 text-destructive flex items-center gap-1.5">
               {I.AlertTriangle(14)} {error}
             </div>
           )}
@@ -115,11 +83,7 @@ export function VideoPanel({ transcriptId, enabled }: Props) {
             <video
               src={blobUrl}
               controls
-              style={{
-                width: '100%',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--gh-off-black)',
-              }}
+              className="w-full rounded-md bg-[var(--gh-off-black)]"
             >
               {/* captions not wired yet */}
             </video>
@@ -128,7 +92,7 @@ export function VideoPanel({ transcriptId, enabled }: Props) {
             variant="ghost"
             size="sm"
             onClick={() => setOpen(false)}
-            style={{ marginTop: 8 }}
+            className="mt-2"
           >
             {I.ChevronLeft(12)} Collapse
           </Button>

@@ -203,7 +203,9 @@ GetTranscript = Annotated[
 
 class CreateTranscript(BaseModel):
     name: str
-    source_language: str = Field("en")
+    # None signals auto-detect — pipeline omits the `language` param so
+    # the transcription backend (Whisper / Parakeet) detects the source.
+    source_language: str | None = Field(None)
     target_language: str = Field("en")
     source_kind: SourceKind | None = None
 
@@ -386,6 +388,30 @@ class GetTranscriptSegmentTopic(BaseModel):
     text: str
     start: float
     speaker: int
+    translation: str | None = None
+
+
+def _norm_segment_text(text: str) -> str:
+    """Whitespace-collapsed lowercase key used to match an as_segments() text
+    back to a TRANSCRIPT event's text, since the segment is reconstructed
+    from words and may differ from the event text in whitespace only."""
+    return " ".join(text.lower().split())
+
+
+def _build_translation_map(events: list) -> dict[str, str]:
+    """Build a {normalized_text -> translation} lookup from a transcript's
+    TRANSCRIPT events. Used by the topics endpoint to surface translations
+    that were captured live but never threaded into the topic/word model."""
+    out: dict[str, str] = {}
+    for ev in events or []:
+        if getattr(ev, "event", None) != "TRANSCRIPT":
+            continue
+        data = getattr(ev, "data", None) or {}
+        text = (data.get("text") or "").strip()
+        translation = data.get("translation")
+        if text and translation:
+            out[_norm_segment_text(text)] = translation
+    return out
 
 
 class GetTranscriptTopic(BaseModel):
@@ -398,7 +424,13 @@ class GetTranscriptTopic(BaseModel):
     segments: list[GetTranscriptSegmentTopic] = []
 
     @classmethod
-    def from_transcript_topic(cls, topic: TranscriptTopic, is_multitrack: bool = False):
+    def from_transcript_topic(
+        cls,
+        topic: TranscriptTopic,
+        is_multitrack: bool = False,
+        translations: dict[str, str] | None = None,
+    ):
+        tmap = translations or {}
         if not topic.words:
             # In previous version, words were missing
             # Just output a segment with speaker 0
@@ -409,6 +441,7 @@ class GetTranscriptTopic(BaseModel):
                     text=topic.transcript,
                     start=topic.timestamp,
                     speaker=0,
+                    translation=tmap.get(_norm_segment_text(topic.transcript)),
                 )
             ]
         else:
@@ -421,6 +454,7 @@ class GetTranscriptTopic(BaseModel):
                     text=segment.text,
                     start=segment.start,
                     speaker=segment.speaker,
+                    translation=tmap.get(_norm_segment_text(segment.text)),
                 )
                 for segment in transcript.as_segments(is_multitrack)
             ]
@@ -439,8 +473,15 @@ class GetTranscriptTopicWithWords(GetTranscriptTopic):
     words: list[Word] = []
 
     @classmethod
-    def from_transcript_topic(cls, topic: TranscriptTopic, is_multitrack: bool = False):
-        instance = super().from_transcript_topic(topic, is_multitrack)
+    def from_transcript_topic(
+        cls,
+        topic: TranscriptTopic,
+        is_multitrack: bool = False,
+        translations: dict[str, str] | None = None,
+    ):
+        instance = super().from_transcript_topic(
+            topic, is_multitrack, translations=translations
+        )
         if topic.words:
             instance.words = topic.words
         return instance
@@ -455,8 +496,15 @@ class GetTranscriptTopicWithWordsPerSpeaker(GetTranscriptTopic):
     words_per_speaker: list[SpeakerWords] = []
 
     @classmethod
-    def from_transcript_topic(cls, topic: TranscriptTopic, is_multitrack: bool = False):
-        instance = super().from_transcript_topic(topic, is_multitrack)
+    def from_transcript_topic(
+        cls,
+        topic: TranscriptTopic,
+        is_multitrack: bool = False,
+        translations: dict[str, str] | None = None,
+    ):
+        instance = super().from_transcript_topic(
+            topic, is_multitrack, translations=translations
+        )
         if topic.words:
             words_per_speakers = []
             # group words by speaker
@@ -686,10 +734,13 @@ async def transcript_get_topics(
     )
 
     is_multitrack = await _get_is_multitrack(transcript)
+    translations = _build_translation_map(transcript.events)
 
     # convert to GetTranscriptTopic
     return [
-        GetTranscriptTopic.from_transcript_topic(topic, is_multitrack)
+        GetTranscriptTopic.from_transcript_topic(
+            topic, is_multitrack, translations=translations
+        )
         for topic in transcript.topics
     ]
 
@@ -708,10 +759,13 @@ async def transcript_get_topics_with_words(
     )
 
     is_multitrack = await _get_is_multitrack(transcript)
+    translations = _build_translation_map(transcript.events)
 
     # convert to GetTranscriptTopicWithWords
     return [
-        GetTranscriptTopicWithWords.from_transcript_topic(topic, is_multitrack)
+        GetTranscriptTopicWithWords.from_transcript_topic(
+            topic, is_multitrack, translations=translations
+        )
         for topic in transcript.topics
     ]
 

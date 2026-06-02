@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 /**
  * Minimal block/inline markdown renderer for transcript summaries.
@@ -75,20 +76,16 @@ function splitBlocks(src: string): Block[] {
   return out
 }
 
+const HEADING_SIZE = ['', 'text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-[15px]', 'text-sm']
+
 function renderBlock(b: Block): ReactNode {
   if (b.kind === 'heading') {
-    const sizes = [0, 24, 20, 18, 16, 15, 14]
     return (
       <div
-        style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: sizes[b.level] ?? 16,
-          fontWeight: 600,
-          letterSpacing: '-0.01em',
-          color: 'var(--fg)',
-          margin: '18px 0 6px',
-          lineHeight: 1.3,
-        }}
+        className={cn(
+          'font-serif font-semibold tracking-[-0.01em] text-fg mt-[18px] mb-1.5 leading-[1.3]',
+          HEADING_SIZE[b.level] ?? 'text-base',
+        )}
       >
         {renderInline(b.text)}
       </div>
@@ -96,21 +93,14 @@ function renderBlock(b: Block): ReactNode {
   }
   if (b.kind === 'paragraph') {
     return (
-      <p
-        style={{
-          margin: '0 0 10px',
-          lineHeight: 1.55,
-          color: 'var(--fg)',
-          whiteSpace: 'pre-wrap',
-        }}
-      >
+      <p className="mt-0 mb-2.5 leading-[1.55] text-fg whitespace-pre-wrap">
         {renderInline(b.text)}
       </p>
     )
   }
   if (b.kind === 'ul') {
     return (
-      <ul style={{ margin: '0 0 10px', paddingLeft: 20, lineHeight: 1.55 }}>
+      <ul className="mt-0 mb-2.5 pl-5 leading-[1.55]">
         {b.items.map((it, i) => (
           <li key={i}>{renderInline(it)}</li>
         ))}
@@ -118,7 +108,7 @@ function renderBlock(b: Block): ReactNode {
     )
   }
   return (
-    <ol style={{ margin: '0 0 10px', paddingLeft: 22, lineHeight: 1.55 }}>
+    <ol className="mt-0 mb-2.5 pl-[22px] leading-[1.55]">
       {b.items.map((it, i) => (
         <li key={i}>{renderInline(it)}</li>
       ))}
@@ -139,7 +129,7 @@ function renderInline(text: string): ReactNode {
           href={linkMatch[2]}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+          className="text-primary underline"
         >
           {renderInline(linkMatch[1])}
         </a>,
@@ -152,14 +142,7 @@ function renderInline(text: string): ReactNode {
       out.push(
         <code
           key={out.length}
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.9em',
-            padding: '1px 5px',
-            borderRadius: 3,
-            background: 'var(--muted)',
-            border: '1px solid var(--border)',
-          }}
+          className="font-mono text-[0.9em] px-[5px] py-px rounded-[3px] bg-muted border border-border"
         >
           {codeMatch[1]}
         </code>,
@@ -170,7 +153,7 @@ function renderInline(text: string): ReactNode {
     const boldMatch = rest.match(/^\*\*([^*]+)\*\*/)
     if (boldMatch) {
       out.push(
-        <strong key={out.length} style={{ fontWeight: 600 }}>
+        <strong key={out.length} className="font-semibold">
           {renderInline(boldMatch[1])}
         </strong>,
       )
@@ -180,7 +163,7 @@ function renderInline(text: string): ReactNode {
     const italicMatch = rest.match(/^\*([^*]+)\*/) || rest.match(/^_([^_]+)_/)
     if (italicMatch) {
       out.push(
-        <em key={out.length} style={{ fontStyle: 'italic' }}>
+        <em key={out.length} className="italic">
           {renderInline(italicMatch[1])}
         </em>,
       )

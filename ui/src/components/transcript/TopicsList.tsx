@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { components } from '@/api/schema'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 import { fmtDur } from '@/lib/format'
 
 type Topic = components['schemas']['GetTranscriptTopic']
@@ -24,21 +25,13 @@ export function TopicsList({
 }: Props) {
   if (topics.length === 0) {
     return (
-      <div
-        style={{
-          padding: '40px 20px',
-          textAlign: 'center',
-          color: 'var(--fg-muted)',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 13,
-        }}
-      >
+      <div className="px-5 py-10 text-center text-fg-muted font-sans text-[13px]">
         No topics yet.
       </div>
     )
   }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="flex flex-col">
       {topics.map((t, i) => (
         <TopicItem
           key={t.id ?? i}
@@ -91,96 +84,45 @@ function TopicItem({
     <div
       ref={ref}
       data-active={highlight ? 'true' : undefined}
-      style={{
-        borderBottom: '1px solid var(--border)',
-        background: 'transparent',
-      }}
+      className="border-b border-border bg-transparent"
     >
       <button
         onClick={() => {
           onSeek(started)
           setOpen((v) => !v)
         }}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '14px 20px',
-          background: highlight ? 'var(--accent)' : 'var(--muted)',
-          border: 'none',
-          borderBottom: open ? '1px solid var(--border)' : 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-          fontFamily: 'var(--font-sans)',
-          color: 'var(--fg)',
-          transition: 'background var(--dur-fast) var(--ease-default)',
-        }}
+        className={cn(
+          'w-full flex items-center gap-3 px-5 py-3.5 border-none cursor-pointer text-left font-sans text-fg transition-[background] duration-[var(--dur-fast)] ease-[var(--ease-default)]',
+          highlight ? 'bg-accent' : 'bg-muted',
+          open ? 'border-b border-border' : '',
+        )}
       >
         <span
-          style={{
-            transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-            transition: 'transform var(--dur-fast)',
-            color: 'var(--fg-muted)',
-            display: 'inline-flex',
-          }}
+          className={cn(
+            'transition-transform duration-[var(--dur-fast)] text-fg-muted inline-flex',
+            open ? 'rotate-90' : 'rotate-0',
+          )}
         >
           {I.ChevronRight(14)}
         </span>
-        <span
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontFamily: 'var(--font-serif)',
-            fontSize: 15,
-            fontWeight: 600,
-            letterSpacing: '-0.005em',
-            color: 'var(--fg)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
+        <span className="flex-1 min-w-0 font-serif text-[15px] font-semibold tracking-[-0.005em] text-fg whitespace-nowrap overflow-hidden text-ellipsis">
           {topic.title}
         </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            color: 'var(--fg-muted)',
-          }}
-        >
+        <span className="font-mono text-[11px] text-fg-muted">
           {fmtTimestamp(started)}
           {topic.duration && topic.duration > 0 ? ` · ${fmtDur(Math.floor(topic.duration))}` : ''}
         </span>
       </button>
 
       {open && (
-        <div
-          style={{
-            padding: '14px 20px 18px 46px',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 13.5,
-            lineHeight: 1.55,
-            color: 'var(--fg)',
-            background: 'var(--card)',
-          }}
-        >
+        <div className="pt-3.5 pr-5 pb-[18px] pl-[46px] font-sans text-[13.5px] leading-[1.55] text-fg bg-card">
           {topic.summary?.trim() && (
-            <div
-              style={{
-                fontStyle: 'italic',
-                color: 'var(--fg-muted)',
-                marginBottom: 12,
-                paddingLeft: 10,
-                borderLeft: '2px solid var(--border)',
-              }}
-            >
+            <div className="italic text-fg-muted mb-3 pl-2.5 border-l-2 border-border">
               {topic.summary}
             </div>
           )}
           {segments.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {segments.map((seg, i) => (
                 <TopicSegment
                   key={i}
@@ -191,9 +133,9 @@ function TopicItem({
               ))}
             </div>
           ) : topic.transcript?.trim() ? (
-            <div style={{ whiteSpace: 'pre-wrap' }}>{topic.transcript}</div>
+            <div className="whitespace-pre-wrap">{topic.transcript}</div>
           ) : (
-            <div style={{ color: 'var(--fg-muted)', fontSize: 12 }}>No transcript.</div>
+            <div className="text-fg-muted text-xs">No transcript.</div>
           )}
         </div>
       )}
@@ -213,35 +155,28 @@ function TopicSegment({
   const name = speakerNameFor(segment.speaker, participants)
   const color = speakerColor(segment.speaker, Math.max(participants.length, 1))
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+    <div className="flex items-start gap-2.5">
       <button
         onClick={() => onSeek(segment.start)}
         title="Seek to this moment"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 11,
-          color: 'var(--fg-muted)',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-          minWidth: 44,
-          textAlign: 'left',
-        }}
+        className="font-mono text-[11px] text-fg-muted bg-transparent border-none cursor-pointer p-0 min-w-[44px] text-left"
       >
         {fmtTimestamp(segment.start)}
       </button>
       <span
-        style={{
-          fontWeight: 600,
-          color,
-          flexShrink: 0,
-          minWidth: 0,
-        }}
+        className="font-semibold shrink-0 min-w-0"
+        style={{ color }}
       >
         {name}:
       </span>
-      <span style={{ flex: 1, minWidth: 0 }}>{segment.text}</span>
+      <div className="flex-1 min-w-0">
+        <div>{segment.text}</div>
+        {segment.translation && (
+          <div className="text-fg-muted italic text-sm mt-0.5">
+            {segment.translation}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

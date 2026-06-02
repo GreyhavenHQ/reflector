@@ -43,23 +43,14 @@ export function WaveformCanvas({
 
   return (
     <div
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: 72,
-        borderRadius: 'var(--radius-md)',
-        background: 'var(--muted)',
-        border: '1px solid var(--border)',
-        overflow: 'hidden',
-        cursor: 'pointer',
-      }}
+      className="relative w-full h-[72px] rounded-md bg-muted border border-border overflow-hidden cursor-pointer"
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect()
         const x = e.clientX - rect.left
         onSeek(Math.max(0, Math.min(1, x / rect.width)))
       }}
     >
-      <canvas ref={ref} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas ref={ref} className="w-full h-full block" />
     </div>
   )
 }

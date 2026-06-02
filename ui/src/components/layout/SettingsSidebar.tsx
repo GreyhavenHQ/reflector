@@ -4,6 +4,7 @@ import { I } from '@/components/icons'
 import { Button, SectionLabel, SidebarItem } from '@/components/ui/primitives'
 import { BrandHeader, PrimaryNav, UserChip, sidebarAsideStyle } from './sidebarChrome'
 import { useAuth } from '@/auth/AuthContext'
+import { cn } from '@/lib/utils'
 
 type SettingsNavItem = {
   id: string
@@ -39,40 +40,25 @@ export function SettingsSidebar({ collapsed, onToggle, onNewRecording }: Props) 
         <SettingsRail onToggle={onToggle} onNewRecording={onNewRecording} />
       ) : (
         <>
-          <div style={{ padding: '14px 12px 6px' }}>
+          <div className="pt-3.5 px-3 pb-1.5">
             <Button
               variant="primary"
               size="md"
-              style={{ width: '100%', justifyContent: 'flex-start' }}
+              className="w-full justify-start"
               onClick={onNewRecording}
             >
               {I.Mic(14)} New recording
             </Button>
           </div>
 
-          <nav
-            style={{
-              flex: 1,
-              padding: '6px 10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 14,
-              overflowY: 'auto',
-            }}
-          >
+          <nav className="flex-1 pt-1.5 px-2.5 pb-3 flex flex-col gap-3.5 overflow-y-auto">
             <PrimaryNav />
 
-            <div
-              style={{
-                height: 1,
-                background: 'var(--border)',
-                margin: '2px 6px',
-              }}
-            />
+            <div className="h-px bg-border mx-1.5 my-0.5" />
 
             <div>
               <SectionLabel>Settings</SectionLabel>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div className="flex flex-col gap-px">
                 {SETTINGS_NAV.map((item) => (
                   <SidebarItem
                     key={item.id}
@@ -103,20 +89,11 @@ function SettingsRail({
   const navigate = useNavigate()
   const location = useLocation()
   return (
-    <nav
-      style={{
-        flex: 1,
-        padding: '10px 8px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        alignItems: 'center',
-      }}
-    >
+    <nav className="flex-1 py-2.5 px-2 flex flex-col gap-1 items-center">
       <Button variant="primary" size="icon" title="New recording" onClick={onNewRecording}>
         {I.Mic(16)}
       </Button>
-      <div style={{ height: 10 }} />
+      <div className="h-2.5" />
       {SETTINGS_NAV.map((item) => {
         const on = location.pathname.startsWith(item.path)
         return (
@@ -124,40 +101,22 @@ function SettingsRail({
             key={item.id}
             title={item.label}
             onClick={() => navigate(item.path)}
-            style={{
-              width: 40,
-              height: 40,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid',
-              borderColor: on ? 'var(--border)' : 'transparent',
-              borderRadius: 'var(--radius-md)',
-              background: on ? 'var(--card)' : 'transparent',
-              color: on ? 'var(--primary)' : 'var(--fg-muted)',
-              cursor: 'pointer',
-              boxShadow: on ? 'var(--shadow-xs)' : 'none',
-            }}
+            className={cn(
+              'w-10 h-10 inline-flex items-center justify-center border rounded-md cursor-pointer',
+              on
+                ? 'border-border bg-card text-primary shadow-xs'
+                : 'border-transparent bg-transparent text-fg-muted shadow-none',
+            )}
           >
             {item.icon}
           </button>
         )
       })}
-      <div style={{ marginTop: 'auto' }}>
+      <div className="mt-auto">
         <button
           onClick={onToggle}
           title="Expand sidebar"
-          style={{
-            width: 40,
-            height: 40,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--fg-muted)',
-            cursor: 'pointer',
-          }}
+          className="w-10 h-10 inline-flex items-center justify-center border-none bg-transparent text-fg-muted cursor-pointer"
         >
           {I.ChevronRight(16)}
         </button>

@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
+import { cn } from '@/lib/utils'
 import { getPasswordToken } from '@/api/client'
 import { useRooms } from '@/hooks/useRooms'
 import { useTranscript, useTranscriptMutations } from '@/hooks/useTranscript'
@@ -137,40 +138,12 @@ export function UploadPage() {
         />
       }
     >
-      <div
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-xs)',
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
+      <div className="bg-card border border-border rounded-lg shadow-xs p-6 flex flex-col gap-4">
         <div>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: 'var(--fg)',
-            }}
-          >
+          <h1 className="m-0 font-serif text-[22px] font-semibold tracking-[-0.02em] text-fg">
             Upload a recording
           </h1>
-          <p
-            style={{
-              margin: '4px 0 0',
-              fontSize: 13,
-              color: 'var(--fg-muted)',
-              fontFamily: 'var(--font-sans)',
-              lineHeight: 1.5,
-            }}
-          >
+          <p className="mt-1 mb-0 text-[13px] text-fg-muted font-sans leading-[1.5]">
             Drop an audio or video file. Large files are split into 50 MB chunks
             and resumed on error.
           </p>
@@ -190,19 +163,13 @@ export function UploadPage() {
             if (f) pickFile(f)
           }}
           htmlFor="rf-upload-input"
-          style={{
-            display: 'block',
-            border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
-            background: dragOver
-              ? 'color-mix(in srgb, var(--primary) 6%, var(--card))'
-              : 'var(--card)',
-            borderRadius: 'var(--radius-md)',
-            padding: 32,
-            textAlign: 'center',
-            cursor: uploading ? 'not-allowed' : 'pointer',
-            fontFamily: 'var(--font-sans)',
-            transition: 'background var(--dur-fast), border-color var(--dur-fast)',
-          }}
+          className={cn(
+            'block border-2 border-dashed rounded-md p-8 text-center font-sans transition-[background,border-color] duration-[var(--dur-fast)]',
+            dragOver
+              ? 'border-primary bg-[color-mix(in_srgb,var(--primary)_6%,var(--card))]'
+              : 'border-border bg-card',
+            uploading ? 'cursor-not-allowed' : 'cursor-pointer',
+          )}
         >
           <input
             ref={inputRef}
@@ -216,59 +183,26 @@ export function UploadPage() {
               // allow picking the same file again
               e.target.value = ''
             }}
-            style={{ display: 'none' }}
+            className="hidden"
           />
-          <div
-            style={{
-              display: 'inline-flex',
-              color: 'var(--fg-muted)',
-              marginBottom: 10,
-            }}
-          >
+          <div className="inline-flex text-fg-muted mb-2.5">
             {I.Upload(26)}
           </div>
           {file ? (
             <div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 12.5,
-                  color: 'var(--fg)',
-                  fontWeight: 500,
-                  wordBreak: 'break-all',
-                }}
-              >
+              <div className="font-mono text-[12.5px] text-fg font-medium break-all">
                 {file.name}
               </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11.5,
-                  color: 'var(--fg-muted)',
-                  marginTop: 2,
-                }}
-              >
+              <div className="font-mono text-[11.5px] text-fg-muted mt-0.5">
                 {readableSize(file.size)}
               </div>
             </div>
           ) : (
             <>
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: 'var(--fg)',
-                }}
-              >
+              <div className="text-sm font-medium text-fg">
                 Drag and drop a file here
               </div>
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 12,
-                  color: 'var(--fg-muted)',
-                }}
-              >
+              <div className="mt-1 text-xs text-fg-muted">
                 or click to pick one. Supports mp3, m4a, wav, mp4, mov, webm.
               </div>
             </>
@@ -276,40 +210,15 @@ export function UploadPage() {
         </label>
 
         {uploading && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 12,
-                color: 'var(--fg-muted)',
-              }}
-            >
+          <div className="flex flex-col gap-1.5 font-sans">
+            <div className="flex justify-between text-xs text-fg-muted">
               <span>Uploading…</span>
-              <span style={{ fontFamily: 'var(--font-mono)' }}>{progress}%</span>
+              <span className="font-mono">{progress}%</span>
             </div>
-            <div
-              style={{
-                height: 6,
-                background: 'var(--muted)',
-                borderRadius: 999,
-                overflow: 'hidden',
-              }}
-            >
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                style={{
-                  width: `${progress}%`,
-                  height: '100%',
-                  background: 'var(--primary)',
-                  transition: 'width var(--dur-fast) var(--ease-default)',
-                }}
+                className="h-full bg-primary transition-[width] duration-[var(--dur-fast)] ease-[var(--ease-default)]"
+                style={{ width: `${progress}%` }}
               />
             </div>
           </div>
@@ -318,27 +227,13 @@ export function UploadPage() {
         {error && (
           <div
             role="alert"
-            style={{
-              padding: '10px 12px',
-              borderRadius: 'var(--radius-md)',
-              background: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--destructive) 25%, transparent)',
-              color: 'var(--destructive)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 13,
-            }}
+            className="py-2.5 px-3 rounded-md bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)] border border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] text-destructive font-sans text-[13px]"
           >
             {error}
           </div>
         )}
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 8,
-          }}
-        >
+        <div className="flex justify-end gap-2">
           <Button
             variant="ghost"
             size="md"

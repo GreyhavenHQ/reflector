@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { I } from '@/components/icons'
 import { SidebarItem } from '@/components/ui/primitives'
 import { useAuth } from '@/auth/AuthContext'
+import { cn } from '@/lib/utils'
 import { ReflectorMark } from './ReflectorMark'
 
 /**
@@ -19,7 +20,7 @@ export function PrimaryNav() {
     location.pathname.startsWith('/transcript/')
   const onRooms = location.pathname.startsWith('/rooms')
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <div className="flex flex-col gap-px">
       <SidebarItem
         icon={I.Inbox(15)}
         label="Transcripts"
@@ -45,41 +46,22 @@ export function BrandHeader({
 }) {
   return (
     <div
-      style={{
-        height: 65,
-        display: 'flex',
-        alignItems: 'center',
-        padding: collapsed ? '0' : '0 16px',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        borderBottom: '1px solid var(--border)',
-      }}
+      className={cn(
+        'h-[65px] flex items-center border-b border-border',
+        collapsed ? 'px-0 justify-center' : 'px-4 justify-between',
+      )}
     >
       {collapsed ? (
         <ReflectorMark size={28} />
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="flex items-center gap-2.5">
             <ReflectorMark size={26} />
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 17,
-                  fontWeight: 600,
-                  letterSpacing: '-0.01em',
-                  color: 'var(--fg)',
-                }}
-              >
+            <div className="flex flex-col leading-none">
+              <span className="font-serif text-[17px] font-semibold tracking-[-0.01em] text-fg">
                 Reflector
               </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  color: 'var(--fg-muted)',
-                  fontFamily: 'var(--font-mono)',
-                  marginTop: 2,
-                }}
-              >
+              <span className="text-[10px] text-fg-muted font-mono mt-0.5">
                 by Greyhaven
               </span>
             </div>
@@ -87,15 +69,7 @@ export function BrandHeader({
           <button
             onClick={onToggle}
             title="Collapse sidebar"
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--fg-muted)',
-              cursor: 'pointer',
-              padding: 4,
-              borderRadius: 4,
-              display: 'inline-flex',
-            }}
+            className="border-none bg-transparent text-fg-muted cursor-pointer p-1 rounded-sm inline-flex"
           >
             {I.ChevronLeft(14)}
           </button>
@@ -137,24 +111,12 @@ export function UserChip({
   return (
     <div
       ref={wrapperRef}
-      style={{ borderTop: '1px solid var(--border)', padding: 12, position: 'relative' }}
+      className="border-t border-border p-3 relative"
     >
       {open && (
         <div
           role="menu"
-          style={{
-            position: 'absolute',
-            left: 12,
-            right: 12,
-            bottom: 'calc(100% - 6px)',
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-md)',
-            padding: 4,
-            zIndex: 60,
-            fontFamily: 'var(--font-sans)',
-          }}
+          className="absolute left-3 right-3 bottom-[calc(100%-6px)] bg-card border border-border rounded-md shadow-md p-1 z-[60] font-sans"
         >
           <MenuRow
             icon={I.Settings(14)}
@@ -164,7 +126,7 @@ export function UserChip({
               navigate('/settings')
             }}
           />
-          <div style={{ height: 1, background: 'var(--border)', margin: '4px 2px' }} />
+          <div className="h-px bg-border mx-0.5 my-1" />
           <MenuRow
             icon={I.ExternalLink(14)}
             label="Log out"
@@ -180,65 +142,27 @@ export function UserChip({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '8px 10px',
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-md)',
-          cursor: 'pointer',
-          fontFamily: 'var(--font-sans)',
-          boxShadow: 'var(--shadow-xs)',
-        }}
+        className="w-full flex items-center gap-2.5 px-2.5 py-2 bg-card border border-border rounded-md cursor-pointer font-sans shadow-xs"
       >
         <span
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 9999,
-            background: 'var(--gh-off-black)',
-            color: 'var(--gh-off-white)',
-            fontSize: 11,
-            fontWeight: 600,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="w-7 h-7 rounded-full text-[11px] font-semibold inline-flex items-center justify-center"
+          style={{ background: 'var(--gh-off-black)', color: 'var(--gh-off-white)' }}
         >
           {initials(displayName)}
         </span>
-        <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--fg)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
+        <span className="flex-1 text-left min-w-0">
+          <div className="text-[13px] font-medium text-fg whitespace-nowrap overflow-hidden text-ellipsis">
             {displayName}
           </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: 'var(--fg-muted)',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
+          <div className="text-[10px] text-fg-muted font-mono">
             {user?.email ? 'signed in' : 'local · on-prem'}
           </div>
         </span>
         <span
-          style={{
-            color: 'var(--fg-muted)',
-            transform: open ? 'rotate(180deg)' : undefined,
-            transition: 'transform var(--dur-fast)',
-          }}
+          className={cn(
+            'text-fg-muted transition-transform duration-[var(--dur-fast)]',
+            open && 'rotate-180',
+          )}
         >
           {I.ChevronDown(14)}
         </span>
@@ -265,26 +189,12 @@ function MenuRow({
       role="menuitem"
       onClick={onClick}
       disabled={disabled}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        width: '100%',
-        padding: '7px 10px',
-        border: 'none',
-        background: 'transparent',
-        fontSize: 13,
-        fontFamily: 'var(--font-sans)',
-        color: disabled
-          ? 'var(--fg-muted)'
-          : danger
-            ? 'var(--destructive)'
-            : 'var(--fg)',
-        opacity: disabled ? 0.5 : 1,
-        borderRadius: 'var(--radius-sm)',
-        textAlign: 'left',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
+      className={cn(
+        'flex items-center gap-2.5 w-full px-2.5 py-[7px] border-none bg-transparent text-[13px] font-sans rounded-sm text-left',
+        disabled
+          ? 'text-fg-muted opacity-50 cursor-not-allowed'
+          : cn(danger ? 'text-destructive' : 'text-fg', 'opacity-100 cursor-pointer'),
+      )}
       onMouseEnter={(e) => {
         if (disabled) return
         e.currentTarget.style.background = danger
@@ -296,15 +206,14 @@ function MenuRow({
       }}
     >
       <span
-        style={{
-          display: 'inline-flex',
-          flexShrink: 0,
-          color: danger ? 'var(--destructive)' : 'var(--fg-muted)',
-        }}
+        className={cn(
+          'inline-flex shrink-0',
+          danger ? 'text-destructive' : 'text-fg-muted',
+        )}
       >
         {icon}
       </span>
-      <span style={{ flex: 1, minWidth: 0 }}>{label}</span>
+      <span className="flex-1 min-w-0">{label}</span>
     </button>
   )
 }

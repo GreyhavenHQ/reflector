@@ -10,6 +10,7 @@ import { apiClient } from '@/api/client'
 import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
 import { Combobox } from '@/components/ui/Combobox'
+import { cn } from '@/lib/utils'
 import type { components } from '@/api/schema'
 
 type Transcript = components['schemas']['GetTranscriptWithParticipants']
@@ -37,8 +38,15 @@ const MODE_HINT: Record<ShareMode, string> = {
 }
 
 export function ShareDialog(props: Props) {
+  const mode = props.transcript.share_mode ?? 'private'
+  const fallbackUrl =
+    typeof window !== 'undefined'
+      ? mode === 'public'
+        ? `${window.location.origin}/v2/shared/${props.transcript.id}`
+        : `${window.location.origin}${window.location.pathname}`
+      : ''
   return (
-    <DialogBoundary onClose={props.onClose}>
+    <DialogBoundary onClose={props.onClose} fallbackUrl={fallbackUrl}>
       <ShareDialogInner {...props} />
     </DialogBoundary>
   )
@@ -171,40 +179,16 @@ function ShareDialogInner({
     <>
       <div className="rf-modal-backdrop" onClick={onClose} />
       <div
-        className="rf-modal"
+        className="rf-modal w-[min(560px,calc(100vw-32px))]"
         role="dialog"
         aria-modal="true"
-        style={{ width: 'min(560px, calc(100vw - 32px))' }}
       >
-        <header
-          style={{
-            padding: '16px 20px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h2
-              style={{
-                margin: 0,
-                fontFamily: 'var(--font-serif)',
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                color: 'var(--fg)',
-              }}
-            >
+        <header className="pt-4 pr-5 pb-3 pl-5 flex items-center border-b border-border">
+          <div className="flex-1 min-w-0">
+            <h2 className="m-0 font-serif text-lg font-semibold tracking-[-0.01em] text-fg">
               Share transcript
             </h2>
-            <p
-              style={{
-                margin: '2px 0 0',
-                fontSize: 12,
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+            <p className="mt-0.5 mb-0 text-xs text-fg-muted font-sans">
               {MODE_LABEL[mode]} — {MODE_HINT[mode]}
             </p>
           </div>
@@ -212,41 +196,16 @@ function ShareDialogInner({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            style={{
-              border: 'none',
-              background: 'transparent',
-              padding: 6,
-              cursor: 'pointer',
-              color: 'var(--fg-muted)',
-              display: 'inline-flex',
-            }}
+            className="border-none bg-transparent p-1.5 cursor-pointer text-fg-muted inline-flex"
           >
             {I.X(16)}
           </button>
         </header>
 
-        <div
-          style={{
-            padding: 20,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-            maxHeight: 'calc(100vh - 180px)',
-            overflowY: 'auto',
-          }}
-        >
+        <div className="p-5 flex flex-col gap-4 max-h-[calc(100vh-180px)] overflow-y-auto">
           {canEdit && (
             <Section label="Privacy">
-              <div
-                style={{
-                  display: 'inline-flex',
-                  gap: 0,
-                  padding: 2,
-                  background: 'var(--muted)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 9999,
-                }}
-              >
+              <div className="inline-flex gap-0 p-0.5 bg-muted border border-border rounded-full">
                 {(['private', 'semi-private', 'public'] as const).map((m) => {
                   const on = m === mode
                   return (
@@ -254,18 +213,13 @@ function ShareDialogInner({
                       key={m}
                       onClick={() => handleMode(m)}
                       disabled={modeBusy}
-                      style={{
-                        padding: '5px 12px',
-                        border: 'none',
-                        borderRadius: 9999,
-                        background: on ? 'var(--card)' : 'transparent',
-                        color: on ? 'var(--fg)' : 'var(--fg-muted)',
-                        boxShadow: on ? 'var(--shadow-xs)' : 'none',
-                        fontFamily: 'var(--font-sans)',
-                        fontSize: 12.5,
-                        fontWeight: on ? 600 : 500,
-                        cursor: modeBusy ? 'wait' : 'pointer',
-                      }}
+                      className={cn(
+                        'py-[5px] px-3 border-none rounded-full font-sans text-[12.5px]',
+                        on
+                          ? 'bg-card text-fg shadow-xs font-semibold'
+                          : 'bg-transparent text-fg-muted font-medium',
+                        modeBusy ? 'cursor-wait' : 'cursor-pointer',
+                      )}
                     >
                       {MODE_LABEL[m]}
                     </button>
@@ -276,31 +230,18 @@ function ShareDialogInner({
           )}
 
           <Section label="Share link">
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'stretch',
-                gap: 8,
-              }}
-            >
+            <div className="flex items-stretch gap-2">
               <input
                 readOnly
                 value={url}
                 onFocus={(e) => e.currentTarget.select()}
-                className="rf-input"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11.5,
-                  height: 34,
-                }}
+                className="rf-input flex-1 min-w-0 font-mono text-[11.5px] h-[34px]"
               />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={copyUrl}
-                style={{ flexShrink: 0 }}
+                className="shrink-0"
               >
                 {I.Copy(13)} Copy
               </Button>
@@ -309,15 +250,9 @@ function ShareDialogInner({
 
           {emailEnabled && (
             <Section label="Email">
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'stretch',
-                  gap: 8,
-                }}
-              >
+              <div className="flex items-stretch gap-2">
                 <input
-                  className="rf-input"
+                  className="rf-input flex-1 h-[34px] text-[13px]"
                   type="email"
                   placeholder="person@example.com"
                   value={emailInput}
@@ -325,14 +260,13 @@ function ShareDialogInner({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void handleEmail()
                   }}
-                  style={{ flex: 1, height: 34, fontSize: 13 }}
                 />
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={handleEmail}
                   disabled={sendingEmail || !emailInput.trim()}
-                  style={{ flexShrink: 0 }}
+                  className="shrink-0"
                 >
                   {sendingEmail ? 'Sending…' : 'Send'}
                 </Button>
@@ -342,14 +276,7 @@ function ShareDialogInner({
 
           {canZulip && (
             <Section label="Zulip">
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr auto',
-                  gap: 8,
-                  alignItems: 'stretch',
-                }}
-              >
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-stretch">
                 <Combobox
                   value={stream}
                   onChange={(v) => {
@@ -372,7 +299,7 @@ function ShareDialogInner({
                   size="sm"
                   onClick={handleZulip}
                   disabled={postingZulip || !stream.trim() || !topic.trim()}
-                  style={{ flexShrink: 0 }}
+                  className="shrink-0"
                 >
                   {postingZulip ? 'Posting…' : 'Post'}
                 </Button>
@@ -381,14 +308,7 @@ function ShareDialogInner({
           )}
         </div>
 
-        <footer
-          style={{
-            padding: '10px 20px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-          }}
-        >
+        <footer className="py-2.5 px-5 border-t border-border flex justify-end">
           <Button variant="ghost" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -403,7 +323,7 @@ function ShareDialogInner({
  * graceful message and a Close button instead of white-screening the app.
  */
 class DialogBoundary extends Component<
-  { onClose: () => void; children: ReactNode },
+  { onClose: () => void; fallbackUrl: string; children: ReactNode },
   { error: Error | null }
 > {
   state: { error: Error | null } = { error: null }
@@ -419,81 +339,27 @@ class DialogBoundary extends Component<
       <>
         <div className="rf-modal-backdrop" onClick={this.props.onClose} />
         <div
-          className="rf-modal"
+          className="rf-modal w-[min(480px,calc(100vw-32px))]"
           role="dialog"
           aria-modal="true"
-          style={{ width: 'min(480px, calc(100vw - 32px))' }}
         >
-          <header
-            style={{
-              padding: '16px 20px 12px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
-            <h2
-              style={{
-                margin: 0,
-                fontFamily: 'var(--font-serif)',
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                color: 'var(--fg)',
-                flex: 1,
-              }}
-            >
+          <header className="pt-4 pr-5 pb-3 pl-5 border-b border-border flex items-center gap-2.5">
+            <h2 className="m-0 font-serif text-lg font-semibold tracking-[-0.01em] text-fg flex-1">
               Share — something went wrong
             </h2>
           </header>
-          <div
-            style={{
-              padding: 20,
-              fontSize: 13,
-              color: 'var(--fg)',
-              fontFamily: 'var(--font-sans)',
-              lineHeight: 1.5,
-            }}
-          >
-            <p style={{ margin: '0 0 10px' }}>
+          <div className="p-5 text-[13px] text-fg font-sans leading-[1.5]">
+            <p className="mt-0 mb-2.5">
               The Share dialog hit an error. Your link is:
             </p>
-            <code
-              style={{
-                display: 'block',
-                padding: 10,
-                background: 'var(--muted)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11.5,
-                wordBreak: 'break-all',
-              }}
-            >
-              {typeof window !== 'undefined'
-                ? `${window.location.origin}${window.location.pathname}`
-                : ''}
+            <code className="block p-2.5 bg-muted border border-border rounded-md font-mono text-[11.5px] break-all">
+              {this.props.fallbackUrl}
             </code>
-            <p
-              style={{
-                marginTop: 12,
-                marginBottom: 0,
-                fontSize: 11.5,
-                color: 'var(--fg-muted)',
-              }}
-            >
+            <p className="mt-3 mb-0 text-[11.5px] text-fg-muted">
               {this.state.error.message}
             </p>
           </div>
-          <footer
-            style={{
-              padding: '10px 20px',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'flex-end',
-            }}
-          >
+          <footer className="py-2.5 px-5 border-t border-border flex justify-end">
             <Button variant="ghost" size="sm" onClick={this.props.onClose}>
               Close
             </Button>
@@ -507,16 +373,7 @@ class DialogBoundary extends Component<
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div
-        style={{
-          fontSize: 10.5,
-          fontWeight: 700,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--fg-muted)',
-          marginBottom: 6,
-        }}
-      >
+      <div className="text-[10.5px] font-bold tracking-widest uppercase text-fg-muted mb-1.5">
         {label}
       </div>
       {children}

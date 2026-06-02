@@ -10,54 +10,16 @@ const FLAG_NOTE =
 export function StatusPlaceholder({ transcript }: { transcript: Transcript }) {
   const kind = kindFor(transcript)
   return (
-    <div
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 32,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 18,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div className="flex flex-col gap-[18px] p-8 bg-card border border-border rounded-lg">
+      <div className="flex items-center gap-3">
         {kind.icon}
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: 'var(--font-serif)',
-            fontSize: 22,
-            fontWeight: 600,
-            letterSpacing: '-0.01em',
-            color: 'var(--fg)',
-          }}
-        >
+        <h2 className="m-0 font-serif text-[22px] font-semibold tracking-[-0.01em] text-fg">
           {kind.title}
         </h2>
       </div>
-      <p
-        style={{
-          margin: 0,
-          color: 'var(--fg-muted)',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 14,
-          lineHeight: 1.55,
-        }}
-      >
-        {kind.body}
-      </p>
+      <p className="m-0 font-sans text-sm leading-[1.55] text-fg-muted">{kind.body}</p>
       {kind.showProgress && <ProgressRow stage={kind.stage!} progress={null} />}
-      <div
-        style={{
-          fontSize: 11.5,
-          color: 'var(--fg-muted)',
-          fontFamily: 'var(--font-mono)',
-          lineHeight: 1.5,
-          paddingTop: 14,
-          borderTop: '1px solid var(--border)',
-        }}
-      >
+      <div className="pt-3.5 border-t border-border font-mono text-[11.5px] leading-[1.5] text-fg-muted">
         {FLAG_NOTE}
       </div>
     </div>
@@ -77,9 +39,7 @@ function kindFor(t: Transcript) {
   if (status === 'idle' && t.source_kind === 'file') {
     return {
       icon: (
-        <span style={{ color: 'var(--fg-muted)', display: 'inline-flex' }}>
-          {I.FileAudio(22)}
-        </span>
+        <span className="inline-flex text-fg-muted">{I.FileAudio(22)}</span>
       ),
       title: 'Waiting for upload',
       body: 'This transcript is pending an audio file. Upload from the transcript detail view on the legacy app, or trigger the upload flow from a new recording.',
@@ -89,9 +49,7 @@ function kindFor(t: Transcript) {
   if (status === 'uploaded' || status === 'processing') {
     return {
       icon: (
-        <span style={{ color: 'var(--status-processing)', display: 'inline-flex' }}>
-          {I.Loader(22)}
-        </span>
+        <span className="inline-flex text-status-processing">{I.Loader(22)}</span>
       ),
       title: 'Processing the recording…',
       body: 'The pipeline is transcribing, diarizing and summarizing. This page will update automatically when the transcript is ready.',
@@ -101,9 +59,7 @@ function kindFor(t: Transcript) {
   }
   return {
     icon: (
-      <span style={{ color: 'var(--fg-muted)', display: 'inline-flex' }}>
-        {I.Clock(22)}
-      </span>
+      <span className="inline-flex text-fg-muted">{I.Clock(22)}</span>
     ),
     title: 'Not ready',
     body: 'This transcript is not in a viewable state yet.',
@@ -113,25 +69,8 @@ function kindFor(t: Transcript) {
 
 function pulseDot() {
   return (
-    <span
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        width: 22,
-        height: 22,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <span
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: 9999,
-          background: 'var(--status-live)',
-          animation: 'rfPulse 1.4s ease-in-out infinite',
-        }}
-      />
+    <span className="relative inline-flex w-[22px] h-[22px] items-center justify-center">
+      <span className="w-2.5 h-2.5 rounded-full bg-status-live animate-[rfPulse_1.4s_ease-in-out_infinite]" />
     </span>
   )
 }

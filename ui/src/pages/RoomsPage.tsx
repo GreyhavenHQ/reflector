@@ -181,65 +181,23 @@ export function RoomsPage() {
         />
       }
     >
-      <div
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-xs)',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            padding: '14px 20px',
-            borderBottom: '1px solid var(--border)',
-            background: 'var(--card)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <span style={{ color: 'var(--fg)', fontWeight: 600, fontSize: 13 }}>
+      <div className="flex flex-col bg-card border border-border rounded-lg overflow-hidden shadow-xs">
+        <div className="flex items-center gap-3.5 px-5 py-3.5 border-b border-border bg-card font-sans">
+          <span className="text-fg font-semibold text-[13px]">
             {filtered.length} {filtered.length === 1 ? 'room' : 'rooms'}
           </span>
-          <div
-            style={{
-              marginLeft: 4,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              height: 30,
-              padding: '0 10px',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              width: 320,
-              maxWidth: '40%',
-            }}
-          >
-            <span style={{ color: 'var(--fg-muted)', display: 'inline-flex' }}>
+          <div className="ml-1 inline-flex items-center gap-2 h-[30px] px-2.5 bg-bg border border-border rounded-md w-80 max-w-[40%]">
+            <span className="text-fg-muted inline-flex">
               {I.Search(13)}
             </span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search rooms, streams, topics…"
-              style={{
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 12.5,
-                color: 'var(--fg)',
-                flex: 1,
-              }}
+              className="border-none outline-none bg-transparent font-sans text-[12.5px] text-fg flex-1"
             />
           </div>
-          <div style={{ flex: 1 }} />
+          <div className="flex-1" />
           <Button
             variant="outline"
             size="sm"
@@ -252,46 +210,23 @@ export function RoomsPage() {
           </Button>
         </div>
 
-        <div style={{ overflowY: 'auto' }}>
+        <div className="overflow-y-auto">
           {roomsQuery.isLoading ? (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--fg-muted)' }}>
+            <div className="p-8 text-center text-fg-muted">
               Loading…
             </div>
           ) : filtered.length === 0 ? (
-            <div
-              style={{
-                padding: '80px 24px',
-                textAlign: 'center',
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+            <div className="px-6 py-20 text-center text-fg-muted font-sans">
               <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 9999,
-                  background: 'var(--muted)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--gh-grey-4)',
-                  marginBottom: 12,
-                }}
+                className="w-12 h-12 rounded-full bg-muted inline-flex items-center justify-center mb-3"
+                style={{ color: 'var(--gh-grey-4)' }}
               >
                 {I.Door(22)}
               </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: 'var(--fg)',
-                }}
-              >
+              <div className="font-serif text-lg font-semibold text-fg">
                 {search ? `No rooms match “${search}”` : 'No rooms match this filter'}
               </div>
-              <div style={{ fontSize: 13, maxWidth: 360, margin: '8px auto 0' }}>
+              <div className="text-[13px] max-w-[360px] mx-auto mt-2">
                 {search
                   ? 'Try a different term, or clear the search.'
                   : 'Clear the sidebar filter, or create a new room to get started.'}
@@ -370,33 +305,11 @@ function Section({
 }) {
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: 10,
-          padding: '18px 20px 10px',
-          fontFamily: 'var(--font-sans)',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: 15,
-            fontWeight: 600,
-            color: 'var(--fg)',
-            letterSpacing: '-0.005em',
-          }}
-        >
+      <div className="flex items-baseline gap-2.5 px-5 pt-[18px] pb-2.5 font-sans">
+        <span className="font-serif text-[15px] font-semibold text-fg tracking-[-0.005em]">
           {label}
         </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            color: 'var(--fg-muted)',
-          }}
-        >
+        <span className="font-mono text-[11px] text-fg-muted">
           {count} {count === 1 ? 'room' : 'rooms'}
         </span>
       </div>

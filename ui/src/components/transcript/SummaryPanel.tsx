@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react'
-import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
 import { Markdown } from '@/lib/markdown'
 
 type Props = {
   summary: string | null | undefined
-  canEdit: boolean
+  /** Controlled edit mode — parent owns the state so it can show its own
+   *  "Edit" action button (e.g. in a tab-nav row). */
+  editing: boolean
+  onEditingChange: (next: boolean) => void
   saving: boolean
   onSave: (next: string) => Promise<void> | void
 }
 
-export function SummaryPanel({ summary, canEdit, saving, onSave }: Props) {
-  const [editing, setEditing] = useState(false)
+/**
+ * Body-only summary view. Renders the Markdown summary, or a textarea
+ * editor when `editing` is true. No card chrome and no header — the
+ * parent (SummaryTranslationTabs) provides those.
+ */
+export function SummaryPanel({
+  summary,
+  editing,
+  onEditingChange,
+  saving,
+  onSave,
+}: Props) {
   const [draft, setDraft] = useState(summary ?? '')
 
   useEffect(() => {
@@ -21,126 +33,64 @@ export function SummaryPanel({ summary, canEdit, saving, onSave }: Props) {
   useEffect(() => {
     if (!editing) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setEditing(false)
+      if (e.key === 'Escape') onEditingChange(false)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [editing])
+  }, [editing, onEditingChange])
 
   const save = async () => {
     await onSave(draft)
-    setEditing(false)
+    onEditingChange(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-3">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.shiftKey) {
+              e.preventDefault()
+              void save()
+            }
+          }}
+          autoFocus
+          className="w-full min-h-[200px] p-3 font-sans text-[13.5px] leading-[1.55] text-fg bg-bg border border-border rounded-md resize-y outline-none"
+        />
+        <div className="flex gap-2.5 justify-end">
+          <span className="flex-1 self-center text-[11.5px] text-fg-muted font-sans">
+            Shift+Enter to save · Escape to cancel
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEditingChange(false)}
+            disabled={saving}
+            className="text-fg font-semibold"
+          >
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (summary?.trim()) {
+    return (
+      <div className="font-sans text-[13.5px]">
+        <Markdown source={summary} />
+      </div>
+    )
   }
 
   return (
-    <div
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: 'var(--font-serif)',
-            fontSize: 18,
-            fontWeight: 600,
-            letterSpacing: '-0.01em',
-            color: 'var(--fg)',
-          }}
-        >
-          Summary
-        </h2>
-        {canEdit && !editing && (
-          <Button
-            variant="ghost"
-            size="iconSm"
-            onClick={() => setEditing(true)}
-            title="Edit summary"
-          >
-            {I.Edit(14)}
-          </Button>
-        )}
-      </div>
-
-      {editing ? (
-        <>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.shiftKey) {
-                e.preventDefault()
-                void save()
-              }
-            }}
-            autoFocus
-            style={{
-              width: '100%',
-              minHeight: 200,
-              padding: 12,
-              fontFamily: 'var(--font-sans)',
-              fontSize: 13.5,
-              lineHeight: 1.55,
-              color: 'var(--fg)',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              resize: 'vertical',
-              outline: 'none',
-            }}
-          />
-          <div
-            style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}
-          >
-            <span
-              style={{
-                flex: 1,
-                alignSelf: 'center',
-                fontSize: 11.5,
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              Shift+Enter to save · Escape to cancel
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setEditing(false)}
-              disabled={saving}
-              style={{ color: 'var(--fg)', fontWeight: 600 }}
-            >
-              Cancel
-            </Button>
-            <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
-        </>
-      ) : summary?.trim() ? (
-        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13.5 }}>
-          <Markdown source={summary} />
-        </div>
-      ) : (
-        <div
-          style={{ fontSize: 13, color: 'var(--fg-muted)', fontStyle: 'italic' }}
-        >
-          No summary available yet.
-        </div>
-      )}
+    <div className="text-[13px] text-fg-muted italic">
+      No summary available yet.
     </div>
   )
 }

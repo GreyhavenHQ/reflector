@@ -12,14 +12,13 @@ export function RoomPicker({ roomId, setRoomId, rooms }: Props) {
     <div>
       <label className="rf-label" htmlFor="rf-room">
         {I.Folder(13)} Attach to room{' '}
-        <span style={{ color: 'var(--fg-muted)', fontWeight: 400 }}>— optional</span>
+        <span className="text-fg-muted font-normal">— optional</span>
       </label>
       <select
         id="rf-room"
-        className="rf-select"
+        className="rf-select mt-1.5"
         value={roomId}
         onChange={(e) => setRoomId(e.target.value)}
-        style={{ marginTop: 6 }}
       >
         <option value="">— None —</option>
         {rooms.map((r) => (

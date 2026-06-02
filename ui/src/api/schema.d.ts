@@ -1155,9 +1155,9 @@ export interface components {
             name: string;
             /**
              * Source Language
-             * @default en
+             * null = auto-detect
              */
-            source_language: string;
+            source_language?: string | null;
             /**
              * Target Language
              * @default en
@@ -1238,6 +1238,10 @@ export interface components {
             start: number;
             /** Speaker */
             speaker: number;
+            /** Translation — populated when the transcript was captured
+             *  with a target_language and a TRANSCRIPT WS event carried
+             *  the segment's translation. null otherwise. */
+            translation?: string | null;
         };
         /** GetTranscriptTopic */
         GetTranscriptTopic: {

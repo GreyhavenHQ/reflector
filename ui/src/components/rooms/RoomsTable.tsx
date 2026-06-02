@@ -52,21 +52,11 @@ function recordingLabel(type: string, trigger: string | null | undefined) {
 
 function CalendarSyncIcon({ size = 14 }: { size?: number }) {
   return (
-    <span style={{ position: 'relative', display: 'inline-flex', width: size, height: size }}>
+    <span className="relative inline-flex" style={{ width: size, height: size }}>
       {I.Calendar(size)}
       <span
-        style={{
-          position: 'absolute',
-          right: -3,
-          bottom: -3,
-          width: size * 0.65,
-          height: size * 0.65,
-          background: 'var(--card)',
-          borderRadius: 9999,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        className="absolute -right-[3px] -bottom-[3px] bg-card rounded-full inline-flex items-center justify-center"
+        style={{ width: size * 0.65, height: size * 0.65 }}
       >
         {I.Refresh(size * 0.55)}
       </span>
@@ -103,48 +93,21 @@ type RoomRowProps = {
 function RoomRow({ room, onEdit, onDelete, onCopy, copied }: RoomRowProps) {
   const recording = recordingLabel(room.recording_type, room.recording_trigger)
   return (
-    <div
-      className="rf-row"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'auto 1fr auto',
-        alignItems: 'center',
-        columnGap: 18,
-        padding: '14px 20px',
-        borderBottom: '1px solid var(--border)',
-        cursor: 'pointer',
-        position: 'relative',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+    <div className="rf-row grid grid-cols-[auto_1fr_auto] items-center gap-x-[18px] px-5 py-3.5 border-b border-border cursor-pointer relative">
+      <div className="flex items-center gap-2.5 shrink-0">
         <StatusDot status="idle" size={7} />
       </div>
 
-      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            minWidth: 0,
-            flexWrap: 'wrap',
-            rowGap: 4,
-          }}
-        >
+      <div className="min-w-0 flex flex-col gap-[5px]">
+        <div className="flex items-center gap-2.5 min-w-0 flex-wrap gap-y-1">
           <a
             href={roomUrl(room)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 14.5,
-              fontWeight: 600,
-              color: 'var(--fg)',
-              textDecoration: 'none',
-            }}
+            className="font-mono text-[14.5px] font-semibold text-fg no-underline"
           >
-            <span style={{ color: 'var(--fg-muted)', fontWeight: 500 }}>/</span>
+            <span className="text-fg-muted font-medium">/</span>
             <span>{room.name}</span>
           </a>
           {room.ics_enabled && (
@@ -154,40 +117,24 @@ function RoomRow({ room, onEdit, onDelete, onCopy, copied }: RoomRowProps) {
           )}
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            rowGap: 3,
-            columnGap: 0,
-            fontSize: 11.5,
-            color: 'var(--fg-muted)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        <div className="flex items-center flex-wrap gap-y-[3px] gap-x-0 text-[11.5px] text-fg-muted font-sans">
+          <span className="inline-flex items-center gap-[5px]">
             <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 2,
-                display: 'inline-block',
-                background: PLATFORM_COLOR[room.platform],
-              }}
+              className="w-2 h-2 rounded-[2px] inline-block"
+              style={{ background: PLATFORM_COLOR[room.platform] }}
             />
             {platformLabel(room.platform)}
           </span>
 
           <Dot />
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span className="inline-flex items-center gap-[5px]">
             {I.Users(11)} {roomModeLabel(room.room_mode)}
           </span>
 
           {recording && (
             <>
               <Dot />
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span className="inline-flex items-center gap-[5px]">
                 {room.recording_type === 'cloud' ? I.Cloud(11) : I.Download(11)}
                 {recording}
               </span>
@@ -197,36 +144,15 @@ function RoomRow({ room, onEdit, onDelete, onCopy, copied }: RoomRowProps) {
           {room.zulip_auto_post && room.zulip_stream && (
             <>
               <Dot />
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  minWidth: 0,
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 12,
-                    height: 12,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    background: 'var(--gh-grey-5)',
-                    color: 'var(--gh-off-white)',
-                    borderRadius: 2,
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                >
+              <span className="inline-flex items-center gap-[5px] min-w-0">
+                <span className="inline-flex items-center justify-center w-3 h-3 text-[9px] font-bold bg-[var(--gh-grey-5)] text-[var(--gh-off-white)] rounded-[2px] font-sans">
                   Z
                 </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                <span className="font-mono text-[11px]">
                   {room.zulip_stream}
                   {room.zulip_topic && (
                     <>
-                      <span style={{ color: 'var(--gh-grey-3)', margin: '0 4px' }}>›</span>
+                      <span className="text-[var(--gh-grey-3)] mx-1">›</span>
                       {room.zulip_topic}
                     </>
                   )}
@@ -237,21 +163,13 @@ function RoomRow({ room, onEdit, onDelete, onCopy, copied }: RoomRowProps) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <div className="flex items-center gap-0.5">
         {copied && (
-          <span
-            style={{
-              color: 'var(--status-ok)',
-              fontSize: 11.5,
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 600,
-              paddingRight: 6,
-            }}
-          >
+          <span className="text-status-ok text-[11.5px] font-mono font-semibold pr-1.5">
             Copied
           </span>
         )}
-        <div style={{ display: 'flex', gap: 2 }}>
+        <div className="flex gap-0.5">
           {room.ics_enabled && (
             <Button
               variant="ghost"
@@ -320,20 +238,7 @@ function Pill({
   return (
     <span
       title={title}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '1px 7px',
-        height: 18,
-        fontFamily: 'var(--font-sans)',
-        fontSize: 10.5,
-        fontWeight: 500,
-        color: 'var(--fg-muted)',
-        background: 'var(--muted)',
-        border: '1px solid var(--border)',
-        borderRadius: 9999,
-      }}
+      className="inline-flex items-center gap-1 px-[7px] py-px h-[18px] font-sans text-[10.5px] font-medium text-fg-muted bg-muted border border-border rounded-full"
     >
       {icon}
       {children}
@@ -342,5 +247,5 @@ function Pill({
 }
 
 function Dot() {
-  return <span style={{ margin: '0 10px', color: 'var(--gh-grey-3)' }}>·</span>
+  return <span className="mx-2.5 text-[var(--gh-grey-3)]">·</span>
 }

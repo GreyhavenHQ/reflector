@@ -190,19 +190,23 @@ env_set() {
 }
 
 compose_cmd() {
-    local profiles="" files="-f $COMPOSE_FILE"
-    [[ "$USE_CUSTOM_CA" == "true" ]] && files="$files -f $ROOT_DIR/docker-compose.ca.yml"
+    local args=("-f" "$COMPOSE_FILE")
+    if [[ "$USE_CUSTOM_CA" == "true" ]]; then
+        args+=("-f" "$ROOT_DIR/docker-compose.ca.yml")
+    fi
     for p in "${COMPOSE_PROFILES[@]}"; do
-        profiles="$profiles --profile $p"
+        args+=("--profile" "$p")
     done
-    docker compose $files $profiles "$@"
+    docker compose "${args[@]}" "$@"
 }
 
 # Compose command with only garage profile (for garage-only operations before full stack start)
 compose_garage_cmd() {
-    local files="-f $COMPOSE_FILE"
-    [[ "$USE_CUSTOM_CA" == "true" ]] && files="$files -f $ROOT_DIR/docker-compose.ca.yml"
-    docker compose $files --profile garage "$@"
+    local args=("-f" "$COMPOSE_FILE")
+    if [[ "$USE_CUSTOM_CA" == "true" ]]; then
+        args+=("-f" "$ROOT_DIR/docker-compose.ca.yml")
+    fi
+    docker compose "${args[@]}" --profile garage "$@"
 }
 
 # --- Config memory: replay last args if none provided ---

@@ -90,13 +90,8 @@ export function LiveLevelMeter({ stream, active, height = 80 }: Props) {
   return (
     <canvas
       ref={canvasRef}
-      style={{
-        width: '100%',
-        height,
-        display: 'block',
-        background: 'var(--muted)',
-        borderRadius: 'var(--radius-md)',
-      }}
+      className="w-full block bg-muted rounded-md"
+      style={{ height }}
     />
   )
 }

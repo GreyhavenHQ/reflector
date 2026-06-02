@@ -97,13 +97,7 @@ export function WherebyRoom({ roomName, meeting, room: _room }: Props) {
 
   const url = joined.host_room_url || joined.room_url
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--gh-off-black)',
-      }}
-    >
+    <div className="fixed inset-0 bg-[var(--gh-off-black)]">
       <whereby-embed
         ref={embedRef}
         room={url}
