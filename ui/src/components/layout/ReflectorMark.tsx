@@ -5,7 +5,7 @@ export function ReflectorMark({ size = 28 }: { size?: number }) {
       height={size}
       viewBox="0 0 500 500"
       aria-hidden="true"
-      style={{ display: 'block', flexShrink: 0 }}
+      className="block shrink-0"
     >
       <polygon
         points="227.5,51.5 86.5,150.1 100.8,383.9 244.3,249.8"

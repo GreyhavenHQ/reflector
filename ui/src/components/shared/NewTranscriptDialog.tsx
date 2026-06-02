@@ -13,7 +13,7 @@ type Props = {
 export function NewTranscriptDialog({ onClose }: Props) {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
-  const [sourceLang, setSourceLang] = useState('en')
+  const [sourceLang, setSourceLang] = useState('auto')
   const [targetLang, setTargetLang] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -28,15 +28,17 @@ export function NewTranscriptDialog({ onClose }: Props) {
   const createAndGo = async (kind: 'live' | 'file') => {
     setSubmitting(true)
     try {
-      // Backend's CreateTranscript requires real strings for name + both
-      // language fields. Fall back to sensible defaults instead of sending
-      // null, which triggers a 422. Target defaults to source — meaning no
-      // effective translation — when the user doesn't pick one.
+      // Backend accepts source_language: str | None — null is the
+      // auto-detect signal. Target falls back to source (or "en" when
+      // source is auto) so the translator has a concrete target.
+      const sourcePayload = sourceLang === 'auto' ? null : sourceLang
+      const targetPayload =
+        targetLang || (sourceLang === 'auto' ? 'en' : sourceLang)
       const { data, response } = await apiClient.POST('/v1/transcripts', {
         body: {
           name: title.trim() || 'Untitled',
-          source_language: sourceLang,
-          target_language: targetLang || sourceLang,
+          source_language: sourcePayload,
+          target_language: targetPayload,
           source_kind: kind,
         } as never,
       })
@@ -60,78 +62,40 @@ export function NewTranscriptDialog({ onClose }: Props) {
         aria-modal="true"
         aria-labelledby="rf-new-title"
       >
-        <header
-          style={{
-            padding: '18px 20px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ flex: 1 }}>
+        <header className="pt-[18px] px-5 pb-3.5 flex items-center border-b border-border">
+          <div className="flex-1">
             <h2
               id="rf-new-title"
-              style={{
-                margin: 0,
-                fontFamily: 'var(--font-serif)',
-                fontSize: 20,
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                color: 'var(--fg)',
-              }}
+              className="m-0 font-serif text-xl font-semibold tracking-[-0.01em] text-fg"
             >
               New transcript
             </h2>
-            <p
-              style={{
-                margin: '2px 0 0',
-                fontSize: 12.5,
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+            <p className="mt-0.5 mb-0 mx-0 text-[12.5px] text-fg-muted font-sans">
               Record live or upload a file. You can edit details later.
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            style={{
-              border: 'none',
-              background: 'transparent',
-              padding: 6,
-              cursor: 'pointer',
-              color: 'var(--fg-muted)',
-              borderRadius: 'var(--radius-sm)',
-              display: 'inline-flex',
-            }}
+            className="border-none bg-transparent p-1.5 cursor-pointer text-fg-muted rounded-sm inline-flex"
           >
             {I.X(16)}
           </button>
         </header>
 
-        <div
-          style={{
-            padding: 20,
-            overflow: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-          }}
-        >
+        <div className="p-5 overflow-auto flex flex-col gap-4">
           <div>
             <label className="rf-label" htmlFor="rf-nd-title">
               Title
             </label>
             <input
               id="rf-nd-title"
-              className="rf-input"
+              className="rf-input mt-1.5"
               type="text"
               autoFocus
               placeholder="e.g. Sprint review — June 12"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              style={{ marginTop: 6 }}
             />
           </div>
 
@@ -141,10 +105,9 @@ export function NewTranscriptDialog({ onClose }: Props) {
             </label>
             <select
               id="rf-nd-source"
-              className="rf-select"
+              className="rf-select mt-1.5"
               value={sourceLang}
               onChange={(e) => setSourceLang(e.target.value)}
-              style={{ marginTop: 6 }}
             >
               {REFLECTOR_LANGS.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -161,13 +124,12 @@ export function NewTranscriptDialog({ onClose }: Props) {
             </label>
             <select
               id="rf-nd-target"
-              className="rf-select"
+              className="rf-select mt-1.5"
               value={targetLang}
               onChange={(e) => setTargetLang(e.target.value)}
-              style={{ marginTop: 6 }}
             >
               <option value="">— None (same as spoken) —</option>
-              {REFLECTOR_LANGS.map((l) => (
+              {REFLECTOR_LANGS.filter((l) => l.code !== 'auto').map((l) => (
                 <option key={l.code} value={l.code}>
                   {l.flag} {l.name}
                 </option>
@@ -178,26 +140,8 @@ export function NewTranscriptDialog({ onClose }: Props) {
 
         </div>
 
-        <footer
-          style={{
-            padding: '14px 20px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            gap: 10,
-            alignItems: 'center',
-          }}
-        >
-          <div
-            style={{
-              flex: 1,
-              fontSize: 11.5,
-              color: 'var(--fg-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
+        <footer className="py-3.5 px-5 border-t border-border flex gap-2.5 items-center">
+          <div className="flex-1 text-[11.5px] text-fg-muted flex items-center gap-1.5 font-sans">
             {I.Lock(12)}
             Audio stays on your infrastructure.
           </div>

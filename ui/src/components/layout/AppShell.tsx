@@ -10,25 +10,11 @@ type AppShellProps = {
 
 export function AppShell({ title, crumb, sidebar, children }: AppShellProps) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: '100vh',
-        background: 'var(--bg)',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="flex h-screen bg-bg overflow-hidden">
       {sidebar}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <main className="flex-1 flex flex-col min-w-0">
         <TopBar title={title} crumb={crumb} />
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: 24,
-            background: 'var(--bg)',
-          }}
-        >
+        <div className="flex-1 overflow-y-auto p-6 bg-bg">
           {children}
         </div>
       </main>

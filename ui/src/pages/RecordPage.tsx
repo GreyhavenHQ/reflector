@@ -5,6 +5,7 @@ import { MinimalHeader } from '@/components/layout/MinimalHeader'
 import { LiveLevelMeter } from '@/components/record/LiveLevelMeter'
 import { Button } from '@/components/ui/primitives'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 import { fmtDur } from '@/lib/format'
 import { useAudioDevices } from '@/hooks/useAudioDevices'
 import { useWebRTC } from '@/hooks/useWebRTC'
@@ -296,27 +297,10 @@ export function RecordPage() {
   )
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-        background: 'var(--bg)',
-      }}
-    >
+    <div className="flex flex-col min-h-screen bg-bg">
       {header}
 
-      <main
-        style={{
-          flex: 1,
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
+      <main className="flex-1 p-6 flex flex-col gap-4 w-full box-border">
         {phase === 'idle' ? (
           <IdlePanel
             permission={permission}
@@ -338,19 +322,12 @@ export function RecordPage() {
             />
 
             <div
-              className="rf-record-grid"
-              style={{
-                display: 'grid',
-                // Single pane full-width until translation data lands; then
-                // split into transcript | translation. Keeps the focus on
-                // text you can actually read instead of a half-empty frame.
-                gridTemplateColumns: accumulatedTranslation
-                  ? 'minmax(0, 1fr) minmax(0, 1fr)'
-                  : 'minmax(0, 1fr)',
-                gap: 16,
-                flex: 1,
-                minHeight: 0,
-              }}
+              className={cn(
+                'rf-record-grid grid gap-4 flex-1 min-h-0',
+                accumulatedTranslation
+                  ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
+                  : 'grid-cols-[minmax(0,1fr)]',
+              )}
             >
               <AccumulatedPane
                 label="Live transcript"
@@ -399,64 +376,25 @@ function IdlePanel({
     /Chrome|Edg|OPR/.test(navigator.userAgent) &&
     !/Firefox/.test(navigator.userAgent)
   return (
-    <section
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-xs)',
-        padding: 28,
-        maxWidth: 640,
-        margin: '40px auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 18,
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
+    <section className="bg-card border border-border rounded-lg shadow-xs p-7 max-w-[640px] mx-auto my-10 flex flex-col gap-[18px] font-sans">
       <header>
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: 'var(--font-serif)',
-            fontSize: 22,
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            color: 'var(--fg)',
-          }}
-        >
+        <h1 className="m-0 font-serif text-[22px] font-semibold tracking-[-0.02em] text-fg">
           Ready to record
         </h1>
-        <p
-          style={{
-            margin: '6px 0 0',
-            fontSize: 13,
-            color: 'var(--fg-muted)',
-            lineHeight: 1.5,
-          }}
-        >
+        <p className="mt-1.5 mb-0 text-[13px] text-fg-muted leading-[1.5]">
           Audio streams to the server over WebRTC. Transcription and topics
           appear live while you record.
         </p>
       </header>
 
       {needsPrompt ? (
-        <div
-          style={{
-            padding: 16,
-            background: 'var(--muted)',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <span style={{ color: 'var(--fg-muted)' }}>{I.Mic(18)}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>
+        <div className="p-4 bg-muted rounded-md flex items-center gap-3">
+          <span className="text-fg-muted">{I.Mic(18)}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium text-fg">
               Microphone access needed
             </div>
-            <div style={{ fontSize: 12, color: 'var(--fg-muted)' }}>
+            <div className="text-xs text-fg-muted">
               {permission === 'denied'
                 ? "You've denied microphone access. Allow it from your browser settings to continue."
                 : 'Grant access to list your input devices.'}
@@ -475,10 +413,9 @@ function IdlePanel({
           </label>
           <select
             id="rf-device"
-            className="rf-select"
+            className="rf-select mt-1.5"
             value={deviceId}
             onChange={(e) => onDeviceId(e.target.value)}
-            style={{ marginTop: 6 }}
           >
             {devices.length === 0 ? (
               <option value="">System default</option>
@@ -493,14 +430,7 @@ function IdlePanel({
         </div>
       )}
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="flex justify-end gap-2 flex-wrap">
         {canShareTabAudio && (
           <Button
             variant="secondary"
@@ -554,35 +484,11 @@ function RecorderStrip({
         : 'var(--status-processing)'
 
   return (
-    <section
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-xs)',
-        padding: 16,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 12,
-          color: 'var(--fg-muted)',
-          flexShrink: 0,
-          width: 110,
-        }}
-      >
+    <section className="bg-card border border-border rounded-lg shadow-xs p-4 flex items-center gap-4 font-sans">
+      <div className="inline-flex items-center gap-2 text-xs text-fg-muted shrink-0 w-[110px]">
         <span
+          className="w-2 h-2 rounded-full"
           style={{
-            width: 8,
-            height: 8,
-            borderRadius: 999,
             background: statusColor,
             boxShadow: active
               ? `0 0 0 4px color-mix(in srgb, ${statusColor} 25%, transparent)`
@@ -592,20 +498,11 @@ function RecorderStrip({
         {statusLabel}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="flex-1 min-w-0">
         <LiveLevelMeter stream={stream} active={active} height={48} />
       </div>
 
-      <div
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 18,
-          color: 'var(--fg)',
-          fontWeight: 600,
-          width: 80,
-          textAlign: 'right',
-        }}
-      >
+      <div className="font-mono text-lg text-fg font-semibold w-20 text-right">
         {fmtDur(elapsed)}
       </div>
     </section>
@@ -631,56 +528,18 @@ function AccumulatedPane({
   }, [text])
 
   return (
-    <section
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-xs)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        minHeight: 280,
-      }}
-    >
-      <header
-        style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--border)',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          color: 'var(--fg-muted)',
-        }}
-      >
+    <section className="bg-card border border-border rounded-lg shadow-xs flex flex-col overflow-hidden min-h-[280px]">
+      <header className="py-3 px-4 border-b border-border font-sans text-xs font-semibold tracking-[0.04em] uppercase text-fg-muted">
         {label}
       </header>
       <div
         ref={ref}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: '16px 18px',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 15,
-          lineHeight: 1.6,
-          color: 'var(--fg)',
-          whiteSpace: 'pre-wrap',
-        }}
+        className="flex-1 min-h-0 overflow-y-auto py-4 px-[18px] font-sans text-[15px] leading-[1.6] text-fg whitespace-pre-wrap"
       >
         {text ? (
           text
         ) : (
-          <div
-            style={{
-              color: 'var(--fg-muted)',
-              fontSize: 13,
-              fontStyle: 'italic',
-            }}
-          >
+          <div className="text-fg-muted text-[13px] italic">
             {placeholder}
           </div>
         )}

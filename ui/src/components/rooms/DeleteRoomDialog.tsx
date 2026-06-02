@@ -22,49 +22,21 @@ export function DeleteRoomDialog({ name, onClose, onConfirm, loading }: Props) {
     <>
       <div className="rf-modal-backdrop" onClick={onClose} />
       <div
-        className="rf-modal"
+        className="rf-modal w-[min(440px,calc(100vw-32px))]"
         role="dialog"
         aria-modal="true"
-        style={{ width: 'min(440px, calc(100vw - 32px))' }}
       >
-        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div
-              style={{
-                flexShrink: 0,
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: 'color-mix(in srgb, var(--destructive) 12%, transparent)',
-                color: 'var(--destructive)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        <div className="p-6 flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-9 h-9 rounded-[10px] bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] text-destructive inline-flex items-center justify-center">
               {I.Trash(18)}
             </div>
-            <div style={{ flex: 1 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: 'var(--fg)',
-                }}
-              >
+            <div className="flex-1">
+              <h2 className="m-0 font-serif text-lg font-semibold text-fg">
                 Delete room?
               </h2>
-              <p
-                style={{
-                  margin: '6px 0 0',
-                  fontSize: 13,
-                  color: 'var(--fg-muted)',
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong style={{ color: 'var(--fg)', fontFamily: 'var(--font-mono)' }}>
+              <p className="mt-1.5 mb-0 text-[13px] text-fg-muted leading-[1.5]">
+                <strong className="text-fg font-mono">
                   /{name}
                 </strong>{' '}
                 will be permanently removed. Existing recordings from this room are not affected.
@@ -73,20 +45,12 @@ export function DeleteRoomDialog({ name, onClose, onConfirm, loading }: Props) {
             </div>
           </div>
         </div>
-        <footer
-          style={{
-            padding: '14px 20px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            gap: 10,
-            justifyContent: 'flex-end',
-          }}
-        >
+        <footer className="px-5 py-3.5 border-t border-border flex gap-2.5 justify-end">
           <Button
             variant="ghost"
             size="md"
             onClick={onClose}
-            style={{ color: 'var(--fg)', fontWeight: 600 }}
+            className="text-fg font-semibold"
           >
             Cancel
           </Button>
@@ -95,12 +59,7 @@ export function DeleteRoomDialog({ name, onClose, onConfirm, loading }: Props) {
             size="md"
             onClick={onConfirm}
             disabled={loading}
-            style={{
-              background: 'var(--destructive)',
-              color: 'var(--destructive-fg)',
-              borderColor: 'var(--destructive)',
-              boxShadow: 'var(--shadow-xs)',
-            }}
+            className="bg-destructive text-destructive-fg border-destructive shadow-xs"
           >
             {I.Trash(14)} {loading ? 'Deleting…' : 'Delete room'}
           </Button>

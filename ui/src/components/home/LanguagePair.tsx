@@ -1,4 +1,5 @@
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 import { REFLECTOR_LANGS } from '@/lib/types'
 
 type Props = {
@@ -18,12 +19,10 @@ export function LanguagePair({
 }: Props) {
   return (
     <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: horizontal ? '1fr auto 1fr' : '1fr',
-        gap: horizontal ? 8 : 14,
-        alignItems: 'end',
-      }}
+      className={cn(
+        'grid items-end',
+        horizontal ? 'grid-cols-[1fr_auto_1fr] gap-2' : 'grid-cols-1 gap-3.5',
+      )}
     >
       <div>
         <label className="rf-label" htmlFor="rf-source-lang">
@@ -31,10 +30,9 @@ export function LanguagePair({
         </label>
         <select
           id="rf-source-lang"
-          className="rf-select"
+          className="rf-select mt-1.5"
           value={sourceLang}
           onChange={(e) => setSourceLang(e.target.value)}
-          style={{ marginTop: 6 }}
         >
           {REFLECTOR_LANGS.map((l) => (
             <option key={l.code} value={l.code}>
@@ -54,19 +52,7 @@ export function LanguagePair({
             setTargetLang(a)
           }}
           title="Swap languages"
-          style={{
-            height: 40,
-            width: 40,
-            marginBottom: 18,
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--muted)',
-            cursor: 'pointer',
-            color: 'var(--fg-muted)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="h-10 w-10 mb-[18px] border border-border rounded-md bg-muted cursor-pointer text-fg-muted inline-flex items-center justify-center"
         >
           {I.Swap(16)}
         </button>
@@ -78,10 +64,9 @@ export function LanguagePair({
         </label>
         <select
           id="rf-target-lang"
-          className="rf-select"
+          className="rf-select mt-1.5"
           value={targetLang}
           onChange={(e) => setTargetLang(e.target.value)}
-          style={{ marginTop: 6 }}
         >
           <option value="">— None (same as spoken) —</option>
           {REFLECTOR_LANGS.map((l) => (

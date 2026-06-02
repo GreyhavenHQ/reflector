@@ -45,15 +45,19 @@ class FileTranscriptModalProcessor(FileTranscriptProcessor):
         if self.modal_api_key:
             headers["Authorization"] = f"Bearer {self.modal_api_key}"
 
+        # Omit `language` when None so Modal/Whisper auto-detects the source.
+        body: dict = {
+            "audio_file_url": data.audio_url,
+            "batch": True,
+        }
+        if data.language is not None:
+            body["language"] = data.language
+
         async with httpx.AsyncClient(timeout=self.file_timeout) as client:
             response = await client.post(
                 url,
                 headers=headers,
-                json={
-                    "audio_file_url": data.audio_url,
-                    "language": data.language,
-                    "batch": True,
-                },
+                json=body,
                 follow_redirects=True,
             )
 

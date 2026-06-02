@@ -7,8 +7,10 @@ from reflector.processors.types import Transcript
 class FileTranscriptInput:
     """Input for file transcription containing audio URL and language settings"""
 
-    def __init__(self, audio_url: str, language: str = "en"):
+    def __init__(self, audio_url: str, language: str | None = None):
         self.audio_url = audio_url
+        # None signals auto-detect — downstream backends omit the `language`
+        # param so the transcription model detects from audio.
         self.language = language
 
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { components } from '@/api/schema'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 import { Button, RowMenuTrigger, StatusBadge } from '@/components/ui/primitives'
 import type { TranscriptStatus as UiStatus } from '@/components/ui/primitives'
 
@@ -87,17 +88,7 @@ export function TranscriptHeader({
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '16px 20px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--card)',
-        borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
-      }}
-    >
+    <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-card rounded-t-lg">
       {editing ? (
         <input
           ref={inputRef}
@@ -114,38 +105,15 @@ export function TranscriptHeader({
             }
           }}
           onBlur={() => void commit()}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontFamily: 'var(--font-serif)',
-            fontSize: 22,
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            color: 'var(--fg)',
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '4px 8px',
-            outline: 'none',
-          }}
+          className="flex-1 min-w-0 font-serif text-[22px] font-semibold tracking-[-0.02em] text-fg bg-bg border border-border rounded-sm px-2 py-1 outline-none"
         />
       ) : (
         <h1
           onClick={startEdit}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            margin: 0,
-            fontFamily: 'var(--font-serif)',
-            fontSize: 22,
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            color: 'var(--fg)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            cursor: canEdit ? 'text' : 'default',
-          }}
+          className={cn(
+            'flex-1 min-w-0 m-0 font-serif text-[22px] font-semibold tracking-[-0.02em] text-fg whitespace-nowrap overflow-hidden text-ellipsis',
+            canEdit ? 'cursor-text' : 'cursor-default',
+          )}
           title={canEdit ? 'Click to rename' : undefined}
         >
           {titleFor(transcript)}

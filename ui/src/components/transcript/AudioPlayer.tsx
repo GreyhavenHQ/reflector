@@ -105,18 +105,7 @@ export function AudioPlayer({
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        padding: 14,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-xs)',
-      }}
-    >
+    <div className="flex items-center gap-3.5 p-3.5 bg-card border border-border rounded-lg shadow-xs">
       <Button
         variant="primary"
         size="icon"
@@ -130,44 +119,20 @@ export function AudioPlayer({
         title={playing ? 'Pause (Space)' : 'Play (Space)'}
       >
         {playing ? (
-          <span
-            style={{
-              display: 'inline-flex',
-              gap: 3,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <span style={{ width: 3, height: 12, background: 'currentColor' }} />
-            <span style={{ width: 3, height: 12, background: 'currentColor' }} />
+          <span className="inline-flex gap-[3px] items-center justify-center">
+            <span className="w-[3px] h-3 bg-current" />
+            <span className="w-[3px] h-3 bg-current" />
           </span>
         ) : (
-          <span
-            style={{
-              width: 0,
-              height: 0,
-              borderLeft: '10px solid currentColor',
-              borderTop: '7px solid transparent',
-              borderBottom: '7px solid transparent',
-              marginLeft: 2,
-            }}
-          />
+          <span className="w-0 h-0 border-l-[10px] border-l-current border-t-[7px] border-t-transparent border-b-[7px] border-b-transparent ml-0.5" />
         )}
       </Button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="flex-1 min-w-0">
         {loading ? (
-          <div style={{ color: 'var(--fg-muted)', fontSize: 12 }}>Loading audio…</div>
+          <div className="text-fg-muted text-xs">Loading audio…</div>
         ) : error ? (
-          <div
-            style={{
-              color: 'var(--destructive)',
-              fontSize: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
+          <div className="text-destructive text-xs flex items-center gap-1.5">
             {I.AlertTriangle(12)} {error}
           </div>
         ) : (
@@ -181,15 +146,7 @@ export function AudioPlayer({
         )}
       </div>
 
-      <span
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
-          color: 'var(--fg-muted)',
-          minWidth: 88,
-          textAlign: 'right',
-        }}
-      >
+      <span className="font-mono text-xs text-fg-muted min-w-[88px] text-right">
         {fmtDur(Math.floor(currentTime))} / {fmtDur(Math.floor(duration))}
       </span>
 
@@ -198,7 +155,7 @@ export function AudioPlayer({
           ref={audioRef}
           src={blobUrl}
           preload="metadata"
-          style={{ display: 'none' }}
+          className="hidden"
           onLoadedMetadata={(e) => {
             const d = e.currentTarget.duration
             setDuration(d)

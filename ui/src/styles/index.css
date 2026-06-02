@@ -26,6 +26,13 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  /* Status palette — exposed as `bg-status-live`, `text-status-processing`, etc. */
+  --color-status-live: var(--status-live);
+  --color-status-ok: var(--status-ok);
+  --color-status-processing: var(--status-processing);
+  --color-status-failed: var(--status-failed);
+  --color-status-idle: var(--status-idle);
+
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
@@ -34,6 +41,13 @@
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
+
+  /* Greyhaven shadow scale — replaces Tailwind defaults so `shadow-xs|sm|md|lg`
+     resolve to the design-system values defined in greyhaven.css. */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
 
 /* Reflector sub-brand accent — orange. Sits on top of Greyhaven semantics so

@@ -44,50 +44,14 @@ export function MeetingSelection({
   }, [meetings])
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-        background: 'var(--bg)',
-      }}
-    >
+    <div className="flex flex-col min-h-screen bg-bg">
       <MinimalHeader title={roomName} crumb={['room']} />
-      <main
-        style={{
-          flex: 1,
-          padding: 24,
-          maxWidth: 720,
-          width: '100%',
-          margin: '0 auto',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 20,
-        }}
-      >
+      <main className="flex-1 p-6 max-w-[720px] w-full mx-auto box-border flex flex-col gap-5">
         <header>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 24,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: 'var(--fg)',
-            }}
-          >
+          <h1 className="m-0 font-serif text-2xl font-semibold tracking-[-0.02em] text-fg">
             {roomName}
           </h1>
-          <p
-            style={{
-              margin: '6px 0 0',
-              fontSize: 13,
-              color: 'var(--fg-muted)',
-              fontFamily: 'var(--font-sans)',
-              lineHeight: 1.5,
-            }}
-          >
+          <p className="mt-1.5 mb-0 text-[13px] text-fg-muted font-sans leading-[1.5]">
             Join an active meeting or start an unscheduled one.
           </p>
         </header>
@@ -122,47 +86,17 @@ export function MeetingSelection({
         )}
 
         {!loading && current.length === 0 && upcoming.length === 0 && (
-          <p
-            style={{
-              margin: 0,
-              fontSize: 13,
-              color: 'var(--fg-muted)',
-              fontFamily: 'var(--font-sans)',
-              fontStyle: 'italic',
-            }}
-          >
+          <p className="m-0 text-[13px] text-fg-muted font-sans italic">
             No active or upcoming meetings on the calendar right now.
           </p>
         )}
 
-        <div
-          style={{
-            marginTop: 8,
-            paddingTop: 20,
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 500,
-                color: 'var(--fg)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+        <div className="mt-2 pt-5 border-t border-border flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium text-fg font-sans">
               Need a quick call?
             </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: 'var(--fg-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+            <div className="text-xs text-fg-muted font-sans">
               Spin up an unscheduled meeting in this room.
             </div>
           </div>
@@ -188,20 +122,11 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div
-        style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-          color: 'var(--fg-muted)',
-        }}
-      >
+    <div className="flex flex-col gap-2">
+      <div className="font-sans text-[11px] font-semibold tracking-[0.04em] uppercase text-fg-muted">
         {label}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {children}
       </div>
     </div>
@@ -221,49 +146,20 @@ function MeetingCard({
 }) {
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '12px 16px',
-        background: 'var(--card)',
-        border: '1px solid',
-        borderColor: accent ? 'var(--primary)' : 'var(--border)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: accent ? 'var(--shadow-xs)' : 'none',
-      }}
+      className={
+        accent
+          ? 'flex items-center gap-3 px-4 py-3 bg-card border border-primary rounded-md shadow-xs'
+          : 'flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-md'
+      }
     >
       {accent && (
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 999,
-            background: 'var(--status-live)',
-            boxShadow:
-              '0 0 0 4px color-mix(in srgb, var(--status-live) 25%, transparent)',
-            flexShrink: 0,
-          }}
-        />
+        <span className="w-2 h-2 rounded-full bg-status-live shrink-0 shadow-[0_0_0_4px_color-mix(in_srgb,var(--status-live)_25%,transparent)]" />
       )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 13.5,
-            fontWeight: 500,
-            color: 'var(--fg)',
-          }}
-        >
+      <div className="flex-1 min-w-0">
+        <div className="font-sans text-[13.5px] font-medium text-fg">
           {fmtDate(meeting.start_date)}
         </div>
-        <div
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            color: 'var(--fg-muted)',
-          }}
-        >
+        <div className="font-mono text-[11px] text-fg-muted">
           {new Date(meeting.start_date).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
@@ -284,15 +180,7 @@ function MeetingCard({
 
 function MeetingListSkeleton() {
   return (
-    <div
-      style={{
-        color: 'var(--fg-muted)',
-        fontSize: 13,
-        fontFamily: 'var(--font-sans)',
-        textAlign: 'center',
-        padding: 32,
-      }}
-    >
+    <div className="text-fg-muted text-[13px] font-sans text-center p-8">
       Loading meetings…
     </div>
   )

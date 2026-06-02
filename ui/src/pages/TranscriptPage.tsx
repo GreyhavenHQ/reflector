@@ -15,7 +15,7 @@ import {
 } from '@/components/transcript/Banners'
 import { AudioPlayer } from '@/components/transcript/AudioPlayer'
 import { TopicsList } from '@/components/transcript/TopicsList'
-import { SummaryPanel } from '@/components/transcript/SummaryPanel'
+import { SummaryTranslationTabs } from '@/components/transcript/SummaryTranslationTabs'
 import { VideoPanel } from '@/components/transcript/VideoPanel'
 import { ShareDialog } from '@/components/transcript/ShareDialog'
 import { useAuth } from '@/auth/AuthContext'
@@ -208,14 +208,7 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
 
   if (transcriptQuery.isLoading) {
     return renderShell(
-      <div
-        style={{
-          padding: 40,
-          textAlign: 'center',
-          color: 'var(--fg-muted)',
-          fontFamily: 'var(--font-sans)',
-        }}
-      >
+      <div className="p-10 text-center text-fg-muted font-sans">
         Loading transcript…
       </div>,
       'Transcript',
@@ -227,14 +220,7 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
     const status404 = errStatus === 404
     const status403 = errStatus === 403 || errStatus === 401
     return renderShell(
-      <div
-        style={{
-          padding: 40,
-          textAlign: 'center',
-          color: 'var(--fg-muted)',
-          fontFamily: 'var(--font-sans)',
-        }}
-      >
+      <div className="p-10 text-center text-fg-muted font-sans">
         {status403
           ? "This transcript isn't available."
           : status404
@@ -254,22 +240,8 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
 
   const body = (
     <>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: 'var(--shadow-xs)',
-            overflow: 'hidden',
-          }}
-        >
+      <div className="flex flex-col gap-4">
+        <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden">
           <TranscriptHeader
             transcript={transcript}
             canEdit={canEdit}
@@ -285,7 +257,7 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
             videoOpen={videoOpen}
             readOnly={anonymous}
           />
-          <div style={{ padding: '12px 20px 16px' }}>
+          <div className="px-5 pt-3 pb-4">
             <MetadataStrip transcript={transcript} speakerCount={speakerCount} />
           </div>
         </div>
@@ -315,31 +287,12 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
             ) : null}
 
             <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)',
-                gap: 16,
-              }}
-              className="rf-detail-grid"
+              className="grid gap-4 rf-detail-grid"
+              style={{ gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)' }}
             >
-              <div
-                style={{
-                  background: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-xs)',
-                  overflow: 'hidden',
-                }}
-              >
+              <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden">
                 {topicsQuery.isLoading ? (
-                  <div
-                    style={{
-                      padding: 40,
-                      textAlign: 'center',
-                      color: 'var(--fg-muted)',
-                      fontFamily: 'var(--font-sans)',
-                    }}
-                  >
+                  <div className="p-10 text-center text-fg-muted font-sans">
                     Loading topics…
                   </div>
                 ) : (
@@ -353,11 +306,16 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
                 )}
               </div>
 
-              <SummaryPanel
+              <SummaryTranslationTabs
                 summary={transcript.long_summary}
+                topics={topics}
+                participants={participants}
+                sourceLanguage={transcript.source_language}
+                targetLanguage={transcript.target_language}
                 canEdit={canEdit}
                 saving={update.isPending}
-                onSave={handleSummarySave}
+                onSaveSummary={handleSummarySave}
+                onSeek={seekTo}
               />
             </div>
           </>
@@ -394,7 +352,7 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
           title="Move to trash?"
           message={
             <>
-              <strong style={{ color: 'var(--fg)' }}>
+              <strong className="text-fg">
                 {transcript.title?.trim() || 'Untitled transcript'}
               </strong>{' '}
               will be moved to the trash. You can restore it later.
@@ -419,14 +377,7 @@ export function TranscriptPage({ anonymous = false }: TranscriptPageProps = {}) 
 function Navigate() {
   // Defensive: route guard hits this when :id is missing.
   return (
-    <div
-      style={{
-        padding: 40,
-        textAlign: 'center',
-        color: 'var(--fg-muted)',
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
+    <div className="p-10 text-center text-fg-muted font-sans">
       Missing transcript id.
     </div>
   )

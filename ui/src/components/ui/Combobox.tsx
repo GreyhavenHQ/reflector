@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 
 type Props = {
   value: string
@@ -72,11 +73,11 @@ export function Combobox({
     : options
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
-      <div style={{ position: 'relative', display: 'flex' }}>
+    <div ref={wrapRef} className="relative w-full">
+      <div className="relative flex">
         <input
           ref={inputRef}
-          className="rf-input"
+          className="rf-input flex-1 pr-[30px] min-w-0"
           type="text"
           disabled={disabled}
           placeholder={placeholder}
@@ -86,12 +87,7 @@ export function Combobox({
             if (!open) setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          style={{
-            flex: 1,
-            paddingRight: 30,
-            minWidth: 0,
-            ...(inputStyle ?? {}),
-          }}
+          style={inputStyle}
         />
         <button
           type="button"
@@ -102,22 +98,10 @@ export function Combobox({
           }}
           disabled={disabled}
           aria-label="Toggle suggestions"
-          style={{
-            position: 'absolute',
-            right: 4,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 22,
-            height: 22,
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--fg-muted)',
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            borderRadius: 3,
-          }}
+          className={cn(
+            'absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-[22px] h-[22px] border-none bg-transparent text-fg-muted rounded-[3px]',
+            disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          )}
         >
           {I.ChevronDown(12)}
         </button>
@@ -128,33 +112,17 @@ export function Combobox({
           <ul
             ref={listRef}
             role="listbox"
+            className="m-0 p-1 bg-card border border-border rounded-md shadow-md list-none max-h-60 overflow-y-auto font-sans text-[12.5px]"
             style={{
               position: 'fixed',
               left: rect.left,
               top: rect.top,
               width: rect.width,
-              margin: 0,
-              padding: 4,
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--shadow-md)',
-              listStyle: 'none',
-              maxHeight: 240,
-              overflowY: 'auto',
               zIndex: 9999,
-              fontFamily: 'var(--font-sans)',
-              fontSize: 12.5,
             }}
           >
             {filtered.length === 0 ? (
-              <li
-                style={{
-                  padding: '6px 10px',
-                  color: 'var(--fg-muted)',
-                  fontStyle: 'italic',
-                }}
-              >
+              <li className="px-2.5 py-1.5 text-fg-muted italic">
                 {options.length === 0 ? 'No options available' : 'No matches'}
               </li>
             ) : (
@@ -168,13 +136,10 @@ export function Combobox({
                     onChange(o)
                     setOpen(false)
                   }}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    color: 'var(--fg)',
-                    background: o === value ? 'var(--muted)' : 'transparent',
-                  }}
+                  className={cn(
+                    'px-2.5 py-1.5 rounded-sm cursor-pointer text-fg',
+                    o === value ? 'bg-muted' : 'bg-transparent',
+                  )}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--muted)'
                   }}
