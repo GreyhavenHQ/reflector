@@ -1,6 +1,6 @@
 import logging
 from contextvars import ContextVar
-from typing import Type, TypeVar
+from typing import Literal, Type, TypeVar
 from uuid import uuid4
 
 from llama_index.core import Settings
@@ -18,6 +18,20 @@ llm_session_id: ContextVar[str | None] = ContextVar("llm_session_id", default=No
 
 logger = logging.getLogger(__name__)
 
+# Attribution sent to the LLM gateway so spend can be split per app and per
+# part of the app. Contexts are coarse on purpose: one LLM instance always
+# serves exactly one context, so the headers can be baked into the client.
+LLM_APP = "reflector"
+LLMContext = Literal["topic", "title", "summary"]
+
+
+def build_llm_headers(context: LLMContext, version: str) -> dict[str, str]:
+    """Build the attribution headers for outbound LLM requests."""
+    return {
+        "User-Agent": f"{LLM_APP}/{version}",
+        "x-llmproxy-tags": f"app:{LLM_APP},context:{context}",
+    }
+
 
 class LLMParseError(Exception):
     """Raised when LLM output cannot be parsed after retries."""
@@ -33,7 +47,12 @@ class LLMParseError(Exception):
 
 class LLM:
     def __init__(
-        self, settings, temperature: float = 0.4, max_tokens: int | None = None
+        self,
+        settings,
+        temperature: float = 0.4,
+        max_tokens: int | None = None,
+        *,
+        context: LLMContext,
     ):
         self.settings_obj = settings
         self.model_name = settings.LLM_MODEL
@@ -42,14 +61,21 @@ class LLM:
         self.context_window = settings.LLM_CONTEXT_WINDOW
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.context = context
 
         self._configure_llamaindex()
 
     def _configure_llamaindex(self):
-        """Configure llamaindex Settings with OpenAILike LLM"""
+        """Build the OpenAILike client for this instance.
+
+        The client is kept on the instance and used directly by both entry
+        points. Assigning only the llamaindex process global would let the
+        last constructed LLM win for every concurrent instance, which would
+        send the wrong temperature, session id and attribution context.
+        """
         session_id = llm_session_id.get() or f"fallback-{uuid4().hex}"
 
-        Settings.llm = OpenAILike(
+        self._llm = OpenAILike(
             model=self.model_name,
             api_base=self.url,
             api_key=self.api_key,
@@ -60,7 +86,13 @@ class LLM:
             max_tokens=self.max_tokens,
             timeout=self.settings_obj.LLM_REQUEST_TIMEOUT,
             additional_kwargs={"extra_body": {"litellm_session_id": session_id}},
+            default_headers=build_llm_headers(
+                self.context, self.settings_obj.REFLECTOR_VERSION
+            ),
         )
+
+        # Kept for anything still reading the llamaindex global.
+        Settings.llm = self._llm
 
     async def get_response(
         self, prompt: str, texts: list[str], tone_name: str | None = None
@@ -72,7 +104,7 @@ class LLM:
         """
 
         async def _call():
-            summarizer = TreeSummarize(verbose=False)
+            summarizer = TreeSummarize(llm=self._llm, verbose=False)
             response = await summarizer.aget_response(
                 prompt, texts, tone_name=tone_name
             )
@@ -119,14 +151,14 @@ class LLM:
             for attempt in range(1, max_retries + 2):  # +2: first try + retries
                 try:
                     if attempt == 1:
-                        result = await Settings.llm.astructured_predict(
+                        result = await self._llm.astructured_predict(
                             output_cls, prompt_tmpl, user_prompt=full_prompt
                         )
                     else:
                         reflection_tmpl = PromptTemplate(
                             "{user_prompt}\n\n{reflection}"
                         )
-                        result = await Settings.llm.astructured_predict(
+                        result = await self._llm.astructured_predict(
                             output_cls,
                             reflection_tmpl,
                             user_prompt=full_prompt,

@@ -259,6 +259,7 @@ To change the configuration, pass new flags — they override and replace the sa
 | `LLM_URL` | OpenAI-compatible LLM endpoint | Auto-set for Ollama modes |
 | `LLM_API_KEY` | LLM API key | `not-needed` for Ollama |
 | `LLM_MODEL` | LLM model name | `qwen2.5:14b` for Ollama (override with `--llm-model`) |
+| `REFLECTOR_VERSION` | Version reported in the `User-Agent` of outbound LLM calls | `dev` (set at image build time for released images) |
 | `CELERY_BEAT_POLL_INTERVAL` | Override all worker polling intervals (seconds). `0` = use individual defaults | `300` (selfhosted), `0` (other) |
 | `TRANSCRIPT_STORAGE_BACKEND` | Storage backend | `aws` |
 | `TRANSCRIPT_STORAGE_AWS_*` | S3 credentials | Auto-set for Garage |

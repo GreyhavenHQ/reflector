@@ -22,7 +22,7 @@ class TranscriptFinalSummaryProcessor(Processor):
         super().__init__(**kwargs)
         self.transcript = transcript
         self.chunks: list[TitleSummary] = []
-        self.llm = LLM(settings=settings)
+        self.llm = LLM(settings=settings, context="summary")
         self.builder = None
 
     async def _push(self, data: TitleSummary):

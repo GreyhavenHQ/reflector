@@ -68,7 +68,7 @@ async def detect_chunk_topic(input: TopicChunkInput, ctx: Context) -> TopicChunk
         text_length=len(input.chunk_text),
     )
 
-    llm = LLM(settings=settings, temperature=0.9)
+    llm = LLM(settings=settings, temperature=0.9, context="topic")
 
     prompt = TOPIC_PROMPT.format(text=input.chunk_text)
     response = await llm.get_structured_response(
