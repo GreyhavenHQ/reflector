@@ -37,4 +37,9 @@ RUN uv run python -c "import silero_vad.model"
 
 RUN chmod +x /app/docker-entrypoint.sh
 
+# Version reported in the User-Agent of outbound LLM calls.
+# Late in the file so a version bump does not invalidate the layer cache.
+ARG REFLECTOR_VERSION=dev
+ENV REFLECTOR_VERSION=${REFLECTOR_VERSION}
+
 CMD ["./docker-entrypoint.sh"]
