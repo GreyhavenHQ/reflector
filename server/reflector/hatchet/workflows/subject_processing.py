@@ -62,7 +62,7 @@ async def generate_detailed_summary(
         subject_index=input.subject_index,
     )
 
-    llm = LLM(settings=settings)
+    llm = LLM(settings=settings, context="summary")
 
     participant_instructions = build_participant_instructions(input.participant_names)
     detailed_prompt = DETAILED_SUBJECT_PROMPT_TEMPLATE.format(subject=input.subject)

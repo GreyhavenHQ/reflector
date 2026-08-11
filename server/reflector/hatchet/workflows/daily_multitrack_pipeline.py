@@ -1098,7 +1098,7 @@ async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult
             }
 
         # TODO: refactor SummaryBuilder methods into standalone functions
-        llm = LLM(settings=settings)
+        llm = LLM(settings=settings, context="summary")
         builder = SummaryBuilder(llm, logger=logger)
         builder.set_transcript(transcript_text)
 
@@ -1218,7 +1218,7 @@ async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
 
     summaries_text = "\n\n".join([f"{s['subject']}: {s['summary']}" for s in summaries])
 
-    llm = LLM(settings=settings)
+    llm = LLM(settings=settings, context="summary")
 
     participant_instructions = build_participant_instructions(
         subjects_result.participant_names
@@ -1300,7 +1300,7 @@ async def identify_action_items(
     )
 
     # TODO: refactor SummaryBuilder methods into standalone functions
-    llm = LLM(settings=settings)
+    llm = LLM(settings=settings, context="summary")
     builder = SummaryBuilder(llm, logger=logger)
     builder.set_transcript(subjects_result.transcript_text)
 

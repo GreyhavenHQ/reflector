@@ -577,7 +577,7 @@ if __name__ == "__main__":
     async def main():
         # build the summary
 
-        llm = LLM(settings=settings)
+        llm = LLM(settings=settings, context="summary")
         sm = SummaryBuilder(llm=llm, filename=args.transcript)
 
         if args.subjects:

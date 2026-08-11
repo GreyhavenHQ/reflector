@@ -23,7 +23,9 @@ class TestLLMParseErrorRecovery:
     @pytest.mark.asyncio
     async def test_parse_error_recovery_with_feedback(self, test_settings):
         """Test that parse errors trigger retry with reflection prompt"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         call_count = {"count": 0}
 
@@ -49,8 +51,8 @@ class TestLLMParseErrorRecovery:
                 assert "Error:" in kwargs["reflection"]
                 return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(
                 side_effect=astructured_predict_handler
             )
 
@@ -66,7 +68,9 @@ class TestLLMParseErrorRecovery:
     @pytest.mark.asyncio
     async def test_max_parse_retry_attempts(self, test_settings):
         """Test that parse error retry stops after max attempts"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         # Always raise ValidationError
         async def always_fail(output_cls, prompt_tmpl, **kwargs):
@@ -82,8 +86,8 @@ class TestLLMParseErrorRecovery:
                 ],
             )
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(side_effect=always_fail)
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(side_effect=always_fail)
 
             with pytest.raises(LLMParseError, match="Failed to parse"):
                 await llm.get_structured_response(
@@ -91,12 +95,14 @@ class TestLLMParseErrorRecovery:
                 )
 
             expected_attempts = test_settings.LLM_PARSE_MAX_RETRIES + 1
-            assert mock_settings.llm.astructured_predict.call_count == expected_attempts
+            assert mock_llm.astructured_predict.call_count == expected_attempts
 
     @pytest.mark.asyncio
     async def test_raw_response_logging_on_parse_error(self, test_settings, caplog):
         """Test that raw response is logged when parse error occurs"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         call_count = {"count": 0}
 
@@ -117,10 +123,10 @@ class TestLLMParseErrorRecovery:
             return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
         with (
-            patch("reflector.llm.Settings") as mock_settings,
+            patch.object(llm, "_llm") as mock_llm,
             caplog.at_level("ERROR"),
         ):
-            mock_settings.llm.astructured_predict = AsyncMock(
+            mock_llm.astructured_predict = AsyncMock(
                 side_effect=astructured_predict_handler
             )
 
@@ -137,7 +143,9 @@ class TestLLMParseErrorRecovery:
     @pytest.mark.asyncio
     async def test_multiple_validation_errors_in_feedback(self, test_settings):
         """Test that validation errors are included in reflection feedback"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         call_count = {"count": 0}
 
@@ -171,8 +179,8 @@ class TestLLMParseErrorRecovery:
                 )
                 return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(
                 side_effect=astructured_predict_handler
             )
 
@@ -186,10 +194,12 @@ class TestLLMParseErrorRecovery:
     @pytest.mark.asyncio
     async def test_success_on_first_attempt(self, test_settings):
         """Test that no retry happens when first attempt succeeds"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(
                 return_value=TestResponse(
                     title="Test", summary="Summary", confidence=0.95
                 )
@@ -202,7 +212,7 @@ class TestLLMParseErrorRecovery:
             assert result.title == "Test"
             assert result.summary == "Summary"
             assert result.confidence == 0.95
-            assert mock_settings.llm.astructured_predict.call_count == 1
+            assert mock_llm.astructured_predict.call_count == 1
 
 
 class TestNetworkErrorRetries:
@@ -211,7 +221,9 @@ class TestNetworkErrorRetries:
     @pytest.mark.asyncio
     async def test_network_error_retried_by_outer_wrapper(self, test_settings):
         """Test that network errors trigger the outer retry wrapper"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         call_count = {"count": 0}
 
@@ -221,8 +233,8 @@ class TestNetworkErrorRetries:
                 raise ConnectionError("Connection refused")
             return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(
                 side_effect=astructured_predict_handler
             )
 
@@ -236,10 +248,12 @@ class TestNetworkErrorRetries:
     @pytest.mark.asyncio
     async def test_network_error_exhausts_retries(self, test_settings):
         """Test that persistent network errors exhaust retry attempts"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(
                 side_effect=ConnectionError("Connection refused")
             )
 
@@ -249,7 +263,7 @@ class TestNetworkErrorRetries:
                 )
 
             # 3 retry attempts
-            assert mock_settings.llm.astructured_predict.call_count == 3
+            assert mock_llm.astructured_predict.call_count == 3
 
 
 class TestGetResponseRetries:
@@ -258,7 +272,9 @@ class TestGetResponseRetries:
     @pytest.mark.asyncio
     async def test_get_response_retries_on_connection_error(self, test_settings):
         """Test that get_response retries on ConnectionError and returns on success."""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         mock_instance = MagicMock()
         mock_instance.aget_response = AsyncMock(
@@ -277,7 +293,9 @@ class TestGetResponseRetries:
     @pytest.mark.asyncio
     async def test_get_response_exhausts_retries(self, test_settings):
         """Test that get_response raises RetryException after retry attempts exceeded."""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         mock_instance = MagicMock()
         mock_instance.aget_response = AsyncMock(
@@ -297,7 +315,9 @@ class TestGetResponseRetries:
         retry() must return falsy results (e.g. '' from get_response) instead of
         treating them as 'no result' and retrying until RetryException.
         """
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         mock_instance = MagicMock()
         mock_instance.aget_response = AsyncMock(return_value="   \n  ")  # strip() -> ""
@@ -315,7 +335,9 @@ class TestTextsInclusion:
     @pytest.mark.asyncio
     async def test_texts_included_in_prompt(self, test_settings):
         """Test that texts content is appended to the prompt for astructured_predict"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         captured_prompts = []
 
@@ -323,10 +345,8 @@ class TestTextsInclusion:
             captured_prompts.append(kwargs.get("user_prompt", ""))
             return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
-                side_effect=capture_prompt
-            )
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(side_effect=capture_prompt)
 
             await llm.get_structured_response(
                 prompt="Identify all participants",
@@ -343,7 +363,9 @@ class TestTextsInclusion:
     @pytest.mark.asyncio
     async def test_empty_texts_uses_prompt_only(self, test_settings):
         """Test that empty texts list sends only the prompt"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         captured_prompts = []
 
@@ -351,10 +373,8 @@ class TestTextsInclusion:
             captured_prompts.append(kwargs.get("user_prompt", ""))
             return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
-                side_effect=capture_prompt
-            )
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(side_effect=capture_prompt)
 
             await llm.get_structured_response(
                 prompt="Identify all participants",
@@ -368,7 +388,9 @@ class TestTextsInclusion:
     @pytest.mark.asyncio
     async def test_texts_included_in_reflection_retry(self, test_settings):
         """Test that texts are included in the prompt even during reflection retries"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         captured_prompts = []
         call_count = {"count": 0}
@@ -390,10 +412,8 @@ class TestTextsInclusion:
                 )
             return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
-                side_effect=capture_and_fail_first
-            )
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(side_effect=capture_and_fail_first)
 
             await llm.get_structured_response(
                 prompt="Summarize this",
@@ -414,7 +434,9 @@ class TestReflectionRetryBackoff:
     @pytest.mark.asyncio
     async def test_value_error_triggers_reflection(self, test_settings):
         """Test that ValueError (parse failure) also triggers reflection retry"""
-        llm = LLM(settings=test_settings, temperature=0.4, max_tokens=100)
+        llm = LLM(
+            settings=test_settings, temperature=0.4, max_tokens=100, context="summary"
+        )
 
         call_count = {"count": 0}
 
@@ -425,8 +447,8 @@ class TestReflectionRetryBackoff:
             assert "reflection" in kwargs
             return TestResponse(title="Test", summary="Summary", confidence=0.95)
 
-        with patch("reflector.llm.Settings") as mock_settings:
-            mock_settings.llm.astructured_predict = AsyncMock(
+        with patch.object(llm, "_llm") as mock_llm:
+            mock_llm.astructured_predict = AsyncMock(
                 side_effect=astructured_predict_handler
             )
 

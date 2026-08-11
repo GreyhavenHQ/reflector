@@ -109,6 +109,10 @@ class Settings(BaseSettings):
         300  # Timeout in seconds for structured responses (5 minutes)
     )
 
+    # Version reported in the User-Agent of outbound LLM calls.
+    # Injected at image build time; "dev" for local runs.
+    REFLECTOR_VERSION: str = "dev"
+
     # Diarization
     # backends: modal — HTTP API client, pyannote — in-process pyannote.audio
     DIARIZATION_ENABLED: bool = True
