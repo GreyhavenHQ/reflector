@@ -213,13 +213,6 @@ function authentikAuthOptions(): AuthOptions {
           tokenCacheRedis,
           `token:${token.sub}`,
         );
-        console.debug(
-          "currentToken from cache",
-          JSON.stringify(currentToken, null, 2),
-          "will be returned?",
-          currentToken &&
-            !shouldRefreshToken(currentToken.token.accessTokenExpires),
-        );
         if (
           currentToken &&
           !shouldRefreshToken(currentToken.token.accessTokenExpires)
@@ -232,7 +225,6 @@ function authentikAuthOptions(): AuthOptions {
       },
       async session({ session, token }) {
         const extendedToken = token as JWTWithAccessToken;
-        console.log("extendedToken", extendedToken);
         const userId = await getUserId(extendedToken.accessToken);
 
         return {
@@ -259,26 +251,16 @@ async function lockedRefreshAccessToken(
   return redlock
     .using([lockKey], 10000, async () => {
       const cached = await getTokenCache(tokenCacheRedis, `token:${token.sub}`);
-      if (cached)
-        console.debug(
-          "received cached token. to delete?",
-          Date.now() - cached.timestamp > TOKEN_CACHE_TTL,
-        );
-      else console.debug("no cached token received");
       if (cached) {
         if (Date.now() - cached.timestamp > TOKEN_CACHE_TTL) {
           await deleteTokenCache(tokenCacheRedis, `token:${token.sub}`);
         } else if (!shouldRefreshToken(cached.token.accessTokenExpires)) {
-          console.debug("returning cached token", cached.token);
           return cached.token;
         }
       }
 
       const currentToken = cached?.token || (token as JWTWithAccessToken);
       const newToken = await refreshAccessToken(currentToken);
-
-      console.debug("current token during refresh", currentToken);
-      console.debug("new token during refresh", newToken);
 
       if (newToken.error) {
         await deleteTokenCache(tokenCacheRedis, `token:${token.sub}`);
