@@ -13,6 +13,7 @@ from .requests import (
     MeetingTokenProperties,
     RecordingsBucketConfig,
     RoomProperties,
+    UpdateRoomRequest,
     UpdateWebhookRequest,
 )
 
@@ -72,6 +73,7 @@ __all__ = [
     "CreateMeetingTokenRequest",
     "MeetingTokenProperties",
     "CreateWebhookRequest",
+    "UpdateRoomRequest",
     "UpdateWebhookRequest",
     # Responses
     "RoomResponse",

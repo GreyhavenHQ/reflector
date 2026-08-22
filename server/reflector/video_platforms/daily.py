@@ -11,6 +11,7 @@ from reflector.dailyco_api import (
     RecordingsBucketConfig,
     RoomPresenceResponse,
     RoomProperties,
+    UpdateRoomRequest,
     verify_webhook_signature,
 )
 from reflector.dailyco_api import RecordingType as DailyRecordingType
@@ -124,6 +125,30 @@ class DailyClient(VideoPlatformClient):
             )
             for s in sessions
         ]
+
+    async def extend_meeting_expiration(
+        self, room_name: str, end_date: datetime
+    ) -> bool:
+        """Move the Daily room `exp` forward so participants can still rejoin.
+
+        Failures are logged and reported, not raised: the caller retries on the
+        next pass.
+        """
+        try:
+            await self._api_client.update_room(
+                room_name,
+                UpdateRoomRequest(
+                    properties=RoomProperties(exp=int(end_date.timestamp()))
+                ),
+            )
+        except Exception:
+            logger.warning(
+                "Failed to extend Daily room expiration",
+                room_name=room_name,
+                exc_info=True,
+            )
+            return False
+        return True
 
     async def get_room_presence(self, room_name: str) -> RoomPresenceResponse:
         """Get room presence/session data for a Daily.co room."""

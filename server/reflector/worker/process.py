@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Literal
 from urllib.parse import unquote
 
@@ -55,6 +55,13 @@ from reflector.video_platforms.whereby_utils import (
 )
 
 logger = structlog.wrap_logger(get_task_logger(__name__))
+
+# A meeting that is still running gets its end date pushed forward, so
+# participants can leave and rejoin a meeting that outlives its planned end.
+# The extension is applied only once the remaining time drops below the
+# threshold, which keeps the extra platform API calls to one every few hours.
+MEETING_EXTENSION_THRESHOLD = timedelta(hours=4)
+MEETING_EXTENSION_DURATION = timedelta(hours=8)
 
 
 @shared_task
@@ -824,11 +831,52 @@ async def poll_daily_room_presence_task(meeting_id: str) -> None:
     await poll_daily_room_presence(meeting_id)
 
 
+async def extend_meeting_lease(meeting, client, end_date, current_time) -> None:
+    """Push `end_date` forward for a meeting that is still running.
+
+    Meetings are created with a fixed end date. Without this, a meeting that
+    outlives that date stays active but is refused by the join endpoint
+    ("Meeting has ended") and disappears from the active meeting lists, so a
+    participant who leaves cannot come back.
+
+    The platform-side expiration is updated as well (Daily rooms carry their own
+    `exp`). A platform failure is logged and the database is still extended:
+    participants already in the meeting are unaffected, and the join endpoint
+    stops refusing them on our side.
+    """
+    if end_date - current_time >= MEETING_EXTENSION_THRESHOLD:
+        return
+
+    new_end_date = current_time + MEETING_EXTENSION_DURATION
+
+    try:
+        await client.extend_meeting_expiration(meeting.room_name, new_end_date)
+    except Exception:
+        logger.warning(
+            "Failed to extend platform meeting expiration",
+            meeting_id=meeting.id,
+            room_name=meeting.room_name,
+            exc_info=True,
+        )
+
+    await meetings_controller.update_meeting(meeting.id, end_date=new_end_date)
+    logger.info(
+        "Meeting end date extended - still running",
+        meeting_id=meeting.id,
+        room_name=meeting.room_name,
+        previous_end_date=end_date.isoformat(),
+        new_end_date=new_end_date.isoformat(),
+    )
+
+
 @shared_task
 @asynctask
 async def process_meetings():
     """
     Checks which meetings are still active and deactivates those that have ended.
+
+    Meetings with active sessions also get their end date extended when they
+    are about to expire (see extend_meeting_lease).
 
     Deactivation logic:
     - Active sessions: Keep meeting active regardless of scheduled time
@@ -886,6 +934,7 @@ async def process_meetings():
 
                 if has_active_sessions:
                     logger_.debug("Meeting still has active sessions, keep it")
+                    await extend_meeting_lease(meeting, client, end_date, current_time)
                 elif has_had_sessions:
                     should_deactivate = True
                     logger_.info("Meeting ended - all participants left")
