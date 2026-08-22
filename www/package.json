@@ -7,7 +7,7 @@
     "build": "next build",
     "build-production": "next build --experimental-build-mode compile",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "format": "prettier --write .",
     "openapi": "openapi-typescript http://127.0.0.1:1250/openapi.json -o ./app/reflector-api.d.ts",
     "test": "jest",
@@ -64,6 +64,7 @@
   "license": "All Rights Reserved",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@types/jest": "^30.0.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "^19.2.3",
