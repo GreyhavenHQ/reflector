@@ -14,20 +14,52 @@ export function getErrorDetail(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function formatJoinError(error: unknown): string {
+export type JoinErrorDescription = {
+  title: string;
+  message: string;
+  canRetry: boolean;
+};
+
+export function describeJoinError(error: unknown): JoinErrorDescription {
   const detail = getErrorDetail(error, "");
   switch (detail) {
     case "Meeting has ended":
-      return "This meeting has ended. The organizer can start a new one.";
+      return {
+        title: "This meeting has ended",
+        message: "The organizer can start a new one.",
+        canRetry: true,
+      };
     case "Meeting is not active":
-      return "This meeting is no longer active. Ask the organizer to start it again.";
+      return {
+        title: "This meeting is no longer active",
+        message: "Ask the organizer to start it again.",
+        canRetry: true,
+      };
     case "Meeting not found":
-      return "This meeting no longer exists. Check the link or ask the organizer for a new one.";
+      return {
+        title: "Meeting not found",
+        message:
+          "This meeting no longer exists. Check the link or ask the organizer for a new one.",
+        canRetry: false,
+      };
     case "Room not found":
-      return "This room doesn't exist.";
+      return {
+        title: "Room not found",
+        message: "This room doesn't exist.",
+        canRetry: false,
+      };
     default:
-      return detail || "We couldn't join the meeting. Please try again.";
+      return {
+        title: "We couldn't join the meeting",
+        message: detail || "Something went wrong on the way in.",
+        canRetry: true,
+      };
   }
+}
+
+export function formatJoinError(error: unknown): string {
+  const { title, message } = describeJoinError(error);
+  return `${title}. ${message}`;
 }
 
 export function shouldShowError(error: Error | null | undefined) {

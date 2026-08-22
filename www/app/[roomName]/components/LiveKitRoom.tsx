@@ -13,7 +13,8 @@ import {
 import type { components } from "../../reflector-api";
 import { useAuth } from "../../lib/AuthProvider";
 import { useRoomJoinMeeting } from "../../lib/apiHooks";
-import { formatJoinError } from "../../lib/errorUtils";
+import { describeJoinError } from "../../lib/errorUtils";
+import MeetingErrorScreen from "./MeetingErrorScreen";
 import { assertMeetingId } from "../../lib/types";
 import {
   ConsentDialogButton,
@@ -68,6 +69,7 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
   const joinMutation = useRoomJoinMeeting();
   const [joinedMeeting, setJoinedMeeting] = useState<Meeting | null>(null);
   const [userChoices, setUserChoices] = useState<LocalUserChoices | null>(null);
+  const [joinAttempt, setJoinAttempt] = useState(0);
 
   // ── Consent dialog (same hooks as Daily/Whereby) ──────────
   const { showConsentButton, showRecordingIndicator } = useConsentDialog({
@@ -130,7 +132,12 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
     return () => {
       cancelled = true;
     };
-  }, [meeting?.id, roomName, authLastUserId, userChoices]);
+  }, [meeting?.id, roomName, authLastUserId, userChoices, joinAttempt]);
+
+  const handleRetryJoin = useCallback(() => {
+    joinMutation.reset();
+    setJoinAttempt((attempt) => attempt + 1);
+  }, [joinMutation]);
 
   const handleDisconnected = useCallback(() => {
     router.push("/browse");
@@ -182,10 +189,14 @@ export default function LiveKitRoom({ meeting, room }: LiveKitRoomProps) {
   }
 
   if (joinMutation.isError) {
+    const { title, message, canRetry } = describeJoinError(joinMutation.error);
     return (
-      <Center h="100vh" bg="gray.50">
-        <Text fontSize="lg">{formatJoinError(joinMutation.error)}</Text>
-      </Center>
+      <MeetingErrorScreen
+        title={title}
+        message={message}
+        roomName={roomName}
+        onRetry={canRetry ? handleRetryJoin : undefined}
+      />
     );
   }
 
