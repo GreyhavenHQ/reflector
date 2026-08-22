@@ -33,11 +33,7 @@ async function getUserId(accessToken: string): Promise<string | null> {
     });
 
     if (!response.ok) {
-      try {
-        console.error(await response.text());
-      } catch (e) {
-        console.error("Failed to parse error response", e);
-      }
+      console.error("Failed to fetch user id from backend", response.status);
       return null;
     }
 
@@ -317,8 +313,6 @@ async function refreshAccessToken(token: JWT): Promise<JWTWithAccessToken> {
         "Failed to refresh access token. Response status:",
         response.status,
       );
-      const responseBody = await response.text();
-      console.error(new Date().toISOString(), "Response body:", responseBody);
       throw new Error(`Failed to refresh access token: ${response.statusText}`);
     }
     const refreshedTokens = await response.json();

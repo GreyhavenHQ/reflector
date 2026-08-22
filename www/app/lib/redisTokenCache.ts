@@ -39,7 +39,13 @@ export async function getTokenCache(
   try {
     return TokenCacheEntryCodec.decode(data);
   } catch (error) {
-    console.error("Invalid token cache data:", error);
+    // Never log the error itself: it is raised over the serialized token blob,
+    // and both JSON.parse and zod echo fragments of their input in the message.
+    console.error(
+      "Invalid token cache data, dropping entry",
+      key,
+      error instanceof Error ? error.name : "unknown error",
+    );
     await redis.del(key);
     return null;
   }

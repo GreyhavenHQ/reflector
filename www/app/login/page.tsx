@@ -34,7 +34,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result?.error) {
-      console.log(result?.error);
+      console.error("sign-in failed:", result?.error);
       setError("Invalid email or password");
     } else {
       router.push("/");
