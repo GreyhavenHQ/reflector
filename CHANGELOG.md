@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.2](https://github.com/GreyhavenHQ/reflector/compare/v0.46.1...v0.46.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* **www:** approve dependency build scripts for pnpm 11 ([#977](https://github.com/GreyhavenHQ/reflector/issues/977)) ([56324fd](https://github.com/GreyhavenHQ/reflector/commit/56324fd50e4a99ffb89cfb26117fb054c1a1c1a5))
+
 ## [0.46.1](https://github.com/GreyhavenHQ/reflector/compare/v0.46.0...v0.46.1) (2026-08-24)
 
 
