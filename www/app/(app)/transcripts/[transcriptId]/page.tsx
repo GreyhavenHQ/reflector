@@ -18,12 +18,16 @@ import {
   Flex,
   Grid,
   GridItem,
+  Link,
   Skeleton,
   Text,
   Spinner,
 } from "@chakra-ui/react";
+import NextLink from "next/link";
 import { useTranscriptGet } from "../../../lib/apiHooks";
-import { TranscriptStatus } from "../../../lib/transcript";
+import { TranscriptStatus, transcriptSource } from "../../../lib/transcript";
+import { formatLocalDate } from "../../../lib/time";
+import { roomUrl } from "../../../lib/routes";
 import { useAuth } from "../../../lib/AuthProvider";
 import { featureEnabled } from "../../../lib/features";
 
@@ -32,6 +36,48 @@ type TranscriptDetails = {
     transcriptId: string;
   }>;
 };
+
+// Where the meeting happened and when, shown under the title.
+function TranscriptMeta({
+  transcript,
+}: {
+  transcript: NonNullable<ReturnType<typeof useTranscriptGet>["data"]>;
+}) {
+  const source = transcriptSource(transcript);
+  return (
+    <Flex
+      direction={{ base: "column", md: "row" }}
+      gap={{ base: 1, md: 2 }}
+      fontSize="xs"
+      color="gray.600"
+      flexWrap="wrap"
+      align={{ base: "flex-start", md: "center" }}
+      mt={1}
+    >
+      <Flex align="center" gap={1}>
+        <Text fontWeight="medium" color="gray.500">
+          {transcript.source_kind === "room" ? "Room:" : "Source:"}
+        </Text>
+        {source.roomName ? (
+          <Link as={NextLink} href={roomUrl(source.roomName)}>
+            {source.label}
+          </Link>
+        ) : (
+          <Text>{source.label}</Text>
+        )}
+      </Flex>
+      <Text display={{ base: "none", md: "block" }} color="gray.400">
+        •
+      </Text>
+      <Flex align="center" gap={1}>
+        <Text fontWeight="medium" color="gray.500">
+          Date:
+        </Text>
+        <Text>{formatLocalDate(transcript.created_at)}</Text>
+      </Flex>
+    </Flex>
+  );
+}
 
 export default function TranscriptDetails(details: TranscriptDetails) {
   const params = use(details.params);
@@ -213,6 +259,9 @@ export default function TranscriptDetails(details: TranscriptDetails) {
                   videoNewBadge={videoNewBadge}
                 />
               </Flex>
+              {transcript.data && (
+                <TranscriptMeta transcript={transcript.data} />
+              )}
               {mp3.audioDeleted && (
                 <Text fontSize="xs" color="gray.600" fontStyle="italic">
                   No audio is available because one or more participants didn't
