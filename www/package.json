@@ -7,7 +7,7 @@
     "build": "next build",
     "build-production": "next build --experimental-build-mode compile",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "format": "prettier --write .",
     "openapi": "openapi-typescript http://127.0.0.1:1250/openapi.json -o ./app/reflector-api.d.ts",
     "test": "jest",
@@ -64,6 +64,7 @@
   "license": "All Rights Reserved",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@types/jest": "^30.0.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -71,15 +72,5 @@
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.8.1",
     "ts-jest": "^29.4.6"
-  },
-  "pnpm": {
-    "overrides": {
-      "minimatch@>=5.0.0 <5.1.8": "5.1.8",
-      "js-yaml@<4.1.1": "4.1.1",
-      "webpack": "5.105.3",
-      "serialize-javascript": "7.0.4",
-      "immutable": "5.1.5",
-      "next": "16.1.7"
-    }
   }
 }

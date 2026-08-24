@@ -1,0 +1,13 @@
+# pnpm settings live here, not in the "pnpm" field of package.json: pnpm 11
+# no longer reads that field, and silently re-resolves without these pins if
+# they are left there. Keep security overrides in this file only.
+#
+# Requires pnpm >= 10. pnpm 8 fails on this file with
+# ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION.
+overrides:
+  "minimatch@>=5.0.0 <5.1.8": "5.1.8"
+  "js-yaml@<4.1.1": "4.1.1"
+  webpack: "5.105.3"
+  serialize-javascript: "7.0.4"
+  immutable: "5.1.5"
+  next: "16.1.7"
