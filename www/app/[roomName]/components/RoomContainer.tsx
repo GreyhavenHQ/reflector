@@ -12,6 +12,7 @@ import {
 import type { components } from "../../reflector-api";
 import MeetingSelection from "../MeetingSelection";
 import useRoomDefaultMeeting from "../useRoomDefaultMeeting";
+import MeetingErrorScreen from "./MeetingErrorScreen";
 import WherebyRoom from "./WherebyRoom";
 import DailyRoom from "./DailyRoom";
 import LiveKitRoom from "./LiveKitRoom";
@@ -128,16 +129,10 @@ export default function RoomContainer(details: RoomDetails) {
 
   if (!room) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height="100vh"
-        bg="gray.50"
-        p={4}
-      >
-        <Text fontSize="lg">Room not found</Text>
-      </Box>
+      <MeetingErrorScreen
+        title="Room not found"
+        message="This room doesn't exist. Check the link or ask the organizer for a new one."
+      />
     );
   }
 
@@ -157,20 +152,12 @@ export default function RoomContainer(details: RoomDetails) {
 
   if (errors.length > 0) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height="100vh"
-        bg="gray.50"
-        p={4}
-      >
-        {errors.map((error, i) => (
-          <Text key={i} fontSize="lg">
-            {printApiError(error)}
-          </Text>
-        ))}
-      </Box>
+      <MeetingErrorScreen
+        title="We couldn't open this meeting"
+        message={errors.map(printApiError).join("\n")}
+        roomName={roomName}
+        onRetry={() => router.refresh()}
+      />
     );
   }
 

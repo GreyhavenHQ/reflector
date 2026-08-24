@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Spinner, Center, Text } from "@chakra-ui/react";
+import { Box, Spinner, Center } from "@chakra-ui/react";
 import { useRouter, useParams } from "next/navigation";
 import DailyIframe, {
   DailyCall,
@@ -28,7 +28,8 @@ import {
   useRoomJoinMeeting,
   useMeetingStartRecording,
 } from "../../lib/apiHooks";
-import { formatJoinError } from "../../lib/errorUtils";
+import { describeJoinError } from "../../lib/errorUtils";
+import MeetingErrorScreen from "./MeetingErrorScreen";
 import { omit } from "remeda";
 import {
   assertExists,
@@ -192,6 +193,7 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
   const joinMutation = useRoomJoinMeeting();
   const startRecordingMutation = useMeetingStartRecording();
   const [joinedMeeting, setJoinedMeeting] = useState<Meeting | null>(null);
+  const [joinAttempt, setJoinAttempt] = useState(0);
 
   // Generate deterministic instanceIds so all participants use SAME IDs
   const cloudInstanceId = parseNonEmptyString(meeting.id);
@@ -244,7 +246,12 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
     };
 
     join().catch(console.error.bind(console, "Failed to join meeting:"));
-  }, [meeting?.id, roomName, authLastUserId]);
+  }, [meeting?.id, roomName, authLastUserId, joinAttempt]);
+
+  const handleRetryJoin = useCallback(() => {
+    joinMutation.reset();
+    setJoinAttempt((attempt) => attempt + 1);
+  }, [joinMutation]);
 
   const roomUrl = joinedMeeting?.room_url;
 
@@ -427,10 +434,14 @@ export default function DailyRoom({ meeting, room }: DailyRoomProps) {
   }
 
   if (joinMutation.isError) {
+    const { title, message, canRetry } = describeJoinError(joinMutation.error);
     return (
-      <Center width="100vw" height="100vh">
-        <Text color="red.500">{formatJoinError(joinMutation.error)}</Text>
-      </Center>
+      <MeetingErrorScreen
+        title={title}
+        message={message}
+        roomName={roomName}
+        onRetry={canRetry ? handleRetryJoin : undefined}
+      />
     );
   }
 

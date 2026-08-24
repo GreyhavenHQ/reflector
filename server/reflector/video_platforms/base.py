@@ -30,6 +30,19 @@ class VideoPlatformClient(ABC):
         """Get session history for a room."""
         pass
 
+    async def extend_meeting_expiration(
+        self, room_name: str, end_date: datetime
+    ) -> bool:
+        """Push the platform-side room expiration to a later date.
+
+        Called while a meeting is still running so participants can rejoin past
+        the initially planned end date.
+
+        No-op by default: Whereby has no room update API, and LiveKit rooms have
+        no wall-clock expiry. Returns True when the platform expiry was updated.
+        """
+        return False
+
     @abstractmethod
     async def upload_logo(self, room_name: str, logo_path: str) -> bool:
         pass

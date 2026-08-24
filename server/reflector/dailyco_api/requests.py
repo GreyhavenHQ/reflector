@@ -74,6 +74,19 @@ class CreateRoomRequest(BaseModel):
     )
 
 
+class UpdateRoomRequest(BaseModel):
+    """
+    Request to update an existing Daily.co room.
+
+    Only the properties explicitly set on `properties` are sent, so an update
+    never resets unrelated room settings.
+
+    Reference: https://docs.daily.co/reference/rest-api/rooms/set-room-config
+    """
+
+    properties: RoomProperties = Field(description="Room properties to update")
+
+
 class MeetingTokenProperties(BaseModel):
     """
     Properties for meeting token creation.

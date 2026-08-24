@@ -19,6 +19,7 @@ from .requests import (
     CreateMeetingTokenRequest,
     CreateRoomRequest,
     CreateWebhookRequest,
+    UpdateRoomRequest,
     UpdateWebhookRequest,
 )
 from .responses import (
@@ -177,6 +178,35 @@ class DailyApiClient:
         )
 
         data = await self._handle_response(response, "create_room")
+        return RoomResponse(**data)
+
+    async def update_room(
+        self, room_name: NonEmptyString, request: UpdateRoomRequest
+    ) -> RoomResponse:
+        """
+        Update the configuration of an existing room.
+
+        Reference: https://docs.daily.co/reference/rest-api/rooms/set-room-config
+
+        Args:
+            room_name: Daily.co room name
+            request: Properties to update. Only the properties explicitly set on
+                the request are sent, leaving the other room settings untouched.
+
+        Returns:
+            Updated room data
+
+        Raises:
+            DailyApiError: If API request fails
+        """
+        client = await self._get_client()
+        response = await client.post(
+            f"{self.base_url}/rooms/{room_name}",
+            headers=self.headers,
+            json=request.model_dump(exclude_none=True, exclude_unset=True),
+        )
+
+        data = await self._handle_response(response, "update_room")
         return RoomResponse(**data)
 
     async def get_room(self, room_name: NonEmptyString) -> RoomResponse:
