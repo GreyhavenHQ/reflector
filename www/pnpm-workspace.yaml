@@ -4,6 +4,15 @@
 #
 # Requires pnpm >= 10. pnpm 8 fails on this file with
 # ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION.
+# pnpm 11 fails the install on unapproved dependency build scripts
+# (ERR_PNPM_IGNORED_BUILDS). allowBuilds replaces the pnpm 10
+# onlyBuiltDependencies list. Approve the ones we rely on.
+allowBuilds:
+  "@parcel/watcher": true
+  "@sentry/cli": true
+  sharp: true
+  unrs-resolver: true
+
 overrides:
   "minimatch@>=5.0.0 <5.1.8": "5.1.8"
   "js-yaml@<4.1.1": "4.1.1"
