@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.46.0](https://github.com/GreyhavenHQ/reflector/compare/v0.45.0...v0.46.0) (2026-08-24)
+
+
+### Features
+
+* tag outbound LLM calls with app and context attribution ([#971](https://github.com/GreyhavenHQ/reflector/issues/971)) ([70d38db](https://github.com/GreyhavenHQ/reflector/commit/70d38db97080bd3a182fbc06d171970e1288adc6))
+* **www:** show room and date on the transcript detail page ([#972](https://github.com/GreyhavenHQ/reflector/issues/972)) ([a9e74ec](https://github.com/GreyhavenHQ/reflector/commit/a9e74eccf22741f06b0340d233a93b1801e5fee9))
+
+
+### Bug Fixes
+
+* allow rejoining a long-running meeting ([#974](https://github.com/GreyhavenHQ/reflector/issues/974)) ([b77b237](https://github.com/GreyhavenHQ/reflector/commit/b77b237b8369a944d4b4ed276dd6df87c8de3387))
+* past due meetings are now 8h for ics ([#958](https://github.com/GreyhavenHQ/reflector/issues/958)) ([52888f6](https://github.com/GreyhavenHQ/reflector/commit/52888f692fee2c5c06f62e51230b0ecfd54b8814))
+* **www:** stop leaking access and refresh tokens into frontend logs ([#973](https://github.com/GreyhavenHQ/reflector/issues/973)) ([19b19ff](https://github.com/GreyhavenHQ/reflector/commit/19b19ff6b5f934fcf5fcca6d0e4256b3d94df137))
+
 ## [0.45.0](https://github.com/GreyhavenHQ/reflector/compare/v0.44.0...v0.45.0) (2026-04-09)
 
 
