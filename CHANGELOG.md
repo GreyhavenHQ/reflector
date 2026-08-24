@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/GreyhavenHQ/reflector/compare/v0.46.0...v0.46.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* **www:** copy pnpm-workspace.yaml into Docker deps stage ([#975](https://github.com/GreyhavenHQ/reflector/issues/975)) ([3ad083e](https://github.com/GreyhavenHQ/reflector/commit/3ad083e527deed959ff9308a7e9aeb6ab4acc82b))
+
 ## [0.46.0](https://github.com/GreyhavenHQ/reflector/compare/v0.45.0...v0.46.0) (2026-08-24)
 
 
