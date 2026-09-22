@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@chakra-ui/react": "^3.33.0",
-    "@daily-co/daily-js": "^0.87.0",
+    "@daily-co/daily-js": "^0.92.2",
     "@emotion/react": "^11.14.0",
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",

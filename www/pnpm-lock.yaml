@@ -20,8 +20,8 @@ importers:
         specifier: ^3.33.0
         version: 3.33.0(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@daily-co/daily-js':
-        specifier: ^0.87.0
-        version: 0.87.0
+        specifier: ^0.92.2
+        version: 0.92.2
       '@emotion/react':
         specifier: ^11.14.0
         version: 11.14.0(@types/react@19.2.14)(react@19.2.4)
@@ -365,9 +365,9 @@ packages:
       react: '>=18'
       react-dom: '>=18'
 
-  '@daily-co/daily-js@0.87.0':
-    resolution: {integrity: sha512-hWHdBDvJwDeg8unz+XG9hD7xamuFi5Jmsk89ASATKL4fdTDHplpxi4PG9aaPXzBZYYLTjuxUje1K7B5uUR+gzw==}
-    engines: {node: '>=10.0.0'}
+  '@daily-co/daily-js@0.92.2':
+    resolution: {integrity: sha512-YuZGsBzKKfPFdKg2osTUrm53VkLoNdrtAyx/+R9MZrd1bJ4E2SC/ie3SugYaSpp30yzy/6qSLkH7dgLk5a8cvg==}
+    engines: {node: '>=22.14.0'}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -5763,7 +5763,7 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@daily-co/daily-js@0.87.0':
+  '@daily-co/daily-js@0.92.2':
     dependencies:
       '@babel/runtime': 7.28.6
       '@sentry/browser': 8.55.0
