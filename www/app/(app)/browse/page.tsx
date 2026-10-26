@@ -232,6 +232,13 @@ export default function TranscriptBrowser() {
   );
   const isTrashView = urlTrash === "1";
 
+  const [urlAttended, setUrlAttended] = useQueryState(
+    "attended",
+    parseAsStringLiteral(["1"] as const).withOptions({ shallow: false }),
+  );
+  const isAttendedView = !isTrashView && urlAttended === "1" && isAuthenticated;
+  const hasViewFilters = !isTrashView && !isAttendedView;
+
   const [urlPage, setPage] = useQueryState(
     "page",
     parseAsInteger.withDefault(1).withOptions({ shallow: false }),
@@ -256,12 +263,20 @@ export default function TranscriptBrowser() {
     () => ({
       q: urlSearchQuery,
       extras: {
-        room_id: isTrashView ? undefined : urlRoomId || undefined,
-        source_kind: isTrashView ? undefined : urlSourceKind || undefined,
+        room_id: hasViewFilters ? urlRoomId || undefined : undefined,
+        source_kind: hasViewFilters ? urlSourceKind || undefined : undefined,
         include_deleted: isTrashView ? true : undefined,
+        attended: isAttendedView ? true : undefined,
       },
     }),
-    [urlSearchQuery, urlRoomId, urlSourceKind, isTrashView],
+    [
+      urlSearchQuery,
+      urlRoomId,
+      urlSourceKind,
+      isTrashView,
+      isAttendedView,
+      hasViewFilters,
+    ],
   );
 
   const {
@@ -309,6 +324,7 @@ export default function TranscriptBrowser() {
     if (isTrashView) {
       setUrlTrash(null);
     }
+    setUrlAttended(null);
     setUrlSourceKind(sourceKind);
     setUrlRoomId(roomId);
     setPage(1);
@@ -316,6 +332,15 @@ export default function TranscriptBrowser() {
 
   const handleTrashClick = () => {
     setUrlTrash(isTrashView ? null : "1");
+    setUrlAttended(null);
+    setUrlSourceKind(null);
+    setUrlRoomId(null);
+    setPage(1);
+  };
+
+  const handleAttendedClick = () => {
+    setUrlAttended("1");
+    setUrlTrash(null);
     setUrlSourceKind(null);
     setUrlRoomId(null);
     setPage(1);
@@ -465,9 +490,11 @@ export default function TranscriptBrowser() {
         <Heading size="lg">
           {isTrashView
             ? "Trash"
-            : userName
-              ? `${userName}'s Transcriptions`
-              : "Your Transcriptions"}{" "}
+            : isAttendedView
+              ? "Meetings I attended"
+              : userName
+                ? `${userName}'s Transcriptions`
+                : "Your Transcriptions"}{" "}
           {(searchLoading || actionLoading) && <Spinner size="sm" />}
         </Heading>
       </Flex>
@@ -475,11 +502,13 @@ export default function TranscriptBrowser() {
       <Flex flexDir={{ base: "column", md: "row" }}>
         <FilterSidebar
           rooms={rooms}
-          selectedSourceKind={isTrashView ? null : urlSourceKind}
-          selectedRoomId={isTrashView ? "" : urlRoomId}
+          selectedSourceKind={hasViewFilters ? urlSourceKind : null}
+          selectedRoomId={hasViewFilters ? urlRoomId : ""}
           onFilterChange={handleFilterTranscripts}
           isTrashView={isTrashView}
           onTrashClick={handleTrashClick}
+          isAttendedView={isAttendedView}
+          onAttendedClick={handleAttendedClick}
           isAuthenticated={isAuthenticated}
         />
 
@@ -493,8 +522,8 @@ export default function TranscriptBrowser() {
         >
           <SearchForm
             setPage={setPage}
-            sourceKind={isTrashView ? null : urlSourceKind}
-            roomId={isTrashView ? null : urlRoomId}
+            sourceKind={hasViewFilters ? urlSourceKind : null}
+            roomId={hasViewFilters ? urlRoomId : null}
             searchQuery={urlSearchQuery}
             setSearchQuery={setUrlSearchQuery}
             setSourceKind={setUrlSourceKind}
@@ -516,8 +545,8 @@ export default function TranscriptBrowser() {
             query={urlSearchQuery}
             isLoading={searchLoading}
             isTrash={isTrashView}
-            onDelete={isTrashView ? undefined : setTranscriptToDeleteId}
-            onReprocess={isTrashView ? undefined : handleProcessTranscript}
+            onDelete={hasViewFilters ? setTranscriptToDeleteId : undefined}
+            onReprocess={hasViewFilters ? handleProcessTranscript : undefined}
             onRestore={isTrashView ? handleRestoreTranscript : undefined}
             onDestroy={isTrashView ? setTranscriptToDestroyId : undefined}
           />

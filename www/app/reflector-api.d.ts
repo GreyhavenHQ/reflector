@@ -3401,6 +3401,7 @@ export interface operations {
         /** @description Filter transcripts created on or before this datetime (ISO 8601 with timezone) */
         to?: string | null;
         include_deleted?: boolean;
+        attended?: boolean;
       };
       header?: never;
       path?: never;

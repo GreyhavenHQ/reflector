@@ -58,6 +58,7 @@ export function useTranscriptsSearch(
     room_id?: string;
     source_kind?: SourceKind;
     include_deleted?: boolean;
+    attended?: boolean;
   } = {},
 ) {
   return $api.useQuery(
@@ -72,6 +73,7 @@ export function useTranscriptsSearch(
           room_id: options.room_id,
           source_kind: options.source_kind,
           include_deleted: options.include_deleted,
+          attended: options.attended,
         },
       },
     },
