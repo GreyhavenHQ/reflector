@@ -14,6 +14,7 @@ from redis.exceptions import LockError
 import reflector.auth as auth
 from reflector.db import get_database
 from reflector.db.calendar_events import calendar_events_controller
+from reflector.db.meeting_attendees import meeting_attendees_controller
 from reflector.db.meetings import meetings_controller
 from reflector.db.rooms import rooms_controller
 from reflector.redis_cache import RedisAsyncLock, get_async_redis_client
@@ -581,6 +582,12 @@ async def rooms_join_meeting(
     current_time = datetime.now(timezone.utc)
     if meeting.end_date <= current_time:
         raise HTTPException(status_code=400, detail="Meeting has ended")
+
+    if user_id is not None:
+        try:
+            await meeting_attendees_controller.add(meeting.id, user_id)
+        except Exception:
+            logger.exception("Failed to record attendee for meeting %s", meeting.id)
 
     if meeting.platform == "daily" and user_id is not None:
         client = create_platform_client(meeting.platform)

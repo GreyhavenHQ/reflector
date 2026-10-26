@@ -1,10 +1,16 @@
 import importlib.util
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
+from conftest import authenticated_client_ctx
 
+from reflector.dailyco_api.responses import (
+    RoomPresenceParticipant,
+    RoomPresenceResponse,
+)
 from reflector.db import get_database
 from reflector.db.daily_participant_sessions import (
     DailyParticipantSession,
@@ -25,6 +31,7 @@ from reflector.db.transcripts import (
     TranscriptParticipant,
     transcripts_controller,
 )
+from reflector.worker.process import poll_daily_room_presence
 
 
 async def create_room(name="attendee-room", user_id="owner", is_shared=False):
@@ -174,3 +181,113 @@ async def test_backfill_from_existing_data():
         (m2.id, "user-daily"),
         (m3.id, "user-consent"),
     }
+
+
+@pytest.fixture
+def platform_client():
+    client = MagicMock()
+    client.create_meeting_token = AsyncMock(return_value="token")
+    client.create_access_token = MagicMock(return_value="token")
+    client.close = AsyncMock()
+    redis_client = MagicMock()
+    redis_client.hset = AsyncMock()
+    redis_client.expire = AsyncMock()
+    with (
+        patch("reflector.views.rooms.create_platform_client", return_value=client),
+        patch(
+            "reflector.views.rooms.get_async_redis_client",
+            AsyncMock(return_value=redis_client),
+        ),
+    ):
+        yield client
+
+
+async def create_platform_meeting(platform: str):
+    room = await create_room(name=f"room-{platform}")
+    await rooms_controller.update(room, {"platform": platform})
+    room = await rooms_controller.get_by_id(room.id)
+    return room, await create_meeting(room, f"meeting-{platform}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("platform", ["daily", "livekit", "whereby"])
+async def test_join_records_logged_in_user(platform, platform_client, client):
+    room, meeting = await create_platform_meeting(platform)
+
+    async with authenticated_client_ctx():
+        for _ in range(2):
+            response = await client.post(
+                f"/rooms/{room.name}/meetings/{meeting.id}/join"
+            )
+            assert response.status_code == 200, response.text
+
+    assert await count_rows(meeting.id) == 1
+    assert await meeting_attendees_controller.is_attendee(meeting.id, "randomuserid")
+
+
+@pytest.mark.asyncio
+async def test_anonymous_join_records_nothing(platform_client, client):
+    room, meeting = await create_platform_meeting("whereby")
+
+    response = await client.post(f"/rooms/{room.name}/meetings/{meeting.id}/join")
+    assert response.status_code == 200, response.text
+
+    assert await count_rows(meeting.id) == 0
+
+
+@pytest.mark.asyncio
+async def test_join_succeeds_when_attendee_write_fails(platform_client, client):
+    room, meeting = await create_platform_meeting("whereby")
+
+    with patch(
+        "reflector.views.rooms.meeting_attendees_controller.add",
+        AsyncMock(side_effect=RuntimeError("db down")),
+    ):
+        async with authenticated_client_ctx():
+            response = await client.post(
+                f"/rooms/{room.name}/meetings/{meeting.id}/join"
+            )
+
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.asyncio
+async def test_presence_poll_records_users_with_user_id():
+    room = await create_room()
+    meeting = await create_meeting(room)
+    now = datetime.now(timezone.utc).isoformat()
+    presence = RoomPresenceResponse(
+        total_count=3,
+        data=[
+            RoomPresenceParticipant(
+                room=meeting.room_name,
+                id=participant_id,
+                userId=user_id,
+                userName="name",
+                joinTime=now,
+                duration=10,
+            )
+            for participant_id, user_id in [
+                ("p1", "user-alice"),
+                ("p2", None),
+                ("p3", "p3"),
+            ]
+        ],
+    )
+    daily_client = AsyncMock()
+    daily_client.get_room_presence = AsyncMock(return_value=presence)
+
+    lock = AsyncMock()
+    lock.acquired = True
+    lock.__aenter__ = AsyncMock(return_value=lock)
+    lock.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("reflector.worker.process.RedisAsyncLock", return_value=lock),
+        patch("reflector.worker.process.create_platform_client") as create_client,
+    ):
+        create_client.return_value.__aenter__ = AsyncMock(return_value=daily_client)
+        create_client.return_value.__aexit__ = AsyncMock()
+        await poll_daily_room_presence(meeting.id)
+
+    assert await attendee_pairs() == {(meeting.id, "user-alice")}
