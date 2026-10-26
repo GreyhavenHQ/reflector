@@ -3388,6 +3388,7 @@ export interface operations {
         search_term?: string | null;
         change_seq_from?: number | null;
         sort_by?: ("created_at" | "change_seq") | null;
+        scope?: "all" | "owned_or_shared" | "attended";
         /** @description Page number */
         page?: number;
         /** @description Page size */
@@ -3468,6 +3469,7 @@ export interface operations {
         /** @description Filter transcripts created on or before this datetime (ISO 8601 with timezone) */
         to?: string | null;
         include_deleted?: boolean;
+        scope?: "all" | "owned_or_shared" | "attended";
       };
       header?: never;
       path?: never;

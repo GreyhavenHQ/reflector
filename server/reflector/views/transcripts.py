@@ -35,6 +35,7 @@ from reflector.db.search import (
 from reflector.db.transcripts import (
     SourceKind,
     TranscriptParticipant,
+    TranscriptScope,
     TranscriptStatus,
     TranscriptTopic,
     transcripts_controller,
@@ -265,6 +266,14 @@ class SearchResponse(BaseModel):
     offset: SearchOffset
 
 
+def _check_scope(scope: TranscriptScope, user_id: str | None) -> None:
+    if scope == "attended" and not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to view attended meetings",
+        )
+
+
 @router.get("/transcripts", response_model=Page[GetTranscriptMinimal])
 async def transcripts_list(
     user: Annotated[
@@ -275,8 +284,10 @@ async def transcripts_list(
     search_term: str | None = None,
     change_seq_from: int | None = None,
     sort_by: Literal["created_at", "change_seq"] | None = None,
+    scope: TranscriptScope = "all",
 ):
     user_id = user["sub"] if user else None
+    _check_scope(scope, user_id)
 
     # Default behavior preserved: sort_by=None → "-created_at"
     if sort_by == "change_seq":
@@ -290,6 +301,7 @@ async def transcripts_list(
         get_database(),
         await transcripts_controller.get_all(
             user_id=user_id,
+            scope=scope,
             source_kind=SourceKind(source_kind) if source_kind else None,
             room_id=room_id,
             search_term=search_term,
@@ -310,12 +322,21 @@ async def transcripts_search(
     from_datetime: SearchFromDatetimeParam = None,
     to_datetime: SearchToDatetimeParam = None,
     include_deleted: bool = False,
+    scope: TranscriptScope = "all",
     user: Annotated[
         Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
     ] = None,
 ):
     """Full-text search across transcript titles and content."""
     user_id = user["sub"] if user else None
+
+    _check_scope(scope, user_id)
+
+    if scope == "attended" and include_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail="scope 'attended' cannot be combined with 'include_deleted'",
+        )
 
     if include_deleted and not user_id:
         raise HTTPException(
@@ -338,6 +359,7 @@ async def transcripts_search(
         from_datetime=from_datetime,
         to_datetime=to_datetime,
         include_deleted=include_deleted,
+        scope=scope,
     )
 
     results, total = await search_controller.search_transcripts(search_params)

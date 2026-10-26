@@ -23,10 +23,15 @@ from pydantic import (
 
 from reflector.db import get_database
 from reflector.db.rooms import rooms
-from reflector.db.transcripts import SourceKind, TranscriptStatus, transcripts
+from reflector.db.transcripts import (
+    SourceKind,
+    TranscriptScope,
+    TranscriptStatus,
+    transcript_visibility_clause,
+    transcripts,
+)
 from reflector.db.utils import is_postgresql
 from reflector.logger import logger
-from reflector.settings import settings
 from reflector.utils.string import NonEmptyString, try_parse_non_empty_string
 
 DEFAULT_SEARCH_LIMIT = 20
@@ -139,6 +144,7 @@ class SearchParameters(BaseModel):
     from_datetime: datetime | None = None
     to_datetime: datetime | None = None
     include_deleted: bool = False
+    scope: TranscriptScope = "all"
 
 
 class SearchResultDB(BaseModel):
@@ -406,14 +412,10 @@ class SearchController:
             if not params.user_id:
                 return [], 0
             base_query = base_query.where(transcripts.c.user_id == params.user_id)
-        elif params.user_id:
-            base_query = base_query.where(
-                sqlalchemy.or_(
-                    transcripts.c.user_id == params.user_id, rooms.c.is_shared
-                )
-            )
-        elif not settings.PUBLIC_MODE:
-            base_query = base_query.where(rooms.c.is_shared)
+        else:
+            visibility = transcript_visibility_clause(params.user_id, params.scope)
+            if visibility is not None:
+                base_query = base_query.where(visibility)
         if params.room_id:
             base_query = base_query.where(transcripts.c.room_id == params.room_id)
         if params.source_kind:

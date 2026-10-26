@@ -16,6 +16,8 @@ interface FilterSidebarProps {
   onFilterChange: (sourceKind: SourceKind | null, roomId: string) => void;
   isTrashView: boolean;
   onTrashClick: () => void;
+  isAttendedView: boolean;
+  onAttendedClick: () => void;
   isAuthenticated: boolean;
 }
 
@@ -26,8 +28,12 @@ export default function FilterSidebar({
   onFilterChange,
   isTrashView,
   onTrashClick,
+  isAttendedView,
+  onAttendedClick,
   isAuthenticated,
 }: FilterSidebarProps) {
+  const isAllView =
+    !isTrashView && !isAttendedView && selectedSourceKind === null;
   const myRooms = rooms.filter((room) => !room.is_shared);
   const sharedRooms = rooms.filter((room) => room.is_shared);
 
@@ -39,17 +45,24 @@ export default function FilterSidebar({
           fontSize="sm"
           href="#"
           onClick={() => onFilterChange(null, "")}
-          color={
-            !isTrashView && selectedSourceKind === null
-              ? "blue.500"
-              : "gray.600"
-          }
-          fontWeight={
-            !isTrashView && selectedSourceKind === null ? "bold" : "normal"
-          }
+          color={isAllView ? "blue.500" : "gray.600"}
+          fontWeight={isAllView ? "bold" : "normal"}
         >
           All Transcripts
         </Link>
+
+        {isAuthenticated && (
+          <Link
+            as={NextLink}
+            fontSize="sm"
+            href="#"
+            onClick={onAttendedClick}
+            color={isAttendedView ? "blue.500" : "gray.600"}
+            fontWeight={isAttendedView ? "bold" : "normal"}
+          >
+            My meetings
+          </Link>
+        )}
 
         <Box borderBottomWidth="1px" my={2} />
 

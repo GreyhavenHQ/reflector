@@ -10,6 +10,7 @@ import {
   useConsentDialog,
 } from "../../lib/consent";
 import { assertMeetingId, MeetingId } from "../../lib/types";
+import { useRoomJoinMeeting } from "../../lib/apiHooks";
 
 type Meeting = components["schemas"]["Meeting"];
 type Room = components["schemas"]["RoomDetails"];
@@ -77,6 +78,15 @@ export default function WherebyRoom({ meeting, room }: WherebyRoomProps) {
   });
 
   const isLoading = status === "loading";
+
+  const { mutate: joinMeeting } = useRoomJoinMeeting();
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    // Records the user as an attendee; Whereby itself needs nothing back.
+    joinMeeting({
+      params: { path: { room_name: room.name, meeting_id: meetingId } },
+    });
+  }, [isAuthenticated, room.name, meetingId, joinMeeting]);
 
   const handleLeave = useCallback(() => {
     router.push("/browse");

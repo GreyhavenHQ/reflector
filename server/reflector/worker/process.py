@@ -19,6 +19,7 @@ from reflector.db.daily_participant_sessions import (
     DailyParticipantSession,
     daily_participant_sessions_controller,
 )
+from reflector.db.meeting_attendees import meeting_attendees_controller
 from reflector.db.meetings import meetings_controller
 from reflector.db.recordings import Recording, recordings_controller
 from reflector.db.rooms import rooms_controller
@@ -789,6 +790,16 @@ async def poll_daily_room_presence(meeting_id: str) -> None:
             await daily_participant_sessions_controller.batch_upsert_sessions(
                 missing_sessions
             )
+            # Daily sets userId to the session id for anonymous participants.
+            attendee_ids = [
+                s.user_id
+                for s in missing_sessions
+                if s.user_id not in (None, s.session_id)
+            ]
+            try:
+                await meeting_attendees_controller.add_many(meeting.id, attendee_ids)
+            except Exception:
+                logger.exception("Failed to record attendees", meeting_id=meeting.id)
             logger.info(
                 "Sessions added",
                 meeting_id=meeting.id,
