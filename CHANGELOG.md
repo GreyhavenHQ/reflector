@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.47.0](https://github.com/GreyhavenHQ/reflector/compare/v0.46.2...v0.47.0) (2026-10-26)
+
+
+### Features
+
+* list attended meetings in browse and transcript API ([#984](https://github.com/GreyhavenHQ/reflector/issues/984)) ([51e7d1e](https://github.com/GreyhavenHQ/reflector/commit/51e7d1e1acb514833aefc441c3c77f8ef65ad44e))
+* replace the transcript zip with a downloads panel ([#982](https://github.com/GreyhavenHQ/reflector/issues/982)) ([6923eea](https://github.com/GreyhavenHQ/reflector/commit/6923eea223ad134f44d44e7f008bc95e97a92541))
+
 ## [0.46.2](https://github.com/GreyhavenHQ/reflector/compare/v0.46.1...v0.46.2) (2026-08-24)
 
 
