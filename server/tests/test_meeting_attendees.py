@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
-from conftest import authenticated_client_ctx
+from conftest import authenticated_client2_ctx, authenticated_client_ctx
 
 from reflector.dailyco_api.responses import (
     RoomPresenceParticipant,
@@ -378,3 +378,51 @@ async def test_search_attended_rejects_include_deleted(client):
             params={"q": "", "attended": True, "include_deleted": True},
         )
     assert response.status_code == 400, response.text
+
+
+async def private_attended_transcript():
+    room = await create_room(name="private-read", user_id="owner-a")
+    meeting = await create_meeting(room, "private-read-meeting")
+    await meeting_attendees_controller.add(meeting.id, "randomuserid")
+    return await transcripts_controller.add(
+        name="private",
+        source_kind=SourceKind.ROOM,
+        user_id="owner-a",
+        share_mode="private",
+        meeting_id=meeting.id,
+        room_id=room.id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_attendee_reads_private_transcript(client):
+    transcript = await private_attended_transcript()
+
+    async with authenticated_client_ctx():
+        for path in ["", "/topics", "/participants"]:
+            response = await client.get(f"/transcripts/{transcript.id}{path}")
+            assert response.status_code == 200, (path, response.text)
+
+
+@pytest.mark.asyncio
+async def test_non_attendee_cannot_read_private_transcript(client):
+    transcript = await private_attended_transcript()
+
+    async with authenticated_client2_ctx():
+        for path in ["", "/topics", "/participants"]:
+            response = await client.get(f"/transcripts/{transcript.id}{path}")
+            assert response.status_code == 403, (path, response.text)
+
+
+@pytest.mark.asyncio
+async def test_attendee_cannot_mutate_private_transcript(client):
+    transcript = await private_attended_transcript()
+
+    async with authenticated_client_ctx():
+        patch_response = await client.patch(
+            f"/transcripts/{transcript.id}", json={"share_mode": "public"}
+        )
+        delete_response = await client.delete(f"/transcripts/{transcript.id}")
+
+    assert patch_response.status_code == 403, patch_response.text
+    assert delete_response.status_code == 403, delete_response.text

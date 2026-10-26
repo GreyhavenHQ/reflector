@@ -18,6 +18,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.sql import false, or_
 
 from reflector.db import get_database, metadata
+from reflector.db.meeting_attendees import meeting_attendees_controller
 from reflector.db.recordings import recordings_controller
 from reflector.db.rooms import rooms
 from reflector.db.utils import is_postgresql
@@ -555,8 +556,16 @@ class TranscriptController:
             return transcript
 
         if transcript.share_mode == "private":
-            # in private mode, only the owner can access the transcript
+            # in private mode, only the owner and meeting attendees can access
             if transcript.user_id == user_id:
+                return transcript
+            if (
+                user_id is not None
+                and transcript.meeting_id is not None
+                and await meeting_attendees_controller.is_attendee(
+                    transcript.meeting_id, user_id
+                )
+            ):
                 return transcript
 
         elif transcript.share_mode == "semi-private":
