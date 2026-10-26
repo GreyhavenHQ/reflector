@@ -383,10 +383,31 @@ class Transcript(BaseModel):
         raise Exception("No empty speaker found")
 
 
+TranscriptScope = Literal["all", "owned_or_shared", "attended"]
+
+
+def transcript_visibility_clause(user_id: str | None, scope: TranscriptScope):
+    """Where-clause for the transcripts a user can list; None means no filter."""
+    if not user_id:
+        if scope == "attended":
+            return false()
+        return None if settings.PUBLIC_MODE else rooms.c.is_shared
+    owned_or_shared = or_(transcripts.c.user_id == user_id, rooms.c.is_shared)
+    attended = transcripts.c.meeting_id.in_(
+        meeting_attendees_controller.meeting_ids_subquery(user_id)
+    )
+    if scope == "owned_or_shared":
+        return owned_or_shared
+    if scope == "attended":
+        return attended
+    return or_(owned_or_shared, attended)
+
+
 class TranscriptController:
     async def get_all(
         self,
         user_id: str | None = None,
+        scope: TranscriptScope = "all",
         order_by: str | None = None,
         filter_empty: bool | None = False,
         filter_recording: bool | None = False,
@@ -405,8 +426,7 @@ class TranscriptController:
         """
         Get all transcripts
 
-        If `user_id` is specified, only return transcripts that belong to the user.
-        Otherwise, return all anonymous transcripts.
+        Visibility follows `transcript_visibility_clause(user_id, scope)`.
 
         Parameters:
         - `order_by`: field to order by, e.g. "-created_at"
@@ -423,12 +443,9 @@ class TranscriptController:
 
         query = query.where(transcripts.c.deleted_at.is_(None))
 
-        if user_id:
-            query = query.where(
-                or_(transcripts.c.user_id == user_id, rooms.c.is_shared)
-            )
-        elif not settings.PUBLIC_MODE:
-            query = query.where(rooms.c.is_shared)
+        visibility = transcript_visibility_clause(user_id, scope)
+        if visibility is not None:
+            query = query.where(visibility)
 
         if source_kind:
             query = query.where(transcripts.c.source_kind == source_kind)

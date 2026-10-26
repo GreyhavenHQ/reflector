@@ -295,15 +295,20 @@ async def test_presence_poll_records_users_with_user_id():
 
 async def seed_search_data():
     private_room = await create_room(name="private-room", user_id="owner-a")
+    other_private_room = await create_room(name="other-private", user_id="owner-a")
     shared_room = await create_room(
         name="shared-room", user_id="owner-a", is_shared=True
     )
+    own_room = await create_room(name="own-room", user_id="randomuserid")
     attended = await create_meeting(private_room, "attended-1")
     attended_2 = await create_meeting(private_room, "attended-2")
-    other = await create_meeting(shared_room, "not-attended")
-    for meeting in (attended, attended_2):
+    shared = await create_meeting(shared_room, "shared")
+    not_attended = await create_meeting(other_private_room, "not-attended")
+    own_attended = await create_meeting(own_room, "own-attended")
+    for meeting in (attended, attended_2, own_attended):
         await meeting_attendees_controller.add(meeting.id, "randomuserid")
-    await meeting_attendees_controller.add(other.id, "someone-else")
+    await meeting_attendees_controller.add(shared.id, "someone-else")
+    await meeting_attendees_controller.add(not_attended.id, "someone-else")
 
     async def add(title, meeting, user_id="owner-a", share_mode="private"):
         transcript = await transcripts_controller.add(
@@ -317,32 +322,48 @@ async def seed_search_data():
         await transcripts_controller.update(transcript, {"title": title})
         return transcript
 
-    return {
+    t = {
         "attended": await add("Budget planning", attended),
         "attended_2": await add("Hiring review", attended_2),
-        "shared": await add("Shared roadmap", other),
+        "shared": await add("Shared roadmap", shared),
         "own_upload": await add("My upload", None, user_id="randomuserid"),
+        "own_attended": await add(
+            "Own room sync", own_attended, user_id="randomuserid"
+        ),
     }
+    await add("Not attended", not_attended, share_mode="semi-private")
+    return t
 
 
-async def search_ids(client, **params) -> tuple[list[str], int]:
+async def search_ids(client, **params) -> list[str]:
     response = await client.get("/transcripts/search", params={"q": "", **params})
     assert response.status_code == 200, response.text
-    data = response.json()
-    return [r["id"] for r in data["results"]], data["total"]
+    return [r["id"] for r in response.json()["results"]]
+
+
+async def list_ids(client, **params) -> list[str]:
+    response = await client.get("/transcripts", params=params)
+    assert response.status_code == 200, response.text
+    return [item["id"] for item in response.json()["items"]]
 
 
 @pytest.mark.asyncio
-async def test_search_attended_lists_only_attended_meetings(client):
+@pytest.mark.parametrize("fetch", [search_ids, list_ids])
+async def test_scope_filters(fetch, client):
     t = await seed_search_data()
+    owned_or_shared = {t["shared"].id, t["own_upload"].id, t["own_attended"].id}
+    attended = {t["attended"].id, t["attended_2"].id, t["own_attended"].id}
 
     async with authenticated_client_ctx():
-        attended_ids, total = await search_ids(client, attended=True)
-        default_ids, _ = await search_ids(client)
+        default_ids = await fetch(client)
+        all_ids = await fetch(client, scope="all")
+        owned_or_shared_ids = await fetch(client, scope="owned_or_shared")
+        attended_ids = await fetch(client, scope="attended")
 
-    assert set(attended_ids) == {t["attended"].id, t["attended_2"].id}
-    assert total == 2
-    assert set(default_ids) == {t["shared"].id, t["own_upload"].id}
+    assert sorted(default_ids) == sorted(all_ids)
+    assert sorted(all_ids) == sorted(owned_or_shared | attended)
+    assert sorted(owned_or_shared_ids) == sorted(owned_or_shared)
+    assert sorted(attended_ids) == sorted(attended)
 
 
 @pytest.mark.asyncio
@@ -350,23 +371,28 @@ async def test_search_attended_with_query_and_pagination(client):
     t = await seed_search_data()
 
     async with authenticated_client_ctx():
-        ids, total = await search_ids(client, attended=True, q="budget")
+        ids = await search_ids(client, scope="attended", q="budget")
         assert ids == [t["attended"].id]
-        assert total == 1
 
-        page_1, total = await search_ids(client, attended=True, limit=1)
-        page_2, _ = await search_ids(client, attended=True, limit=1, offset=1)
+        page_1 = await search_ids(client, scope="attended", limit=2)
+        page_2 = await search_ids(client, scope="attended", limit=2, offset=2)
+        response = await client.get(
+            "/transcripts/search", params={"q": "", "scope": "attended", "limit": 2}
+        )
 
-    assert total == 2
-    assert len(page_1) == 1 and len(page_2) == 1
-    assert {*page_1, *page_2} == {t["attended"].id, t["attended_2"].id}
+    assert response.json()["total"] == 3
+    assert len(page_1) == 2 and len(page_2) == 1
+    assert {*page_1, *page_2} == {
+        t["attended"].id,
+        t["attended_2"].id,
+        t["own_attended"].id,
+    }
 
 
 @pytest.mark.asyncio
-async def test_search_attended_requires_user(client):
-    response = await client.get(
-        "/transcripts/search", params={"q": "", "attended": True}
-    )
+@pytest.mark.parametrize("path", ["/transcripts/search", "/transcripts"])
+async def test_scope_attended_requires_user(path, client):
+    response = await client.get(path, params={"q": "", "scope": "attended"})
     assert response.status_code == 401, response.text
 
 
@@ -375,7 +401,7 @@ async def test_search_attended_rejects_include_deleted(client):
     async with authenticated_client_ctx():
         response = await client.get(
             "/transcripts/search",
-            params={"q": "", "attended": True, "include_deleted": True},
+            params={"q": "", "scope": "attended", "include_deleted": True},
         )
     assert response.status_code == 400, response.text
 
