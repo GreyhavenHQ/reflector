@@ -291,3 +291,90 @@ async def test_presence_poll_records_users_with_user_id():
         await poll_daily_room_presence(meeting.id)
 
     assert await attendee_pairs() == {(meeting.id, "user-alice")}
+
+
+async def seed_search_data():
+    private_room = await create_room(name="private-room", user_id="owner-a")
+    shared_room = await create_room(
+        name="shared-room", user_id="owner-a", is_shared=True
+    )
+    attended = await create_meeting(private_room, "attended-1")
+    attended_2 = await create_meeting(private_room, "attended-2")
+    other = await create_meeting(shared_room, "not-attended")
+    for meeting in (attended, attended_2):
+        await meeting_attendees_controller.add(meeting.id, "randomuserid")
+    await meeting_attendees_controller.add(other.id, "someone-else")
+
+    async def add(title, meeting, user_id="owner-a", share_mode="private"):
+        transcript = await transcripts_controller.add(
+            name=title,
+            source_kind=SourceKind.ROOM if meeting else SourceKind.FILE,
+            user_id=user_id,
+            share_mode=share_mode,
+            meeting_id=meeting.id if meeting else None,
+            room_id=meeting.room_id if meeting else None,
+        )
+        await transcripts_controller.update(transcript, {"title": title})
+        return transcript
+
+    return {
+        "attended": await add("Budget planning", attended),
+        "attended_2": await add("Hiring review", attended_2),
+        "shared": await add("Shared roadmap", other),
+        "own_upload": await add("My upload", None, user_id="randomuserid"),
+    }
+
+
+async def search_ids(client, **params) -> tuple[list[str], int]:
+    response = await client.get("/transcripts/search", params={"q": "", **params})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    return [r["id"] for r in data["results"]], data["total"]
+
+
+@pytest.mark.asyncio
+async def test_search_attended_lists_only_attended_meetings(client):
+    t = await seed_search_data()
+
+    async with authenticated_client_ctx():
+        attended_ids, total = await search_ids(client, attended=True)
+        default_ids, _ = await search_ids(client)
+
+    assert set(attended_ids) == {t["attended"].id, t["attended_2"].id}
+    assert total == 2
+    assert set(default_ids) == {t["shared"].id, t["own_upload"].id}
+
+
+@pytest.mark.asyncio
+async def test_search_attended_with_query_and_pagination(client):
+    t = await seed_search_data()
+
+    async with authenticated_client_ctx():
+        ids, total = await search_ids(client, attended=True, q="budget")
+        assert ids == [t["attended"].id]
+        assert total == 1
+
+        page_1, total = await search_ids(client, attended=True, limit=1)
+        page_2, _ = await search_ids(client, attended=True, limit=1, offset=1)
+
+    assert total == 2
+    assert len(page_1) == 1 and len(page_2) == 1
+    assert {*page_1, *page_2} == {t["attended"].id, t["attended_2"].id}
+
+
+@pytest.mark.asyncio
+async def test_search_attended_requires_user(client):
+    response = await client.get(
+        "/transcripts/search", params={"q": "", "attended": True}
+    )
+    assert response.status_code == 401, response.text
+
+
+@pytest.mark.asyncio
+async def test_search_attended_rejects_include_deleted(client):
+    async with authenticated_client_ctx():
+        response = await client.get(
+            "/transcripts/search",
+            params={"q": "", "attended": True, "include_deleted": True},
+        )
+    assert response.status_code == 400, response.text

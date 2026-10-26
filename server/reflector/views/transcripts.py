@@ -310,12 +310,25 @@ async def transcripts_search(
     from_datetime: SearchFromDatetimeParam = None,
     to_datetime: SearchToDatetimeParam = None,
     include_deleted: bool = False,
+    attended: bool = False,
     user: Annotated[
         Optional[auth.UserInfo], Depends(auth.current_user_optional_if_public_mode)
     ] = None,
 ):
     """Full-text search across transcript titles and content."""
     user_id = user["sub"] if user else None
+
+    if attended and not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to view attended meetings",
+        )
+
+    if attended and include_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail="'attended' cannot be combined with 'include_deleted'",
+        )
 
     if include_deleted and not user_id:
         raise HTTPException(
@@ -338,6 +351,7 @@ async def transcripts_search(
         from_datetime=from_datetime,
         to_datetime=to_datetime,
         include_deleted=include_deleted,
+        attended_by=user_id if attended else None,
     )
 
     results, total = await search_controller.search_transcripts(search_params)

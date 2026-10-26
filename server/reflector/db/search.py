@@ -22,6 +22,7 @@ from pydantic import (
 )
 
 from reflector.db import get_database
+from reflector.db.meeting_attendees import meeting_attendees_controller
 from reflector.db.rooms import rooms
 from reflector.db.transcripts import SourceKind, TranscriptStatus, transcripts
 from reflector.db.utils import is_postgresql
@@ -139,6 +140,7 @@ class SearchParameters(BaseModel):
     from_datetime: datetime | None = None
     to_datetime: datetime | None = None
     include_deleted: bool = False
+    attended_by: str | None = None
 
 
 class SearchResultDB(BaseModel):
@@ -400,7 +402,15 @@ class SearchController:
                 transcripts.c.search_vector_en.op("@@")(search_query)
             )
 
-        if params.include_deleted:
+        if params.attended_by:
+            base_query = base_query.where(
+                transcripts.c.meeting_id.in_(
+                    meeting_attendees_controller.meeting_ids_subquery(
+                        params.attended_by
+                    )
+                )
+            )
+        elif params.include_deleted:
             # Trash view: only show user's own deleted transcripts.
             # Defense-in-depth: require user_id to prevent leaking all users' trash.
             if not params.user_id:
