@@ -266,7 +266,11 @@ export default function TranscriptBrowser() {
         room_id: hasViewFilters ? urlRoomId || undefined : undefined,
         source_kind: hasViewFilters ? urlSourceKind || undefined : undefined,
         include_deleted: isTrashView ? true : undefined,
-        attended: isAttendedView ? true : undefined,
+        scope: isTrashView
+          ? undefined
+          : isAttendedView
+            ? ("attended" as const)
+            : ("owned_or_shared" as const),
       },
     }),
     [
