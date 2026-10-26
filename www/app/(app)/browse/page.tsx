@@ -491,7 +491,7 @@ export default function TranscriptBrowser() {
           {isTrashView
             ? "Trash"
             : isAttendedView
-              ? "Meetings I attended"
+              ? "My meetings"
               : userName
                 ? `${userName}'s Transcriptions`
                 : "Your Transcriptions"}{" "}

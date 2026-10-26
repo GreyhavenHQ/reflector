@@ -60,7 +60,7 @@ export default function FilterSidebar({
             color={isAttendedView ? "blue.500" : "gray.600"}
             fontWeight={isAttendedView ? "bold" : "normal"}
           >
-            Meetings I attended
+            My meetings
           </Link>
         )}
 
