@@ -405,3 +405,39 @@ async def test_room_not_found_endpoints(client):
 
     response = await client.get("/rooms/nonexistent/meetings/upcoming")
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_fetch_interval_below_one_minute_is_rejected(authenticated_client):
+    client = authenticated_client
+    payload = {
+        "name": "interval-floor-room",
+        "zulip_auto_post": False,
+        "zulip_stream": "",
+        "zulip_topic": "",
+        "is_locked": False,
+        "room_mode": "normal",
+        "recording_type": "cloud",
+        "recording_trigger": "automatic-2nd-participant",
+        "is_shared": False,
+        "webhook_url": "",
+        "webhook_secret": "",
+        "platform": "daily",
+        "ics_url": "https://calendar.example.com/floor.ics",
+        "ics_enabled": True,
+        "ics_fetch_interval": 30,
+    }
+    response = await client.post("/rooms", json=payload)
+    assert response.status_code == 422
+
+    payload["ics_fetch_interval"] = 60
+    response = await client.post("/rooms", json=payload)
+    assert response.status_code == 200, response.text
+    room_id = response.json()["id"]
+
+    response = await client.patch(f"/rooms/{room_id}", json={"ics_fetch_interval": 5})
+    assert response.status_code == 422
+
+    response = await client.patch(f"/rooms/{room_id}", json={"ics_fetch_interval": 600})
+    assert response.status_code == 200, response.text
+    assert response.json()["ics_fetch_interval"] == 600

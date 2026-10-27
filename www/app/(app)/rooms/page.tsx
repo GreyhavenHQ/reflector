@@ -40,7 +40,11 @@ import {
   NonEmptyString,
   parseNonEmptyString,
 } from "../../lib/utils";
-import ICSSettings from "./_components/ICSSettings";
+import ICSSettings, {
+  DEFAULT_ICS_FETCH_INTERVAL_MINUTES,
+  icsIntervalMinutesToSeconds,
+  icsIntervalSecondsToMinutes,
+} from "./_components/ICSSettings";
 import { roomAbsoluteUrl } from "../../lib/routesClient";
 
 type Room = components["schemas"]["Room"];
@@ -91,7 +95,7 @@ const roomInitialState = {
   webhookSecret: "",
   icsUrl: "",
   icsEnabled: false,
-  icsFetchInterval: 5,
+  icsFetchInterval: DEFAULT_ICS_FETCH_INTERVAL_MINUTES,
   platform: "whereby",
   skipConsent: false,
   emailTranscriptTo: "",
@@ -182,7 +186,9 @@ export default function RoomsList() {
             webhookSecret: detailedEditedRoom.webhook_secret || "",
             icsUrl: detailedEditedRoom.ics_url || "",
             icsEnabled: detailedEditedRoom.ics_enabled || false,
-            icsFetchInterval: detailedEditedRoom.ics_fetch_interval || 5,
+            icsFetchInterval: icsIntervalSecondsToMinutes(
+              detailedEditedRoom.ics_fetch_interval,
+            ),
             platform: detailedEditedRoom.platform,
             skipConsent: detailedEditedRoom.skip_consent || false,
             emailTranscriptTo: detailedEditedRoom.email_transcript_to || "",
@@ -333,7 +339,7 @@ export default function RoomsList() {
         webhook_secret: room.webhookSecret,
         ics_url: room.icsUrl,
         ics_enabled: room.icsEnabled,
-        ics_fetch_interval: room.icsFetchInterval,
+        ics_fetch_interval: icsIntervalMinutesToSeconds(room.icsFetchInterval),
         platform,
         skip_consent: room.skipConsent,
         email_transcript_to: room.emailTranscriptTo || null,
@@ -399,7 +405,9 @@ export default function RoomsList() {
       webhookSecret: roomData.webhook_secret || "",
       icsUrl: roomData.ics_url || "",
       icsEnabled: roomData.ics_enabled || false,
-      icsFetchInterval: roomData.ics_fetch_interval || 5,
+      icsFetchInterval: icsIntervalSecondsToMinutes(
+        roomData.ics_fetch_interval,
+      ),
       platform: roomData.platform,
       skipConsent: roomData.skip_consent || false,
       emailTranscriptTo: roomData.email_transcript_to || "",

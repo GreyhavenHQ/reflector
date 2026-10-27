@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_pagination import Page
 from fastapi_pagination.ext.databases import apaginate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from redis.exceptions import LockError
 
 import reflector.auth as auth
@@ -95,7 +95,8 @@ class CreateRoom(BaseModel):
     webhook_url: str
     webhook_secret: str
     ics_url: Optional[str] = None
-    ics_fetch_interval: int = 300
+    # seconds; the UI offers whole minutes and converts
+    ics_fetch_interval: int = Field(300, ge=60)
     ics_enabled: bool = False
     platform: Platform
     skip_consent: bool = False
@@ -116,7 +117,7 @@ class UpdateRoom(BaseModel):
     webhook_url: Optional[str] = None
     webhook_secret: Optional[str] = None
     ics_url: Optional[str] = None
-    ics_fetch_interval: Optional[int] = None
+    ics_fetch_interval: Optional[int] = Field(None, ge=60)
     ics_enabled: Optional[bool] = None
     platform: Optional[Platform] = None
     skip_consent: Optional[bool] = None
