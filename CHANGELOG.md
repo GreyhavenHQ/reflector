@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.1](https://github.com/GreyhavenHQ/reflector/compare/v0.47.0...v0.47.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **calendar:** keep scheduled meetings joinable and fix the fetch interval unit ([#985](https://github.com/GreyhavenHQ/reflector/issues/985)) ([569da23](https://github.com/GreyhavenHQ/reflector/commit/569da23b354456f1ea3bdc477ff96c17eddedecc))
+
 ## [0.47.0](https://github.com/GreyhavenHQ/reflector/compare/v0.46.2...v0.47.0) (2026-10-26)
 
 
