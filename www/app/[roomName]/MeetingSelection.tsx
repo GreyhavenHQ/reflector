@@ -28,6 +28,7 @@ import { formatJoinError } from "../lib/errorUtils";
 import MeetingMinimalHeader from "../components/MeetingMinimalHeader";
 import { NonEmptyString } from "../lib/utils";
 import { MeetingId, assertMeetingId } from "../lib/types";
+import { useNow } from "../lib/useNow";
 
 type Meeting = components["schemas"]["Meeting"];
 
@@ -51,14 +52,19 @@ export default function MeetingSelection({
 }: MeetingSelectionProps) {
   const router = useRouter();
   const roomQuery = useRoomGetByName(roomName);
-  const activeMeetingsQuery = useRoomActiveMeetings(roomName);
+  // A scheduled meeting is created minutes before its start; poll so a visitor
+  // who arrived early sees it appear without reloading.
+  const activeMeetingsQuery = useRoomActiveMeetings(roomName, {
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
   const joinMeetingMutation = useRoomJoinMeeting();
   const deactivateMeetingMutation = useMeetingDeactivate();
 
   const room = roomQuery.data;
   const allMeetings = activeMeetingsQuery.data || [];
 
-  const now = new Date();
+  const now = useNow();
   const [currentMeetings, nonCurrentMeetings] = partition(
     allMeetings,
     (meeting) => {
@@ -350,7 +356,6 @@ export default function MeetingSelection({
               Upcoming Meeting{upcomingMeetings.length > 1 ? "s" : ""}
             </Text>
             {upcomingMeetings.map((meeting) => {
-              const now = new Date();
               const startTime = new Date(meeting.start_date);
               const minutesUntilStart = Math.floor(
                 (startTime.getTime() - now.getTime()) / (1000 * 60),
@@ -505,7 +510,6 @@ export default function MeetingSelection({
               direction={{ base: "column", sm: "row" }}
             >
               {upcomingMeetings.map((meeting) => {
-                const now = new Date();
                 const startTime = new Date(meeting.start_date);
                 const minutesUntilStart = Math.floor(
                   (startTime.getTime() - now.getTime()) / (1000 * 60),

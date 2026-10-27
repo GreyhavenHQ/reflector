@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import structlog
 from celery import shared_task
@@ -6,11 +6,13 @@ from celery.utils.log import get_task_logger
 
 from reflector.asynctask import asynctask
 from reflector.db.calendar_events import calendar_events_controller
-from reflector.db.meetings import meetings_controller
-from reflector.db.rooms import Room, rooms_controller
+from reflector.db.rooms import rooms_controller
 from reflector.redis_cache import RedisAsyncLock
+from reflector.services.calendar_meetings import (
+    PRECREATE_LOOKAHEAD_MINUTES,
+    sync_meeting_for_event,
+)
 from reflector.services.ics_sync import SyncStatus, ics_sync_service
-from reflector.video_platforms.factory import create_platform_client
 
 logger = structlog.wrap_logger(get_task_logger(__name__))
 
@@ -83,69 +85,15 @@ def _should_sync(room) -> bool:
     return time_since_sync.total_seconds() >= room.ics_fetch_interval
 
 
-async def create_upcoming_meetings_for_event(event, create_window, room: Room):
-    if event.start_time <= create_window:
-        return
-    existing_meeting = await meetings_controller.get_by_calendar_event(event.id, room)
-
-    if existing_meeting:
-        return
-
-    logger.info(
-        "Pre-creating meeting for calendar event",
-        room_id=room.id,
-        event_id=event.id,
-        event_title=event.title,
-    )
-
-    try:
-        # 8h rejoin window matches manual on-the-fly meetings; the scheduled
-        # DTEND stays in calendar_events.end_time for reference.
-        end_date = event.start_time + timedelta(hours=8)
-
-        client = create_platform_client(room.platform)
-
-        meeting_data = await client.create_meeting(
-            room.name,
-            end_date=end_date,
-            room=room,
-        )
-        await client.upload_logo(meeting_data.room_name, "./images/logo.png")
-
-        meeting = await meetings_controller.create(
-            id=meeting_data.meeting_id,
-            room_name=meeting_data.room_name,
-            room_url=meeting_data.room_url,
-            host_room_url=meeting_data.host_room_url,
-            start_date=event.start_time,
-            end_date=end_date,
-            room=room,
-            calendar_event_id=event.id,
-            calendar_metadata={
-                "title": event.title,
-                "description": event.description,
-                "attendees": event.attendees,
-            },
-        )
-
-        logger.info(
-            "Meeting pre-created successfully",
-            meeting_id=meeting.id,
-            event_id=event.id,
-        )
-
-    except Exception as e:
-        logger.error(
-            "Failed to pre-create meeting",
-            room_id=room.id,
-            event_id=event.id,
-            error=str(e),
-        )
-
-
 @shared_task
 @asynctask
 async def create_upcoming_meetings():
+    """Create or move the meeting of every calendar event that starts within
+    the lookahead or is already running.
+
+    The ICS sync does the same right after it stores events; this tick is the
+    backup for events whose window opened between two syncs.
+    """
     async with RedisAsyncLock("create_upcoming_meetings", skip_if_locked=True) as lock:
         if not lock.acquired:
             logger.warning(
@@ -158,16 +106,15 @@ async def create_upcoming_meetings():
 
             ics_enabled_rooms = await rooms_controller.get_ics_enabled()
             now = datetime.now(timezone.utc)
-            create_window = now - timedelta(minutes=6)
 
             for room in ics_enabled_rooms:
                 events = await calendar_events_controller.get_upcoming(
                     room.id,
-                    minutes_ahead=7,
+                    minutes_ahead=PRECREATE_LOOKAHEAD_MINUTES,
                 )
 
                 for event in events:
-                    await create_upcoming_meetings_for_event(event, create_window, room)
+                    await sync_meeting_for_event(event, room, now)
             logger.info("Completed pre-creation check for upcoming meetings")
 
         except Exception as e:

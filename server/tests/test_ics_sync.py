@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -6,7 +6,12 @@ from icalendar import Calendar, Event
 
 from reflector.db.calendar_events import calendar_events_controller
 from reflector.db.rooms import rooms_controller
-from reflector.services.ics_sync import ICSFetchService, ICSSyncService
+from reflector.services.ics_sync import (
+    ICSFetchService,
+    ICSSyncService,
+    ics_sync_service,
+)
+from reflector.settings import settings
 
 
 @pytest.mark.asyncio
@@ -331,3 +336,62 @@ async def test_event_data_changed_exhaustiveness():
     modified_data["title"] = "Changed Title"
     result = sync_service._event_data_changed(existing, modified_data)
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_all_day_events_are_ignored():
+    """An all-day event is a DATE, not a meeting slot; it must not be stored
+    or get a meeting at midnight UTC."""
+    event = Event()
+    event.add("uid", "all-day")
+    event.add("summary", "Offsite")
+    event.add("dtstart", date(2026, 10, 28))
+    event.add("dtend", date(2026, 10, 29))
+
+    assert ICSFetchService()._parse_event(event) is None
+
+
+@pytest.mark.asyncio
+async def test_soft_deleted_event_is_revived_when_it_returns_unchanged():
+    """Regression: an event that left the feed and came back with identical
+    data stayed soft-deleted forever."""
+    room = await rooms_controller.add(
+        name="revive-room",
+        user_id="test-user",
+        zulip_auto_post=False,
+        zulip_stream="",
+        zulip_topic="",
+        is_locked=False,
+        room_mode="normal",
+        recording_type="cloud",
+        recording_trigger="automatic-2nd-participant",
+        is_shared=False,
+        ics_url="https://calendar.example.com/revive.ics",
+        ics_enabled=True,
+    )
+    start = datetime.now(timezone.utc) + timedelta(hours=2)
+    event_data = {
+        "ics_uid": "revive-uid",
+        "title": "Comes back",
+        "description": "",
+        "location": f"{settings.UI_BASE_URL}/{room.name}",
+        "start_time": start,
+        "end_time": start + timedelta(hours=1),
+        "attendees": [],
+        "ics_raw_data": "BEGIN:VEVENT\nUID:revive-uid\nEND:VEVENT",
+    }
+
+    first = await ics_sync_service._sync_events_to_database(room, [event_data])
+    assert first["events_created"] == 1
+
+    # the event disappears from the feed: soft-deleted
+    gone = await ics_sync_service._sync_events_to_database(room, [])
+    assert gone["events_deleted"] == 1
+    stored = await calendar_events_controller.get_by_ics_uid(room.id, "revive-uid")
+    assert stored.is_deleted
+
+    # it comes back, byte for byte the same
+    back = await ics_sync_service._sync_events_to_database(room, [event_data])
+    assert back["events_updated"] == 1
+    stored = await calendar_events_controller.get_by_ics_uid(room.id, "revive-uid")
+    assert stored.is_deleted is False

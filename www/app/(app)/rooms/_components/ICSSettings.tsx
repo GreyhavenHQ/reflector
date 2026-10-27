@@ -44,19 +44,40 @@ export interface ICSSettingsData {
   ics_fetch_interval: number;
 }
 
-const fetchIntervalOptions = [
-  { label: "1 minute", value: "1" },
-  { label: "5 minutes", value: "5" },
-  { label: "10 minutes", value: "10" },
-  { label: "30 minutes", value: "30" },
-  { label: "1 hour", value: "60" },
-];
+// The API stores the interval in seconds; the UI offers whole minutes. The
+// interval is also how long a newly added calendar event takes to show up, so
+// the choices are short and the default is the shortest.
+export const ICS_FETCH_INTERVAL_OPTIONS_MINUTES = [1, 5, 10] as const;
+export const DEFAULT_ICS_FETCH_INTERVAL_MINUTES = 1;
+
+export const icsIntervalMinutesToSeconds = (minutes: number): number =>
+  minutes * 60;
+
+/** Seconds from the API to the nearest offered option, in minutes. */
+export const icsIntervalSecondsToMinutes = (
+  seconds: number | null | undefined,
+): number => {
+  if (!seconds || seconds <= 0) return DEFAULT_ICS_FETCH_INTERVAL_MINUTES;
+  const minutes = seconds / 60;
+  return ICS_FETCH_INTERVAL_OPTIONS_MINUTES.reduce<number>(
+    (best, option) =>
+      Math.abs(option - minutes) < Math.abs(best - minutes) ? option : best,
+    DEFAULT_ICS_FETCH_INTERVAL_MINUTES,
+  );
+};
+
+const fetchIntervalOptions = ICS_FETCH_INTERVAL_OPTIONS_MINUTES.map(
+  (minutes) => ({
+    label: minutes === 1 ? "1 minute" : `${minutes} minutes`,
+    value: String(minutes),
+  }),
+);
 
 export default function ICSSettings({
   roomName,
   icsUrl = "",
   icsEnabled = false,
-  icsFetchInterval = 5,
+  icsFetchInterval = DEFAULT_ICS_FETCH_INTERVAL_MINUTES,
   icsLastSync,
   icsLastEtag,
   onChange,
@@ -265,7 +286,8 @@ export default function ICSSettings({
               </Select.Content>
             </Select.Root>
             <Field.HelperText>
-              How often to check for calendar updates
+              How often to check for calendar updates. This is also how long a
+              newly added event takes to show up in the room.
             </Field.HelperText>
           </Field.Root>
 

@@ -356,8 +356,12 @@ class MeetingController:
     async def get_by_calendar_event(
         self, calendar_event_id: str, room: Room
     ) -> Meeting | None:
-        query = meetings.select().where(
-            meetings.c.calendar_event_id == calendar_event_id
+        # An event can have more than one meeting (an ended one and its
+        # replacement); prefer the active one, then the most recent.
+        query = (
+            meetings.select()
+            .where(meetings.c.calendar_event_id == calendar_event_id)
+            .order_by(meetings.c.is_active.desc(), meetings.c.end_date.desc())
         )
         if room:
             query = query.where(meetings.c.room_id == room.id)
