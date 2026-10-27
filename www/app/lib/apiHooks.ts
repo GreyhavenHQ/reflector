@@ -847,7 +847,10 @@ const MEETING_LIST_PATH_PARTIALS = [
   MEETINGS_UPCOMING_PATH_PARTIAL,
 ];
 
-export function useRoomActiveMeetings(roomName: string | null) {
+export function useRoomActiveMeetings(
+  roomName: string | null,
+  options: { refetchInterval?: number; refetchOnWindowFocus?: boolean } = {},
+) {
   return $api.useQuery(
     "get",
     "/v1/rooms/{room_name}/meetings/active" satisfies `/v1/rooms/{room_name}/${typeof MEETINGS_ACTIVE_PATH_PARTIAL}`,
@@ -858,6 +861,7 @@ export function useRoomActiveMeetings(roomName: string | null) {
     },
     {
       enabled: !!roomName,
+      ...options,
     },
   );
 }

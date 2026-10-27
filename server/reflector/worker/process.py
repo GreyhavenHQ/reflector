@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from reflector.asynctask import asynctask
 from reflector.dailyco_api import FinishedRecordingResponse, RecordingResponse
+from reflector.db.calendar_events import calendar_events_controller
 from reflector.db.daily_participant_sessions import (
     DailyParticipantSession,
     daily_participant_sessions_controller,
@@ -63,6 +64,11 @@ logger = structlog.wrap_logger(get_task_logger(__name__))
 # threshold, which keeps the extra platform API calls to one every few hours.
 MEETING_EXTENSION_THRESHOLD = timedelta(hours=4)
 MEETING_EXTENSION_DURATION = timedelta(hours=8)
+
+# A scheduled meeting that everybody left is kept until its calendar end plus
+# this grace, so an early visitor who leaves again does not end the slot for
+# the people arriving at the scheduled time.
+SCHEDULED_MEETING_GRACE = timedelta(minutes=5)
 
 
 @shared_task
@@ -880,6 +886,19 @@ async def extend_meeting_lease(meeting, client, end_date, current_time) -> None:
     )
 
 
+async def scheduled_end_date(meeting) -> datetime | None:
+    """Calendar end of a scheduled meeting plus grace, or None for ad hoc ones."""
+    if not meeting.calendar_event_id:
+        return None
+    event = await calendar_events_controller.get_by_id(meeting.calendar_event_id)
+    if not event:
+        return None
+    end_time = event.end_time
+    if end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=timezone.utc)
+    return end_time + SCHEDULED_MEETING_GRACE
+
+
 @shared_task
 @asynctask
 async def process_meetings():
@@ -893,8 +912,10 @@ async def process_meetings():
     - Active sessions: Keep meeting active regardless of scheduled time
     - No active sessions:
       * Calendar meetings:
-        - If previously used (had sessions): Deactivate immediately
-        - If never used: Keep active until scheduled end time, then deactivate
+        - If previously used (had sessions): Deactivate once the calendar end
+          plus a grace period has passed; before that, keep it (an early
+          visitor leaving must not end the slot)
+        - If never used: Keep active until the meeting end date, then deactivate
       * On-the-fly meetings: Deactivate immediately (created when someone joins,
         so no sessions means everyone left)
 
@@ -947,8 +968,15 @@ async def process_meetings():
                     logger_.debug("Meeting still has active sessions, keep it")
                     await extend_meeting_lease(meeting, client, end_date, current_time)
                 elif has_had_sessions:
-                    should_deactivate = True
-                    logger_.info("Meeting ended - all participants left")
+                    scheduled_end = await scheduled_end_date(meeting)
+                    if scheduled_end and current_time < scheduled_end:
+                        logger_.info(
+                            "Participants left before the scheduled end, keep it",
+                            scheduled_end=scheduled_end.isoformat(),
+                        )
+                    else:
+                        should_deactivate = True
+                        logger_.info("Meeting ended - all participants left")
                 elif not has_had_sessions:
                     # No sessions recorded — either no one joined, or webhooks
                     # didn't arrive (e.g. local dev without tunnel).

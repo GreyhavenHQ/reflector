@@ -59,6 +59,10 @@ from icalendar import Calendar, Event
 from reflector.db.calendar_events import CalendarEvent, calendar_events_controller
 from reflector.db.rooms import Room, rooms_controller
 from reflector.redis_cache import RedisAsyncLock
+from reflector.services.calendar_meetings import (
+    PRECREATE_LOOKAHEAD,
+    sync_meeting_for_event,
+)
 from reflector.settings import settings
 
 logger = structlog.get_logger()
@@ -183,6 +187,11 @@ class ICSFetchService:
         dtend = event.get("DTEND")
 
         if not dtstart:
+            return None
+
+        # All-day events carry a DATE, not a DATETIME. They are not meetings:
+        # pre-creating a room for them at midnight UTC helps nobody.
+        if not isinstance(getattr(dtstart, "dt", dtstart), datetime):
             return None
 
         # Convert fields
@@ -325,7 +334,7 @@ class ICSSyncService:
             events, total_events = self.fetch_service.extract_room_events(
                 calendar, room.name, room_url
             )
-            sync_result = await self._sync_events_to_database(room.id, events)
+            sync_result = await self._sync_events_to_database(room, events)
 
             # Update room sync metadata
             await rooms_controller.update(
@@ -395,34 +404,49 @@ class ICSSyncService:
         )
 
     async def _sync_events_to_database(
-        self, room_id: str, events: list[EventData]
+        self, room: Room, events: list[EventData]
     ) -> SyncStats:
         created = 0
         updated = 0
+        now = datetime.now(timezone.utc)
 
         current_ics_uids = []
+        stored_events: list[CalendarEvent] = []
 
         for event_data in events:
-            calendar_event = CalendarEvent(room_id=room_id, **event_data)
+            calendar_event = CalendarEvent(room_id=room.id, **event_data)
             existing = await calendar_events_controller.get_by_ics_uid(
-                room_id, event_data["ics_uid"]
+                room.id, event_data["ics_uid"]
             )
 
             if existing:
-                # Only count as updated if data actually changed
-                if self._event_data_changed(existing, event_data):
+                # An event that left the feed and came back is soft-deleted in
+                # the DB; store it again even when nothing else changed.
+                if existing.is_deleted or self._event_data_changed(
+                    existing, event_data
+                ):
                     updated += 1
-                    await calendar_events_controller.upsert(calendar_event)
+                    stored = await calendar_events_controller.upsert(calendar_event)
+                else:
+                    stored = existing
             else:
                 created += 1
-                await calendar_events_controller.upsert(calendar_event)
+                stored = await calendar_events_controller.upsert(calendar_event)
 
+            stored_events.append(stored)
             current_ics_uids.append(event_data["ics_uid"])
 
         # Soft delete events that are no longer in calendar
         deleted = await calendar_events_controller.soft_delete_missing(
-            room_id, current_ics_uids
+            room.id, current_ics_uids
         )
+
+        # Give events that are about to start, or already running, their
+        # meeting now rather than on the next beat tick. Errors are logged
+        # inside and never fail the sync.
+        for event in stored_events:
+            if event.start_time <= now + PRECREATE_LOOKAHEAD and event.end_time > now:
+                await sync_meeting_for_event(event, room, now)
 
         return {
             "events_created": created,

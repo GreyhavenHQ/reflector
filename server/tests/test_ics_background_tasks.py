@@ -8,13 +8,10 @@ from reflector.db import get_database
 from reflector.db.calendar_events import CalendarEvent, calendar_events_controller
 from reflector.db.meetings import meetings_controller
 from reflector.db.rooms import rooms, rooms_controller
+from reflector.services.calendar_meetings import sync_meeting_for_event
 from reflector.services.ics_sync import ics_sync_service
 from reflector.video_platforms.models import MeetingData
-from reflector.worker.ics_sync import (
-    _should_sync,
-    create_upcoming_meetings_for_event,
-    sync_room_ics,
-)
+from reflector.worker.ics_sync import _should_sync, sync_room_ics
 
 
 @pytest.mark.asyncio
@@ -263,8 +260,6 @@ async def test_create_upcoming_meeting_uses_8h_end_date():
         )
     )
 
-    create_window = now - timedelta(minutes=6)
-
     fake_client = MagicMock()
     fake_client.create_meeting = AsyncMock(
         return_value=MeetingData(
@@ -279,10 +274,10 @@ async def test_create_upcoming_meeting_uses_8h_end_date():
     fake_client.upload_logo = AsyncMock(return_value=True)
 
     with patch(
-        "reflector.worker.ics_sync.create_platform_client",
+        "reflector.services.calendar_meetings.create_platform_client",
         return_value=fake_client,
     ):
-        await create_upcoming_meetings_for_event(event, create_window, room)
+        await sync_meeting_for_event(event, room)
 
     meeting = await meetings_controller.get_by_calendar_event(event.id, room)
     assert meeting is not None
