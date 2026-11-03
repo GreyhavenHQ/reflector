@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.0](https://github.com/GreyhavenHQ/reflector/compare/v0.47.1...v0.48.0) (2026-11-03)
+
+
+### Features
+
+* enable emojis reaction and hand raising ([#987](https://github.com/GreyhavenHQ/reflector/issues/987)) ([3e1f066](https://github.com/GreyhavenHQ/reflector/commit/3e1f0669e20f5d23004d4e564d724f0b0b08c85a))
+
 ## [0.47.1](https://github.com/GreyhavenHQ/reflector/compare/v0.47.0...v0.47.1) (2026-10-27)
 
 
