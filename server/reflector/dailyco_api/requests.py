@@ -40,6 +40,14 @@ class RoomProperties(BaseModel):
     )
     enable_chat: bool = Field(default=True, description="Enable in-meeting chat")
     enable_screenshare: bool = Field(default=True, description="Enable screen sharing")
+    enable_emoji_reactions: bool | None = Field(
+        default=None,
+        description="Show the Daily Prebuilt emoji reactions button (None keeps the domain default)",
+    )
+    enable_hand_raising: bool | None = Field(
+        default=None,
+        description="Show the Daily Prebuilt hand raising controls (None keeps the domain default)",
+    )
     enable_knocking: bool = Field(
         default=False,
         description="Enable knocking for private rooms (allows participants to request access)",
