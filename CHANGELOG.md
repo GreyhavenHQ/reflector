@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.1](https://github.com/GreyhavenHQ/reflector/compare/v0.48.0...v0.48.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* hide transcript audio from anonymous downloads ([#989](https://github.com/GreyhavenHQ/reflector/issues/989)) ([259f96a](https://github.com/GreyhavenHQ/reflector/commit/259f96a85e8ad698ab84d4a4376d3b77839a633d))
+
 ## [0.48.0](https://github.com/GreyhavenHQ/reflector/compare/v0.47.1...v0.48.0) (2026-11-03)
 
 
