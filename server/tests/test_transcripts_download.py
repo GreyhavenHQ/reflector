@@ -220,12 +220,33 @@ async def test_downloads_guest_on_public_gets_reduced_list(
         "text",
         "subtitles",
         "summary",
-        "audio",
     ]
     body = str(data)
     for secret in (ALICE, BOB, transcript.recording_id, transcript.meeting_id, FOLDER):
         assert secret not in body
     assert source_storage.presigned == []
+
+
+@pytest.mark.asyncio
+async def test_downloads_guest_on_ownerless_transcript_lists_audio(
+    client, source_storage, transcripts_storage
+):
+    transcript = await _room_transcript(share_mode="public", user_id=None)
+    data = await _get_downloads(client, transcript)
+    assert len(_by_kind(data["entries"], "audio")) == 1
+
+
+@pytest.mark.asyncio
+async def test_file_guest_cannot_request_audio(
+    client, source_storage, transcripts_storage
+):
+    transcript = await _room_transcript(share_mode="public")
+    data = await _get_downloads(client, transcript)
+    token = _token(data["zip_url"])
+    response = await client.get(
+        f"/transcripts/{transcript.id}/download/file/audio?token={token}"
+    )
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -419,6 +440,16 @@ async def test_zip_guest_cannot_request_track(
     data = await _get_downloads(client, transcript)
     track_id = "track-" + _track(ALICE, "cam-audio").rsplit("/", 1)[1]
     response = await _download(client, _zip_url(data, "summary", track_id))
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_zip_guest_cannot_request_audio(
+    client, source_storage, transcripts_storage
+):
+    transcript = await _room_transcript(share_mode="public")
+    data = await _get_downloads(client, transcript)
+    response = await _download(client, _zip_url(data, "summary", "audio"))
     assert response.status_code == 403
 
 

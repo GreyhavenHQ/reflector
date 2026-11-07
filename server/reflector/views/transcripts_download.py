@@ -297,7 +297,7 @@ async def _collect_sources(transcript: Transcript, is_member: bool) -> list[_Sou
         )
     )
 
-    if not transcript.audio_deleted:
+    if not transcript.audio_deleted and (is_member or transcript.user_id is None):
         audio = _Source(
             id="audio",
             kind="audio",
