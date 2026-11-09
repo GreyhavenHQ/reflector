@@ -24,6 +24,7 @@ class TranscriptFinalSummaryProcessor(Processor):
         self.chunks: list[TitleSummary] = []
         self.llm = LLM(settings=settings, context="summary")
         self.builder = None
+        self._identified_participants: list[tuple[str, int]] = []
 
     async def _push(self, data: TitleSummary):
         self.chunks.append(data)
@@ -54,6 +55,8 @@ class TranscriptFinalSummaryProcessor(Processor):
         else:
             self.logger.info("No participants stored, identifying participants")
             await builder.identify_participants()
+
+        self._identified_participants = list(builder.identified_participants)
 
         await builder.generate_summary()
         return builder
@@ -110,6 +113,13 @@ class TranscriptFinalSummaryProcessor(Processor):
             long_summary=long_summary,
             duration=duration,
         )
+
+        if self._identified_participants:
+            self.logger.info(
+                f"Emitting {len(self._identified_participants)} identified participants",
+                participants=self._identified_participants,
+            )
+            await self.emit(list(self._identified_participants), name="participants")
 
         if short_summary:
             final_short_summary = FinalShortSummary(
