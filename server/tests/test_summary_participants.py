@@ -198,11 +198,12 @@ async def test_processor_does_not_emit_when_no_identified():
 
 
 @pytest.mark.asyncio
-async def test_on_participants_persists(client, tmpdir):
+async def test_on_participants_persists(client, tmpdir, monkeypatch):
     from reflector.db.transcripts import transcripts_controller
     from reflector.pipelines.main_file_pipeline import PipelineMainFile
     from reflector.settings import settings
 
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
     settings.DATA_DIR = Path(tmpdir)
 
     response = await client.post("/transcripts", json={"name": "test participants"})
@@ -218,11 +219,12 @@ async def test_on_participants_persists(client, tmpdir):
 
 
 @pytest.mark.asyncio
-async def test_on_participants_empty_is_noop(client, tmpdir):
+async def test_on_participants_empty_is_noop(client, tmpdir, monkeypatch):
     from reflector.db.transcripts import transcripts_controller
     from reflector.pipelines.main_file_pipeline import PipelineMainFile
     from reflector.settings import settings
 
+    monkeypatch.setattr(settings, "PUBLIC_MODE", True)
     settings.DATA_DIR = Path(tmpdir)
 
     response = await client.post(
