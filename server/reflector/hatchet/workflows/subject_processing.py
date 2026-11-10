@@ -20,6 +20,7 @@ from reflector.logger import logger
 from reflector.processors.summary.prompts import (
     DETAILED_SUBJECT_PROMPT_TEMPLATE,
     PARAGRAPH_SUMMARY_PROMPT,
+    build_language_instruction,
     build_participant_instructions,
 )
 from reflector.settings import settings
@@ -33,6 +34,7 @@ class SubjectInput(BaseModel):
     transcript_text: str
     participant_names: list[str]
     participant_name_to_id: dict[str, str]
+    language: str | None = None
 
 
 hatchet = HatchetClientManager.get_client()
@@ -65,9 +67,11 @@ async def generate_detailed_summary(
     llm = LLM(settings=settings, context="summary")
 
     participant_instructions = build_participant_instructions(input.participant_names)
+    language_instruction = build_language_instruction(input.language)
     detailed_prompt = DETAILED_SUBJECT_PROMPT_TEMPLATE.format(subject=input.subject)
     if participant_instructions:
         detailed_prompt = f"{detailed_prompt}\n\n{participant_instructions}"
+    detailed_prompt += language_instruction
 
     ctx.log("generate_detailed_summary: calling LLM for detailed analysis")
     detailed_response = await llm.get_response(
@@ -80,6 +84,7 @@ async def generate_detailed_summary(
     paragraph_prompt = PARAGRAPH_SUMMARY_PROMPT
     if participant_instructions:
         paragraph_prompt = f"{paragraph_prompt}\n\n{participant_instructions}"
+    paragraph_prompt += language_instruction
 
     ctx.log("generate_detailed_summary: calling LLM for paragraph summary")
     paragraph_response = await llm.get_response(

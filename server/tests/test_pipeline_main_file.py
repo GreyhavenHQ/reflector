@@ -290,11 +290,16 @@ async def mock_summary_processor():
         mock_summary.flush = flush_with_callback
 
         def init_with_callback(
-            transcript=None, callback=None, on_short_summary=None, on_action_items=None
+            transcript=None,
+            callback=None,
+            on_short_summary=None,
+            on_action_items=None,
+            on_participants=None,
         ):
             mock_summary._callback = callback
             mock_summary._on_short_summary = on_short_summary
             mock_summary._on_action_items = on_action_items
+            mock_summary._on_participants = on_participants
             return mock_summary
 
         mock_summary_class.side_effect = init_with_callback

@@ -32,6 +32,7 @@ from reflector.db.transcripts import (
     TranscriptFinalLongSummary,
     TranscriptFinalShortSummary,
     TranscriptFinalTitle,
+    TranscriptParticipant,
     TranscriptStatus,
     TranscriptText,
     TranscriptTopic,
@@ -332,6 +333,21 @@ class PipelineMainBase(PipelineRunner[PipelineMessage], Generic[PipelineMessage]
                 data=action_items,
             )
 
+    async def on_participants(self, identified):
+        if not identified:
+            return
+        async with self.transaction():
+            transcript = await self.get_transcript()
+            for name, speaker in identified:
+                await transcripts_controller.upsert_participant(
+                    transcript, TranscriptParticipant(speaker=speaker, name=name)
+                )
+            self._logger.info(
+                "Persisted identified participants",
+                count=len(identified),
+                participants=identified,
+            )
+
     @broadcast_to_sockets
     async def on_duration(self, data):
         async with self.transaction():
@@ -494,6 +510,7 @@ class PipelineMainFinalSummaries(PipelineMainFromTopics):
                 callback=self.on_long_summary,
                 on_short_summary=self.on_short_summary,
                 on_action_items=self.on_action_items,
+                on_participants=self.on_participants,
             ),
         ]
 

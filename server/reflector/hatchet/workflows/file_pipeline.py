@@ -570,6 +570,7 @@ async def generate_summaries(input: FilePipelineInput, ctx: Context) -> Summarie
         TranscriptActionItems,
         TranscriptFinalLongSummary,
         TranscriptFinalShortSummary,
+        TranscriptParticipant,
         transcripts_controller,
     )
 
@@ -619,12 +620,19 @@ async def generate_summaries(input: FilePipelineInput, ctx: Context) -> Summarie
                 logger=logger,
             )
 
+        async def on_participants_callback(identified):
+            for name, speaker in identified:
+                await transcripts_controller.upsert_participant(
+                    transcript, TranscriptParticipant(speaker=speaker, name=name)
+                )
+
         await topic_processing.generate_summaries(
             topics,
             transcript,
             on_long_summary_callback=on_long_summary_callback,
             on_short_summary_callback=on_short_summary_callback,
             on_action_items_callback=on_action_items_callback,
+            on_participants_callback=on_participants_callback,
             empty_pipeline=empty_pipeline,
             logger=logger,
         )
