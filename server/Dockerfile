@@ -6,7 +6,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 # builder install base dependencies
 WORKDIR /tmp
-RUN apt-get update && apt-get install -y curl ffmpeg ca-certificates && apt-get clean
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y curl ffmpeg ca-certificates
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 RUN sh /uv-installer.sh && rm /uv-installer.sh
 ENV PATH="/root/.local/bin/:$PATH"
@@ -15,7 +17,8 @@ ENV PATH="/root/.local/bin/:$PATH"
 RUN mkdir -p /app
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md /app/
-RUN uv sync --compile-bytecode --locked
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --compile-bytecode --locked
 
 # bootstrap
 COPY alembic.ini docker-entrypoint.sh runserver.sh /app/
