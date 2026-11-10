@@ -91,8 +91,10 @@ from reflector.processors.audio_mixdown_auto import AudioMixdownAutoProcessor
 from reflector.processors.summary.models import ActionItemsResponse
 from reflector.processors.summary.prompts import (
     RECAP_PROMPT,
+    build_language_instruction,
     build_participant_instructions,
     build_summary_markdown,
+    resolve_summary_language,
 )
 from reflector.processors.summary.summary_builder import SummaryBuilder
 from reflector.processors.types import TitleSummary, Word
@@ -1101,6 +1103,13 @@ async def extract_subjects(input: PipelineInput, ctx: Context) -> SubjectsResult
         llm = LLM(settings=settings, context="summary")
         builder = SummaryBuilder(llm, logger=logger)
         builder.set_transcript(transcript_text)
+        builder.set_language(
+            resolve_summary_language(
+                transcript.source_language if transcript else None,
+                transcript.target_language if transcript else None,
+                translated=any(t.transcript.translation for t in topics),
+            )
+        )
 
         if participant_names:
             builder.set_known_participants(
@@ -1145,6 +1154,14 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
 
     ctx.log(f"process_subjects: spawning {len(subjects)} subject workflows in parallel")
 
+    participants_result = ctx.task_output(get_participants)
+    topics_result = ctx.task_output(detect_topics)
+    language = resolve_summary_language(
+        participants_result.source_language,
+        participants_result.target_language,
+        translated=any(t.transcript.translation for t in topics_result.topics),
+    )
+
     bulk_runs = [
         subject_workflow.create_bulk_run_item(
             input=SubjectInput(
@@ -1153,6 +1170,7 @@ async def process_subjects(input: PipelineInput, ctx: Context) -> ProcessSubject
                 transcript_text=subjects_result.transcript_text,
                 participant_names=subjects_result.participant_names,
                 participant_name_to_id=subjects_result.participant_name_to_id,
+                language=language,
             )
         )
         for i, subject in enumerate(subjects)
@@ -1224,9 +1242,20 @@ async def generate_recap(input: PipelineInput, ctx: Context) -> RecapResult:
         subjects_result.participant_names
     )
 
+    participants_result = ctx.task_output(get_participants)
+    topics_result = ctx.task_output(detect_topics)
+    language_instruction = build_language_instruction(
+        resolve_summary_language(
+            participants_result.source_language,
+            participants_result.target_language,
+            translated=any(t.transcript.translation for t in topics_result.topics),
+        )
+    )
+
     recap_prompt = RECAP_PROMPT
     if participant_instructions:
         recap_prompt = f"{recap_prompt}\n\n{participant_instructions}"
+    recap_prompt += language_instruction
 
     ctx.log("generate_recap: calling LLM for recap")
     recap_response = await llm.get_response(
@@ -1303,6 +1332,16 @@ async def identify_action_items(
     llm = LLM(settings=settings, context="summary")
     builder = SummaryBuilder(llm, logger=logger)
     builder.set_transcript(subjects_result.transcript_text)
+
+    participants_result = ctx.task_output(get_participants)
+    topics_result = ctx.task_output(detect_topics)
+    builder.set_language(
+        resolve_summary_language(
+            participants_result.source_language,
+            participants_result.target_language,
+            translated=any(t.transcript.translation for t in topics_result.topics),
+        )
+    )
 
     if subjects_result.participant_names:
         builder.set_known_participants(

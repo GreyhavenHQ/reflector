@@ -21,6 +21,7 @@ from reflector.processors.summary.prompts import (
     DETAILED_SUBJECT_PROMPT_TEMPLATE,
     PARAGRAPH_SUMMARY_PROMPT,
     RECAP_PROMPT,
+    build_language_instruction,
     build_participant_instructions,
     build_summary_markdown,
 )
@@ -215,6 +216,7 @@ class SummaryBuilder:
         self.action_items: ActionItemsResponse | None = None
         self.participant_name_to_id: dict[str, str] = {}
         self.identified_participants: list[tuple[str, int]] = []
+        self.language: str | None = None
         if filename:
             self.read_transcript_from_file(filename)
 
@@ -234,6 +236,16 @@ class SummaryBuilder:
         assert isinstance(transcript, str)
         self.transcript = transcript
 
+    def set_language(self, language: str | None) -> None:
+        """
+        Set the language in which summaries should be generated.
+        When set, all LLM prompts get an instruction to respond in this language.
+        """
+        if not language or not language.strip():
+            return
+        self.language = language.strip()
+        self.logger.info("Summary language set", language=self.language)
+
     def set_llm_instance(self, llm: LLM) -> None:
         self.llm = llm
 
@@ -245,7 +257,7 @@ class SummaryBuilder:
         timeout: int | None = None,
     ) -> T:
         """Generic function to get structured output from LLM for non-function-calling models."""
-        enhanced_prompt = self._enhance_prompt_with_participants(prompt)
+        enhanced_prompt = self._enhance_prompt(prompt)
         return await self.llm.get_structured_response(
             enhanced_prompt,
             [self.transcript],
@@ -257,15 +269,19 @@ class SummaryBuilder:
     async def _get_response(
         self, prompt: str, texts: list[str], tone_name: str | None = None
     ) -> str:
-        """Get text response with automatic participant instructions injection."""
-        enhanced_prompt = self._enhance_prompt_with_participants(prompt)
+        """Get text response with automatic participant and language instructions injection."""
+        enhanced_prompt = self._enhance_prompt(prompt)
         return await self.llm.get_response(enhanced_prompt, texts, tone_name=tone_name)
 
-    def _enhance_prompt_with_participants(self, prompt: str) -> str:
-        """Add participant instructions to any prompt if participants are known."""
+    def _enhance_prompt(self, prompt: str) -> str:
+        """Add participant and language instructions to any prompt."""
         if self.participant_instructions:
             self.logger.debug("Adding participant instructions to prompt")
-            return f"{prompt}\n\n{self.participant_instructions}"
+            prompt = f"{prompt}\n\n{self.participant_instructions}"
+        language_instruction = build_language_instruction(self.language)
+        if language_instruction:
+            self.logger.debug("Adding language instruction to prompt")
+            prompt = f"{prompt}{language_instruction}"
         return prompt
 
     # ----------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 from reflector.llm import LLM
 from reflector.processors.base import Processor
+from reflector.processors.summary.prompts import resolve_summary_language
 from reflector.processors.summary.summary_builder import SummaryBuilder
 from reflector.processors.types import (
     ActionItems,
@@ -32,6 +33,15 @@ class TranscriptFinalSummaryProcessor(Processor):
     async def get_summary_builder(self, text) -> SummaryBuilder:
         builder = SummaryBuilder(self.llm, logger=self.logger)
         builder.set_transcript(text)
+
+        if self.transcript:
+            translated = any(chunk.transcript.translation for chunk in self.chunks)
+            language = resolve_summary_language(
+                getattr(self.transcript, "source_language", None),
+                getattr(self.transcript, "target_language", None),
+                translated=translated,
+            )
+            builder.set_language(language)
 
         if self.transcript and self.transcript.participants:
             participant_names = [p.name for p in self.transcript.participants if p.name]
