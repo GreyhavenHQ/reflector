@@ -74,53 +74,29 @@ export function HomePage() {
         />
       }
     >
-      <div style={{ maxWidth: 560, margin: '20px auto 0', padding: '0 4px 80px' }}>
-        <header style={{ marginBottom: 24 }}>
-          <h1
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 32,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              margin: 0,
-              color: 'var(--fg)',
-            }}
-          >
+      <div className="max-w-[560px] mx-auto mt-5 px-1 pb-20">
+        <header className="mb-6">
+          <h1 className="font-serif text-[32px] font-semibold tracking-[-0.02em] m-0 text-fg">
             New transcript
           </h1>
-          <p
-            style={{
-              fontSize: 14,
-              color: 'var(--fg-muted)',
-              marginTop: 6,
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
+          <p className="text-sm text-fg-muted mt-1.5 font-sans">
             Record live or upload a file. You can edit details later.
           </p>
         </header>
 
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)',
-            padding: 24,
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="flex flex-col gap-4">
             <div>
               <label className="rf-label" htmlFor="rf-title">
                 Title
               </label>
               <input
                 id="rf-title"
-                className="rf-input"
+                className="rf-input mt-1.5"
                 type="text"
                 placeholder="e.g. Sprint review — June 12"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                style={{ marginTop: 6 }}
               />
             </div>
 
@@ -134,40 +110,22 @@ export function HomePage() {
             <RoomPicker roomId={roomId} setRoomId={setRoomId} rooms={rooms} />
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              marginTop: 24,
-              paddingTop: 20,
-              borderTop: '1px solid var(--border)',
-            }}
-          >
+          <div className="flex gap-2.5 mt-6 pt-5 border-t border-border">
             <Button
               variant="primary"
               size="md"
               onClick={handleStart}
               disabled={submitting}
-              style={{ flex: 1 }}
+              className="flex-1"
             >
               {I.Mic(14)} {submitting ? 'Starting…' : 'Start recording'}
             </Button>
-            <Button variant="secondary" size="md" onClick={handleUpload} style={{ flex: 1 }}>
+            <Button variant="secondary" size="md" onClick={handleUpload} className="flex-1">
               {I.Upload(14)} Upload audio
             </Button>
           </div>
 
-          <div
-            style={{
-              marginTop: 14,
-              fontSize: 11.5,
-              color: 'var(--fg-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
+          <div className="mt-3.5 text-[11.5px] text-fg-muted flex items-center gap-1.5 font-sans">
             {I.Lock(12)}
             Audio is processed on your infrastructure.
           </div>

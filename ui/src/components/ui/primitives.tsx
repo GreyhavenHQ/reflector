@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 
 export type TranscriptStatus = 'live' | 'ended' | 'processing' | 'uploading' | 'failed' | 'idle'
 
@@ -23,46 +24,37 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   ref?: Ref<HTMLButtonElement>
 }
 
+const BUTTON_BASE =
+  'inline-flex items-center justify-center gap-2 font-sans font-medium whitespace-nowrap no-underline rounded-md border border-transparent cursor-pointer transition-all duration-[var(--dur-normal)] ease-[var(--ease-default)]'
+
+const BUTTON_SIZE: Record<ButtonSize, string> = {
+  xs: 'h-[26px] px-2 text-xs',
+  sm: 'h-[30px] px-2.5 text-[13px]',
+  md: 'h-9 px-3.5 text-sm',
+  icon: 'h-8 w-8 p-0',
+  iconSm: 'h-7 w-7 p-0',
+}
+
+const BUTTON_VARIANT: Record<ButtonVariant, string> = {
+  primary: 'bg-primary text-primary-fg shadow-xs',
+  secondary: 'bg-secondary text-secondary-fg border-border',
+  outline: 'bg-card text-fg border-border shadow-xs',
+  ghost: 'bg-transparent text-fg-muted',
+  danger: 'bg-transparent text-destructive',
+}
+
 export function Button({
   variant = 'primary',
   size = 'md',
-  style,
+  className,
   children,
   ref,
   ...rest
 }: ButtonProps) {
-  const base: CSSProperties = {
-    fontFamily: 'var(--font-sans)',
-    fontWeight: 500,
-    border: '1px solid transparent',
-    borderRadius: 'var(--radius-md)',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    transition: 'all var(--dur-normal) var(--ease-default)',
-    whiteSpace: 'nowrap',
-    textDecoration: 'none',
-  }
-  const sizes: Record<ButtonSize, CSSProperties> = {
-    xs: { height: 26, padding: '0 8px', fontSize: 12 },
-    sm: { height: 30, padding: '0 10px', fontSize: 13 },
-    md: { height: 36, padding: '0 14px', fontSize: 14 },
-    icon: { height: 32, width: 32, padding: 0 },
-    iconSm: { height: 28, width: 28, padding: 0 },
-  }
-  const variants: Record<ButtonVariant, CSSProperties> = {
-    primary: { background: 'var(--primary)', color: 'var(--primary-fg)', boxShadow: 'var(--shadow-xs)' },
-    secondary: { background: 'var(--secondary)', color: 'var(--secondary-fg)', borderColor: 'var(--border)' },
-    outline: { background: 'var(--card)', color: 'var(--fg)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-xs)' },
-    ghost: { background: 'transparent', color: 'var(--fg-muted)' },
-    danger: { background: 'transparent', color: 'var(--destructive)' },
-  }
   return (
     <button
       ref={ref}
-      style={{ ...base, ...sizes[size], ...variants[variant], ...style }}
+      className={cn(BUTTON_BASE, BUTTON_SIZE[size], BUTTON_VARIANT[variant], className)}
       {...rest}
     >
       {children}
@@ -70,81 +62,56 @@ export function Button({
   )
 }
 
+const STATUS_DOT_BG: Record<TranscriptStatus, string> = {
+  live: 'bg-status-live',
+  ended: 'bg-status-ok',
+  processing: 'bg-status-processing',
+  uploading: 'bg-status-processing',
+  failed: 'bg-status-failed',
+  idle: 'bg-status-idle',
+}
+
 export function StatusDot({ status, size = 8 }: { status: TranscriptStatus; size?: number }) {
-  const map: Record<TranscriptStatus, string> = {
-    live: 'var(--status-live)',
-    ended: 'var(--status-ok)',
-    processing: 'var(--status-processing)',
-    uploading: 'var(--status-processing)',
-    failed: 'var(--status-failed)',
-    idle: 'var(--status-idle)',
-  }
+  // Dimensions are runtime-driven (callers pass arbitrary px), so size stays inline.
   return (
     <span
-      style={{
-        display: 'inline-block',
-        width: size,
-        height: size,
-        borderRadius: 9999,
-        background: map[status] ?? map.idle,
-        flexShrink: 0,
-      }}
+      className={cn('inline-block rounded-full shrink-0', STATUS_DOT_BG[status] ?? STATUS_DOT_BG.idle)}
+      style={{ width: size, height: size }}
     />
   )
 }
 
-type BadgeStyle = { color: string; bg: string; bd: string }
+const STATUS_BADGE_VARIANT: Record<TranscriptStatus, string> = {
+  live: 'text-status-live bg-[var(--reflector-accent-tint)] border-[color-mix(in_oklch,var(--status-live)_25%,transparent)]',
+  processing:
+    'text-status-processing bg-[color-mix(in_oklch,var(--status-processing)_10%,transparent)] border-[color-mix(in_oklch,var(--status-processing)_30%,transparent)]',
+  uploading:
+    'text-status-processing bg-[color-mix(in_oklch,var(--status-processing)_10%,transparent)] border-[color-mix(in_oklch,var(--status-processing)_30%,transparent)]',
+  failed:
+    'text-destructive bg-[color-mix(in_oklch,var(--destructive)_10%,transparent)] border-[color-mix(in_oklch,var(--destructive)_25%,transparent)]',
+  ended: 'text-fg-muted bg-muted border-border',
+  idle: 'text-fg-muted bg-muted border-border',
+}
+
+const STATUS_LABEL: Record<TranscriptStatus, string> = {
+  live: 'Live',
+  ended: 'Done',
+  processing: 'Processing',
+  uploading: 'Uploading',
+  failed: 'Failed',
+  idle: 'Idle',
+}
 
 export function StatusBadge({ status }: { status: TranscriptStatus }) {
-  const labels: Record<TranscriptStatus, string> = {
-    live: 'Live',
-    ended: 'Done',
-    processing: 'Processing',
-    uploading: 'Uploading',
-    failed: 'Failed',
-    idle: 'Idle',
-  }
-  const styles: Partial<Record<TranscriptStatus, BadgeStyle>> = {
-    live: { color: 'var(--status-live)', bg: 'rgba(217,94,42,0.08)', bd: 'rgba(217,94,42,0.25)' },
-    processing: {
-      color: 'var(--status-processing)',
-      bg: 'color-mix(in oklch, var(--status-processing) 10%, transparent)',
-      bd: 'color-mix(in oklch, var(--status-processing) 30%, transparent)',
-    },
-    uploading: {
-      color: 'var(--status-processing)',
-      bg: 'color-mix(in oklch, var(--status-processing) 10%, transparent)',
-      bd: 'color-mix(in oklch, var(--status-processing) 30%, transparent)',
-    },
-    failed: {
-      color: 'var(--destructive)',
-      bg: 'color-mix(in oklch, var(--destructive) 10%, transparent)',
-      bd: 'color-mix(in oklch, var(--destructive) 25%, transparent)',
-    },
-    ended: { color: 'var(--fg-muted)', bg: 'var(--muted)', bd: 'var(--border)' },
-  }
-  const s = styles[status] ?? styles.ended!
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '1px 8px',
-        height: 20,
-        fontFamily: 'var(--font-sans)',
-        fontSize: 11,
-        fontWeight: 500,
-        color: s.color,
-        background: s.bg,
-        border: '1px solid',
-        borderColor: s.bd,
-        borderRadius: 9999,
-        lineHeight: 1,
-      }}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-2 py-px h-5 rounded-full border font-sans text-[11px] font-medium leading-none',
+        STATUS_BADGE_VARIANT[status] ?? STATUS_BADGE_VARIANT.ended,
+      )}
     >
       <StatusDot status={status} size={6} />
-      {labels[status] ?? status}
+      {STATUS_LABEL[status] ?? status}
     </span>
   )
 }
@@ -171,6 +138,8 @@ export function Waveform({
     }
     return out
   }, [seed, bars])
+  // .rf-wave (defined in index.css) lays out the bars; `color` is caller-supplied
+  // and height is computed per-bar — both stay inline.
   return (
     <div className="rf-wave" style={{ color, opacity: active ? 1 : 0.75 }}>
       {heights.map((h, i) => (
@@ -187,15 +156,7 @@ export function Tag({ children, onRemove }: { children: ReactNode; onRemove?: ()
       {onRemove && (
         <button
           onClick={onRemove}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            padding: 0,
-            margin: 0,
-            color: 'var(--fg-muted)',
-            cursor: 'pointer',
-            display: 'inline-flex',
-          }}
+          className="inline-flex border-none bg-transparent text-fg-muted p-0 m-0 cursor-pointer"
         >
           {I.Close(10)}
         </button>
@@ -226,62 +187,37 @@ export function SidebarItem({
   return (
     <button
       onClick={onClick}
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        width: '100%',
-        padding: indent ? '6px 10px 6px 30px' : '7px 10px',
-        fontSize: 13,
-        fontWeight: active ? 600 : 500,
-        color: active ? 'var(--fg)' : 'var(--fg-muted)',
-        background: active ? 'var(--card)' : 'transparent',
-        border: '1px solid',
-        borderColor: active ? 'var(--border)' : 'transparent',
-        boxShadow: active ? 'var(--shadow-xs)' : 'none',
-        borderRadius: 'var(--radius-md)',
-        cursor: 'pointer',
-        textAlign: 'left',
-        fontFamily: 'var(--font-sans)',
-      }}
+      className={cn(
+        'relative flex items-center gap-2.5 w-full font-sans text-[13px] rounded-md cursor-pointer text-left border',
+        indent ? 'py-1.5 pr-2.5 pl-[30px]' : 'px-2.5 py-[7px]',
+        active
+          ? 'text-fg bg-card border-border shadow-xs font-semibold'
+          : 'text-fg-muted bg-transparent border-transparent font-medium',
+      )}
     >
       {active && (
-        <span
-          style={{
-            position: 'absolute',
-            left: -11,
-            top: 6,
-            bottom: 6,
-            width: 2,
-            background: 'var(--primary)',
-            borderRadius: 2,
-          }}
-        />
+        <span className="absolute -left-[11px] top-1.5 bottom-1.5 w-0.5 bg-primary rounded-[2px]" />
       )}
       {icon && (
         <span
-          style={{
-            display: 'inline-flex',
-            color: active ? 'var(--primary)' : 'var(--fg-muted)',
-            opacity: active ? 1 : 0.75,
-          }}
+          className={cn('inline-flex', active ? 'text-primary opacity-100' : 'text-fg-muted opacity-75')}
         >
           {icon}
         </span>
       )}
-      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {label}
-      </span>
-      {dot && <span style={{ width: 6, height: 6, borderRadius: 9999, background: dot }} />}
+      <span className="flex-1 whitespace-nowrap overflow-hidden text-ellipsis">{label}</span>
+      {dot && (
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ background: dot }}
+        />
+      )}
       {count != null && (
         <span
-          style={{
-            fontSize: 10,
-            fontWeight: 500,
-            fontFamily: 'var(--font-mono)',
-            color: active ? 'var(--fg)' : 'var(--fg-muted)',
-          }}
+          className={cn(
+            'text-[10px] font-medium font-mono',
+            active ? 'text-fg' : 'text-fg-muted',
+          )}
         >
           {count}
         </span>
@@ -293,19 +229,7 @@ export function SidebarItem({
 
 export function SectionLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div
-      style={{
-        padding: '0 10px 6px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: '.1em',
-        textTransform: 'uppercase',
-        color: 'var(--fg-muted)',
-      }}
-    >
+    <div className="flex items-center justify-between px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-fg-muted">
       <span>{children}</span>
       {action}
     </div>
@@ -324,69 +248,30 @@ export function ProgressRow({
   const pct = Math.round((progress ?? 0) * 100)
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '6px 10px',
-        marginTop: 2,
-        background: 'color-mix(in oklch, var(--status-processing) 6%, var(--card))',
-        border: '1px solid color-mix(in oklch, var(--status-processing) 22%, transparent)',
-        borderRadius: 'var(--radius-sm)',
-        fontFamily: 'var(--font-sans)',
-        fontSize: 11.5,
-      }}
+      className={cn(
+        'flex items-center gap-2.5 px-2.5 py-1.5 mt-0.5 rounded-sm font-sans text-[11.5px] border',
+        'bg-[color-mix(in_oklch,var(--status-processing)_6%,var(--card))]',
+        'border-[color-mix(in_oklch,var(--status-processing)_22%,transparent)]',
+      )}
     >
       <span
-        className="rf-spinner"
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: 9999,
-          flexShrink: 0,
-          border: '2px solid color-mix(in oklch, var(--status-processing) 25%, transparent)',
-          borderTopColor: 'var(--status-processing)',
-          animation: 'rfSpin 0.9s linear infinite',
-        }}
+        className={cn(
+          'rf-spinner w-3 h-3 rounded-full shrink-0 border-2 border-t-status-processing',
+          'border-[color-mix(in_oklch,var(--status-processing)_25%,transparent)]',
+          'border-t-status-processing animate-[rfSpin_0.9s_linear_infinite]',
+        )}
       />
-      <span style={{ color: 'var(--status-processing)', fontWeight: 600 }}>{stage}…</span>
-      <span
-        style={{
-          flex: 1,
-          height: 4,
-          background: 'color-mix(in oklch, var(--status-processing) 15%, transparent)',
-          borderRadius: 2,
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
+      <span className="text-status-processing font-semibold">{stage}…</span>
+      <span className="relative flex-1 h-1 rounded-[2px] overflow-hidden bg-[color-mix(in_oklch,var(--status-processing)_15%,transparent)]">
         <span
-          style={{
-            display: 'block',
-            width: `${pct}%`,
-            height: '100%',
-            background: 'var(--status-processing)',
-            transition: 'width 400ms var(--ease-default)',
-          }}
+          className="block h-full bg-status-processing transition-[width] duration-[400ms] ease-[var(--ease-default)]"
+          style={{ width: `${pct}%` }}
         />
       </span>
-      <span
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 11,
-          fontWeight: 600,
-          color: 'var(--status-processing)',
-          minWidth: 32,
-          textAlign: 'right',
-        }}
-      >
+      <span className="font-mono text-[11px] font-semibold text-status-processing min-w-[32px] text-right">
         {pct}%
       </span>
-      {eta && (
-        <span style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-          {eta}
-        </span>
-      )}
+      {eta && <span className="text-fg-muted font-mono text-[11px]">{eta}</span>}
     </div>
   )
 }
@@ -443,33 +328,25 @@ export function RowMenu({ items = [], onClose, anchor }: RowMenuProps) {
     }
   }, [onClose])
 
+  // Position values are computed at runtime from the trigger rect; min-width is
+  // a constant the layout math depends on, so both stay inline.
+  const positionStyle: CSSProperties = {
+    top: pos.top,
+    left: pos.left,
+    minWidth: MENU_WIDTH,
+  }
+
   return createPortal(
     <div
       ref={ref}
       role="menu"
       onClick={(e) => e.stopPropagation()}
-      style={{
-        position: 'fixed',
-        top: pos.top,
-        left: pos.left,
-        minWidth: MENU_WIDTH,
-        zIndex: 1000,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: 'var(--shadow-md)',
-        padding: 4,
-        fontFamily: 'var(--font-sans)',
-      }}
+      className="fixed z-[1000] p-1 bg-card border border-border rounded-md shadow-md font-sans"
+      style={positionStyle}
     >
       {items.map((it, i) => {
         if ('separator' in it) {
-          return (
-            <div
-              key={i}
-              style={{ height: 1, background: 'var(--border)', margin: '4px 2px' }}
-            />
-          )
+          return <div key={i} className="h-px bg-border mx-0.5 my-1" />
         }
         const danger = it.danger
         return (
@@ -482,54 +359,30 @@ export function RowMenu({ items = [], onClose, anchor }: RowMenuProps) {
               it.onClick?.()
               onClose?.()
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              width: '100%',
-              padding: '7px 10px',
-              border: 'none',
-              background: 'transparent',
-              fontSize: 13,
-              fontFamily: 'var(--font-sans)',
-              color: it.disabled
-                ? 'var(--fg-muted)'
-                : danger
-                  ? 'var(--destructive)'
-                  : 'var(--fg)',
-              opacity: it.disabled ? 0.5 : 1,
-              borderRadius: 'var(--radius-sm)',
-              textAlign: 'left',
-              cursor: it.disabled ? 'not-allowed' : 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              if (!it.disabled) {
-                e.currentTarget.style.background = danger
-                  ? 'color-mix(in oklch, var(--destructive) 10%, transparent)'
-                  : 'var(--muted)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent'
-            }}
+            className={cn(
+              'flex items-center gap-2.5 w-full px-2.5 py-[7px] border-none bg-transparent rounded-sm font-sans text-[13px] text-left',
+              it.disabled
+                ? 'text-fg-muted opacity-50 cursor-not-allowed'
+                : cn(
+                    danger
+                      ? 'text-destructive hover:bg-[color-mix(in_oklch,var(--destructive)_10%,transparent)]'
+                      : 'text-fg hover:bg-muted',
+                    'cursor-pointer',
+                  ),
+            )}
           >
             {it.icon && (
               <span
-                style={{
-                  display: 'inline-flex',
-                  flexShrink: 0,
-                  color: danger ? 'var(--destructive)' : 'var(--fg-muted)',
-                }}
+                className={cn(
+                  'inline-flex shrink-0',
+                  danger ? 'text-destructive' : 'text-fg-muted',
+                )}
               >
                 {it.icon}
               </span>
             )}
-            <span style={{ flex: 1, minWidth: 0 }}>{it.label}</span>
-            {it.kbd && (
-              <span className="rf-kbd" style={{ fontSize: 10 }}>
-                {it.kbd}
-              </span>
-            )}
+            <span className="flex-1 min-w-0">{it.label}</span>
+            {it.kbd && <span className="rf-kbd text-[10px]">{it.kbd}</span>}
           </button>
         )
       })}
@@ -564,7 +417,7 @@ export function RowMenuTrigger({
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   return (
-    <span style={{ display: 'inline-flex' }}>
+    <span className="inline-flex">
       <Button
         ref={triggerRef}
         variant="ghost"

@@ -1,10 +1,11 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { components } from '@/api/schema'
 import { apiClient } from '@/api/client'
 import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
 import { Combobox } from '@/components/ui/Combobox'
+import { cn } from '@/lib/utils'
 
 type Room = components['schemas']['RoomDetails']
 
@@ -147,59 +148,32 @@ export function RoomFormDialog({ room, onClose, onSave, saving }: Props) {
     }
   }
 
-  const panelStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-    padding: 20,
-    overflow: 'auto',
-    flex: 1,
-    maxHeight: 'calc(100vh - 260px)',
-  }
-
   return (
     <>
       <div className="rf-modal-backdrop" onClick={() => !saving && onClose()} />
       <div
-        className="rf-modal"
+        className="rf-modal w-[min(600px,calc(100vw-32px))]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="rf-room-title"
-        style={{ width: 'min(600px, calc(100vw - 32px))' }}
       >
         <form
           onSubmit={(e) => {
             e.preventDefault()
             void submit()
           }}
-          style={{ display: 'flex', flexDirection: 'column' }}
+          className="flex flex-col"
         >
-          <header
-            style={{ padding: '18px 20px 0', display: 'flex', alignItems: 'flex-start' }}
-          >
-            <div style={{ flex: 1 }}>
+          <header className="pt-[18px] px-5 flex items-start">
+            <div className="flex-1">
               <h2
                 id="rf-room-title"
-                style={{
-                  margin: 0,
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 20,
-                  fontWeight: 600,
-                  letterSpacing: '-0.01em',
-                  color: 'var(--fg)',
-                }}
+                className="m-0 font-serif text-xl font-semibold tracking-[-0.01em] text-fg"
               >
                 {isEdit ? 'Edit room' : 'New room'}
               </h2>
               {isEdit && (
-                <p
-                  style={{
-                    margin: '2px 0 0',
-                    fontSize: 12,
-                    color: 'var(--fg-muted)',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
+                <p className="mt-0.5 mb-0 text-xs text-fg-muted font-mono">
                   /{room!.name}
                 </p>
               )}
@@ -208,47 +182,24 @@ export function RoomFormDialog({ room, onClose, onSave, saving }: Props) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              style={{
-                border: 'none',
-                background: 'transparent',
-                padding: 6,
-                cursor: 'pointer',
-                color: 'var(--fg-muted)',
-                borderRadius: 'var(--radius-sm)',
-                display: 'inline-flex',
-              }}
+              className="border-none bg-transparent p-1.5 cursor-pointer text-fg-muted rounded-sm inline-flex"
             >
               {I.X(16)}
             </button>
           </header>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: 0,
-              padding: '14px 20px 0',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
+          <div className="flex gap-0 pt-3.5 px-5 border-b border-border">
             {visibleTabs.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                style={{
-                  position: 'relative',
-                  padding: '8px 14px 10px',
-                  border: 'none',
-                  background: 'transparent',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: tab === t.id ? 'var(--fg)' : 'var(--fg-muted)',
-                  cursor: 'pointer',
-                  marginBottom: -1,
-                  borderBottom: '2px solid',
-                  borderBottomColor: tab === t.id ? 'var(--primary)' : 'transparent',
-                }}
+                className={cn(
+                  'relative px-3.5 pt-2 pb-2.5 border-none bg-transparent font-sans text-[13px] font-medium cursor-pointer -mb-px border-b-2',
+                  tab === t.id
+                    ? 'text-fg border-primary'
+                    : 'text-fg-muted border-transparent',
+                )}
               >
                 {t.label}
               </button>
@@ -258,21 +209,13 @@ export function RoomFormDialog({ room, onClose, onSave, saving }: Props) {
           {formError && (
             <div
               role="alert"
-              style={{
-                margin: '12px 20px 0',
-                fontSize: 13,
-                color: 'var(--destructive)',
-                background: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--destructive) 25%, transparent)',
-                borderRadius: 'var(--radius-md)',
-                padding: '8px 12px',
-              }}
+              className="mt-3 mx-5 text-[13px] text-destructive bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)] border border-[color-mix(in_srgb,var(--destructive)_25%,transparent)] rounded-md px-3 py-2"
             >
               {formError}
             </div>
           )}
 
-          <div style={panelStyle}>
+          <div className="flex flex-col gap-4 p-5 overflow-auto flex-1 max-h-[calc(100vh-260px)]">
             {tab === 'general' && (
               <GeneralTab
                 name={name}
@@ -331,23 +274,15 @@ export function RoomFormDialog({ room, onClose, onSave, saving }: Props) {
             )}
           </div>
 
-          <footer
-            style={{
-              padding: '14px 20px',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              gap: 10,
-              alignItems: 'center',
-            }}
-          >
-            <div style={{ flex: 1 }} />
+          <footer className="px-5 py-3.5 border-t border-border flex gap-2.5 items-center">
+            <div className="flex-1" />
             <Button
               type="button"
               variant="ghost"
               size="md"
               onClick={onClose}
               disabled={saving}
-              style={{ color: 'var(--fg)', fontWeight: 600 }}
+              className="text-fg font-semibold"
             >
               Cancel
             </Button>
@@ -356,7 +291,7 @@ export function RoomFormDialog({ room, onClose, onSave, saving }: Props) {
               variant="primary"
               size="md"
               disabled={!canSave}
-              style={!canSave ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              className={!canSave ? 'opacity-50 cursor-not-allowed' : undefined}
             >
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add room'}
             </Button>
@@ -382,18 +317,15 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="rf-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <label className="rf-label flex items-center gap-1.5">
         {label}
         {info && (
-          <span
-            title={info}
-            style={{ display: 'inline-flex', color: 'var(--fg-muted)', cursor: 'help' }}
-          >
+          <span title={info} className="inline-flex text-fg-muted cursor-help">
             {I.Info(12)}
           </span>
         )}
       </label>
-      <div style={{ marginTop: 6 }}>{children}</div>
+      <div className="mt-1.5">{children}</div>
       {hint && <div className="rf-hint">{hint}</div>}
     </div>
   )
@@ -411,54 +343,27 @@ function Checkbox({
   hint?: ReactNode
 }) {
   return (
-    <label
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 10,
-        cursor: 'pointer',
-        fontFamily: 'var(--font-sans)',
-        padding: '6px 0',
-      }}
-    >
+    <label className="flex items-start gap-2.5 cursor-pointer font-sans py-1.5">
       <span
-        style={{
-          flexShrink: 0,
-          marginTop: 1,
-          width: 16,
-          height: 16,
-          borderRadius: 4,
-          border: '1.5px solid',
-          borderColor: checked ? 'var(--primary)' : 'var(--gh-grey-4)',
-          background: checked ? 'var(--primary)' : 'var(--card)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--primary-fg)',
-          transition: 'all var(--dur-fast)',
-          position: 'relative',
-        }}
+        className={cn(
+          'shrink-0 mt-px w-4 h-4 rounded-[4px] border-[1.5px] inline-flex items-center justify-center text-primary-fg transition-all duration-[var(--dur-fast)] relative',
+          checked
+            ? 'border-primary bg-primary'
+            : 'border-[var(--gh-grey-4)] bg-card',
+        )}
       >
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+          className="absolute opacity-0 w-0 h-0"
         />
         {checked && I.Check(11)}
       </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontSize: 13, color: 'var(--fg)', fontWeight: 500 }}>{label}</span>
+      <span className="flex-1 min-w-0">
+        <span className="text-[13px] text-fg font-medium">{label}</span>
         {hint && (
-          <span
-            style={{
-              display: 'block',
-              marginTop: 2,
-              fontSize: 11.5,
-              color: 'var(--fg-muted)',
-              lineHeight: 1.4,
-            }}
-          >
+          <span className="block mt-0.5 text-[11.5px] text-fg-muted leading-[1.4]">
             {hint}
           </span>
         )}
@@ -469,21 +374,8 @@ function Checkbox({
 
 function InfoBanner({ children }: { children: ReactNode }) {
   return (
-    <div
-      style={{
-        padding: '12px 14px',
-        fontSize: 12,
-        lineHeight: 1.5,
-        color: 'var(--fg-muted)',
-        background: 'var(--muted)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 10,
-      }}
-    >
-      <span style={{ color: 'var(--primary)', marginTop: 1, flexShrink: 0 }}>
+    <div className="px-3.5 py-3 text-xs leading-[1.5] text-fg-muted bg-muted border border-border rounded-md flex items-start gap-2.5">
+      <span className="text-primary mt-px shrink-0">
         {I.Info(14)}
       </span>
       <div>{children}</div>
@@ -528,17 +420,16 @@ function GeneralTab(p: GeneralTabProps) {
         hint={p.nameError || (!p.isEdit ? 'No spaces or special characters allowed' : undefined)}
       >
         <input
-          className="rf-input"
+          className={cn('rf-input', p.nameError && 'border-destructive')}
           type="text"
           autoFocus={!p.isEdit}
           disabled={p.isEdit}
           placeholder="room-name"
           value={p.name}
           onChange={(e) => p.setName(e.target.value)}
-          style={p.nameError ? { borderColor: 'var(--destructive)' } : undefined}
         />
         {p.isEdit && (
-          <div className="rf-hint" style={{ color: 'var(--fg-muted)' }}>
+          <div className="rf-hint text-fg-muted">
             Room name can't be changed after creation.
           </div>
         )}
@@ -799,9 +690,9 @@ function WebhookTab(p: WebhookTabProps) {
     <>
       <InfoBanner>
         Reflector POSTs a JSON payload to your URL on lifecycle events:{' '}
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>meeting.started</code>,{' '}
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>meeting.ended</code>,{' '}
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>transcript.ready</code>.
+        <code className="font-mono text-[11px]">meeting.started</code>,{' '}
+        <code className="font-mono text-[11px]">meeting.ended</code>,{' '}
+        <code className="font-mono text-[11px]">transcript.ready</code>.
       </InfoBanner>
 
       <FormField

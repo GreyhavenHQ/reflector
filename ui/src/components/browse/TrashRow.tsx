@@ -13,67 +13,27 @@ export function TrashRow({ t, onRestore, onDestroy }: Props) {
   const sourceLabel = t.source === 'room' ? t.room || 'room' : t.source
   return (
     <div
-      className="rf-row"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'auto 1fr auto',
-        alignItems: 'center',
-        columnGap: 14,
-        padding: '14px 20px',
-        borderBottom: '1px solid var(--border)',
-        cursor: 'default',
-        position: 'relative',
-        opacity: 0.78,
-        background:
-          'repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in oklch, var(--muted) 40%, transparent) 12px 13px)',
-      }}
+      className="rf-row grid grid-cols-[auto_1fr_auto] items-center gap-x-3.5 px-5 py-3.5 border-b border-border cursor-default relative opacity-75 bg-[repeating-linear-gradient(45deg,transparent_0_12px,color-mix(in_oklch,var(--muted)_40%,transparent)_12px_13px)]"
     >
-      <span style={{ color: 'var(--fg-muted)', display: 'inline-flex' }}>{I.Trash(14)}</span>
+      <span className="text-fg-muted inline-flex">{I.Trash(14)}</span>
 
-      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span
-          style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: 15,
-            fontWeight: 500,
-            color: 'var(--fg-muted)',
-            letterSpacing: '-0.005em',
-            textDecoration: 'line-through',
-            textDecorationColor: 'color-mix(in oklch, var(--fg-muted) 50%, transparent)',
-            textDecorationThickness: '1px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
+      <div className="min-w-0 flex flex-col gap-1">
+        <span className="font-serif text-[15px] font-medium text-fg-muted tracking-[-0.005em] line-through decoration-[color-mix(in_oklch,var(--fg-muted)_50%,transparent)] decoration-1 whitespace-nowrap overflow-hidden text-ellipsis">
           {t.title || 'Unnamed transcript'}
         </span>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            rowGap: 2,
-            columnGap: 0,
-            fontSize: 11.5,
-            color: 'var(--fg-muted)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
+        <div className="flex items-center flex-wrap gap-y-0.5 gap-x-0 text-[11.5px] text-fg-muted font-sans">
           <span>{sourceLabel}</span>
-          <span style={{ margin: '0 8px', color: 'var(--gh-grey-3)' }}>·</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{fmtDate(t.date)}</span>
+          <span className="mx-2 text-[var(--gh-grey-3)]">·</span>
+          <span className="font-mono text-[11px]">{fmtDate(t.date)}</span>
           {t.duration > 0 && (
             <>
-              <span style={{ margin: '0 8px', color: 'var(--gh-grey-3)' }}>·</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                {fmtDur(t.duration)}
-              </span>
+              <span className="mx-2 text-[var(--gh-grey-3)]">·</span>
+              <span className="font-mono text-[11px]">{fmtDur(t.duration)}</span>
             </>
           )}
-          <span style={{ margin: '0 8px', color: 'var(--gh-grey-3)' }}>·</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span className="mx-2 text-[var(--gh-grey-3)]">·</span>
+          <span className="inline-flex items-center gap-1">
             {I.Trash(11)} Deleted
           </span>
         </div>

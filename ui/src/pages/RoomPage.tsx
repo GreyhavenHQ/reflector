@@ -4,6 +4,7 @@ import { WherebyRoom } from '@/components/rooms/WherebyRoom'
 import { LiveKitRoom } from '@/components/rooms/LiveKitRoom'
 import { MeetingSelection } from '@/components/rooms/MeetingSelection'
 import { RoomError, RoomLoading } from '@/components/rooms/roomChrome'
+import { GuestBanner } from '@/components/rooms/GuestBanner'
 import {
   useRoomActiveMeetings,
   useRoomByName,
@@ -89,24 +90,27 @@ export function RoomPage() {
   // ICS room + no explicit id → meeting selection (or auto-route if only one option).
   if (wantSelection) {
     return (
-      <MeetingSelection
-        roomName={roomName}
-        meetings={activeMeetings.data ?? []}
-        loading={activeMeetings.isLoading}
-        creating={createMeeting.isPending}
-        onSelect={(m) => navigate(`/${roomName}/${m.id}`)}
-        onCreateUnscheduled={async () => {
-          try {
-            const m = await createMeeting.mutateAsync({
-              roomName,
-              allowDuplicated: room.ics_enabled ?? false,
-            })
-            navigate(`/${roomName}/${m.id}`)
-          } catch (err) {
-            console.error('Failed to create meeting:', err)
-          }
-        }}
-      />
+      <>
+        <GuestBanner roomName={roomName} />
+        <MeetingSelection
+          roomName={roomName}
+          meetings={activeMeetings.data ?? []}
+          loading={activeMeetings.isLoading}
+          creating={createMeeting.isPending}
+          onSelect={(m) => navigate(`/${roomName}/${m.id}`)}
+          onCreateUnscheduled={async () => {
+            try {
+              const m = await createMeeting.mutateAsync({
+                roomName,
+                allowDuplicated: room.ics_enabled ?? false,
+              })
+              navigate(`/${roomName}/${m.id}`)
+            } catch (err) {
+              console.error('Failed to create meeting:', err)
+            }
+          }}
+        />
+      </>
     )
   }
 
@@ -119,11 +123,26 @@ export function RoomPage() {
   const platform = meeting.platform
   switch (platform) {
     case 'daily':
-      return <DailyRoom roomName={roomName} meeting={meeting} room={room} />
+      return (
+        <>
+          <GuestBanner roomName={roomName} />
+          <DailyRoom roomName={roomName} meeting={meeting} room={room} />
+        </>
+      )
     case 'whereby':
-      return <WherebyRoom roomName={roomName} meeting={meeting} room={room} />
+      return (
+        <>
+          <GuestBanner roomName={roomName} />
+          <WherebyRoom roomName={roomName} meeting={meeting} room={room} />
+        </>
+      )
     case 'livekit':
-      return <LiveKitRoom roomName={roomName} meeting={meeting} room={room} />
+      return (
+        <>
+          <GuestBanner roomName={roomName} />
+          <LiveKitRoom roomName={roomName} meeting={meeting} room={room} />
+        </>
+      )
     default:
       return (
         <RoomError

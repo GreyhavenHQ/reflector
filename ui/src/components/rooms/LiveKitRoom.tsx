@@ -113,14 +113,7 @@ export function LiveKitRoom({ roomName, meeting, room: _room }: Props) {
     return (
       <div
         data-lk-theme="default"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'var(--gh-off-black)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        className="fixed inset-0 bg-[var(--gh-off-black)] flex items-center justify-center"
       >
         <PreJoin
           defaults={{
@@ -151,11 +144,7 @@ export function LiveKitRoom({ roomName, meeting, room: _room }: Props) {
   return (
     <div
       data-lk-theme="default"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'black',
-      }}
+      className="fixed inset-0 bg-black"
     >
       <LKRoom
         serverUrl={serverUrl}

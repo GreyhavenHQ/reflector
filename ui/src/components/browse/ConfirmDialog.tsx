@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
+import { cn } from '@/lib/utils'
 
 type Props = {
   title: string
@@ -35,72 +36,40 @@ export function ConfirmDialog({
     <>
       <div className="rf-modal-backdrop" onClick={() => !loading && onClose()} />
       <div
-        className="rf-modal"
+        className="rf-modal w-[min(440px,calc(100vw-32px))]"
         role="dialog"
         aria-modal="true"
-        style={{ width: 'min(440px, calc(100vw - 32px))' }}
       >
-        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div className="p-6 flex flex-col gap-3">
+          <div className="flex items-start gap-3">
             <div
-              style={{
-                flexShrink: 0,
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: danger
-                  ? 'color-mix(in srgb, var(--destructive) 12%, transparent)'
-                  : 'var(--muted)',
-                color: danger ? 'var(--destructive)' : 'var(--fg-muted)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              className={cn(
+                'shrink-0 w-9 h-9 rounded-[10px] inline-flex items-center justify-center',
+                danger
+                  ? 'bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)] text-destructive'
+                  : 'bg-muted text-fg-muted',
+              )}
             >
               {I.Trash(18)}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: 'var(--fg)',
-                }}
-              >
+            <div className="flex-1 min-w-0">
+              <h2 className="m-0 font-serif text-lg font-semibold text-fg">
                 {title}
               </h2>
-              <div
-                style={{
-                  margin: '6px 0 0',
-                  fontSize: 13,
-                  color: 'var(--fg-muted)',
-                  lineHeight: 1.5,
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
+              <div className="mt-1.5 text-[13px] text-fg-muted leading-[1.5] font-sans">
                 {message}
               </div>
             </div>
           </div>
         </div>
-        <footer
-          style={{
-            padding: '14px 20px',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            gap: 10,
-            justifyContent: 'flex-end',
-          }}
-        >
+        <footer className="px-5 py-3.5 border-t border-border flex gap-2.5 justify-end">
           <Button
             type="button"
             variant="ghost"
             size="md"
             onClick={onClose}
             disabled={loading}
-            style={{ color: 'var(--fg)', fontWeight: 600 }}
+            className="text-fg font-semibold"
           >
             {cancelLabel}
           </Button>
@@ -110,14 +79,9 @@ export function ConfirmDialog({
             size="md"
             onClick={onConfirm}
             disabled={loading}
-            style={
+            className={
               danger
-                ? {
-                    background: 'var(--destructive)',
-                    color: 'var(--destructive-fg)',
-                    borderColor: 'var(--destructive)',
-                    boxShadow: 'var(--shadow-xs)',
-                  }
+                ? 'bg-destructive text-destructive-fg border-destructive shadow-xs'
                 : undefined
             }
           >

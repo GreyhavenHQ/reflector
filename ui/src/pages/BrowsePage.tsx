@@ -74,6 +74,31 @@ export function BrowsePage() {
     onError: (err) => toast.error(messageFor(err, 'Restore failed')),
   })
 
+  const reprocessMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, response, error } = await apiClient.POST(
+        '/v1/transcripts/{transcript_id}/process',
+        { params: { path: { transcript_id: id } } },
+      )
+      if (!response.ok) {
+        throw Object.assign(new Error('Reprocess failed'), {
+          detail: extractDetail(error),
+        })
+      }
+      return data as { status?: string } | undefined
+    },
+    onSuccess: (data) => {
+      invalidateList()
+      if (data?.status && data.status !== 'ok') {
+        // Backend returns "already-scheduled" when a run is already in flight.
+        toast.info(data.status)
+      } else {
+        toast.success('Reprocessing started')
+      }
+    },
+    onError: (err) => toast.error(messageFor(err, 'Reprocess failed')),
+  })
+
   const destroyMutation = useMutation({
     mutationFn: async (id: string) => {
       const { response, error } = await apiClient.DELETE(
@@ -209,15 +234,7 @@ export function BrowsePage() {
         />
       }
     >
-      <div
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          overflow: 'hidden',
-          boxShadow: 'var(--shadow-xs)',
-        }}
-      >
+      <div className="bg-card border border-border rounded-lg overflow-hidden shadow-xs">
         <FilterBar
           filter={filter}
           rooms={rooms}
@@ -233,19 +250,11 @@ export function BrowsePage() {
         />
 
         {isLoading && items.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--fg-muted)' }}>
+          <div className="p-8 text-center text-fg-muted">
             Loading…
           </div>
         ) : items.length === 0 ? (
-          <div
-            style={{
-              padding: '64px 20px',
-              textAlign: 'center',
-              color: 'var(--fg-muted)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 13,
-            }}
-          >
+          <div className="px-5 py-16 text-center text-fg-muted font-sans text-[13px]">
             No transcripts to show.
           </div>
         ) : filter.kind === 'trash' ? (
@@ -265,6 +274,7 @@ export function BrowsePage() {
               query={q}
               onSelect={(id) => navigate(`/transcripts/${id}`)}
               onDelete={(x) => setToDelete(x)}
+              onReprocess={(id) => reprocessMutation.mutate(id)}
             />
           ))
         )}
@@ -284,7 +294,7 @@ export function BrowsePage() {
           title="Move to trash?"
           message={
             <>
-              <strong style={{ color: 'var(--fg)' }}>
+              <strong className="text-fg">
                 {toDelete.title || 'Unnamed transcript'}
               </strong>{' '}
               will be moved to the trash. You can restore it later from the trash view.
@@ -303,7 +313,7 @@ export function BrowsePage() {
           title="Destroy permanently?"
           message={
             <>
-              <strong style={{ color: 'var(--fg)' }}>
+              <strong className="text-fg">
                 {toDestroy.title || 'Unnamed transcript'}
               </strong>{' '}
               and all its associated files will be permanently deleted. This can't be undone.

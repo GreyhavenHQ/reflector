@@ -5,6 +5,7 @@ import { Button, SectionLabel, SidebarItem } from '@/components/ui/primitives'
 import type { RoomsFilter } from '@/lib/types'
 import { BrandHeader, PrimaryNav, UserChip, sidebarAsideStyle } from './sidebarChrome'
 import { useAuth } from '@/auth/AuthContext'
+import { cn } from '@/lib/utils'
 
 type Room = components['schemas']['RoomDetails']
 
@@ -66,38 +67,23 @@ export function RoomsSidebar({
         />
       ) : (
         <>
-          <div style={{ padding: '14px 12px 6px' }}>
+          <div className="pt-3.5 px-3 pb-1.5">
             <Button
               variant="primary"
               size="md"
-              style={{ width: '100%', justifyContent: 'flex-start' }}
+              className="w-full justify-start"
               onClick={onNewRecording}
             >
               {I.Mic(14)} New recording
             </Button>
           </div>
 
-          <nav
-            style={{
-              flex: 1,
-              padding: '6px 10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 14,
-              overflowY: 'auto',
-            }}
-          >
+          <nav className="flex-1 pt-1.5 px-2.5 pb-3 flex flex-col gap-3.5 overflow-y-auto">
             <PrimaryNav />
 
-            <div
-              style={{
-                height: 1,
-                background: 'var(--border)',
-                margin: '2px 6px',
-              }}
-            />
+            <div className="h-px bg-border mx-1.5 my-0.5" />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <div className="flex flex-col gap-px">
               <SidebarItem
                 icon={I.Door(15)}
                 label="All rooms"
@@ -123,7 +109,7 @@ export function RoomsSidebar({
 
             <div>
               <SectionLabel>Status</SectionLabel>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div className="flex flex-col gap-px">
                 <SidebarItem
                   icon={I.Radio(14)}
                   label="Active now"
@@ -145,19 +131,14 @@ export function RoomsSidebar({
             {presentPlatforms.length > 0 && (
               <div>
                 <SectionLabel>Platform</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <div className="flex flex-col gap-px">
                   {presentPlatforms.map((p) => (
                     <SidebarItem
                       key={p}
                       icon={
                         <span
-                          style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: 3,
-                            background: PLATFORM_COLOR[p],
-                            display: 'inline-block',
-                          }}
+                          className="w-3.5 h-3.5 rounded-[3px] inline-block"
+                          style={{ background: PLATFORM_COLOR[p] }}
                         />
                       }
                       label={p.charAt(0).toUpperCase() + p.slice(1)}
@@ -172,7 +153,7 @@ export function RoomsSidebar({
 
             <div>
               <SectionLabel>Size</SectionLabel>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div className="flex flex-col gap-px">
                 <SidebarItem
                   icon={I.User(14)}
                   label="2–4 people"
@@ -192,7 +173,7 @@ export function RoomsSidebar({
 
             <div>
               <SectionLabel>Recording</SectionLabel>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div className="flex flex-col gap-px">
                 <SidebarItem
                   icon={I.Cloud(14)}
                   label="Cloud"
@@ -246,20 +227,11 @@ function RoomsRail({ filter, onFilter, onToggle, onNewRecording }: RailProps) {
     { kind: 'status', value: 'calendar', icon: I.Calendar(18), title: 'Calendar' },
   ]
   return (
-    <nav
-      style={{
-        flex: 1,
-        padding: '10px 8px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        alignItems: 'center',
-      }}
-    >
+    <nav className="flex-1 py-2.5 px-2 flex flex-col gap-1 items-center">
       <Button variant="primary" size="icon" title="New recording" onClick={onNewRecording}>
         {I.Mic(16)}
       </Button>
-      <div style={{ height: 10 }} />
+      <div className="h-2.5" />
       {items.map((it, i) => {
         const on =
           filter.kind === it.kind && (filter.value ?? null) === (it.value ?? null)
@@ -270,40 +242,22 @@ function RoomsRail({ filter, onFilter, onToggle, onNewRecording }: RailProps) {
             onClick={() =>
               onFilter({ kind: it.kind, value: it.value } as RoomsFilter)
             }
-            style={{
-              width: 40,
-              height: 40,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid',
-              borderColor: on ? 'var(--border)' : 'transparent',
-              borderRadius: 'var(--radius-md)',
-              background: on ? 'var(--card)' : 'transparent',
-              color: on ? 'var(--primary)' : 'var(--fg-muted)',
-              cursor: 'pointer',
-              boxShadow: on ? 'var(--shadow-xs)' : 'none',
-            }}
+            className={cn(
+              'w-10 h-10 inline-flex items-center justify-center border rounded-md cursor-pointer',
+              on
+                ? 'border-border bg-card text-primary shadow-xs'
+                : 'border-transparent bg-transparent text-fg-muted shadow-none',
+            )}
           >
             {it.icon}
           </button>
         )
       })}
-      <div style={{ marginTop: 'auto' }}>
+      <div className="mt-auto">
         <button
           onClick={onToggle}
           title="Expand sidebar"
-          style={{
-            width: 40,
-            height: 40,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--fg-muted)',
-            cursor: 'pointer',
-          }}
+          className="w-10 h-10 inline-flex items-center justify-center border-none bg-transparent text-fg-muted cursor-pointer"
         >
           {I.ChevronRight(16)}
         </button>

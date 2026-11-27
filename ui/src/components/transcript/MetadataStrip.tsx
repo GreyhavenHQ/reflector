@@ -1,5 +1,6 @@
 import type { components } from '@/api/schema'
 import { I } from '@/components/icons'
+import { cn } from '@/lib/utils'
 import { fmtDate, fmtDur } from '@/lib/format'
 
 type Transcript = components['schemas']['GetTranscriptWithParticipants']
@@ -22,7 +23,7 @@ function toSeconds(value: number | null | undefined) {
 }
 
 function Dot() {
-  return <span style={{ margin: '0 8px', color: 'var(--gh-grey-3)' }}>·</span>
+  return <span className="mx-2 text-[var(--gh-grey-3)]">·</span>
 }
 
 export function MetadataStrip({ transcript, speakerCount }: Props) {
@@ -31,32 +32,18 @@ export function MetadataStrip({ transcript, speakerCount }: Props) {
   const shortId = transcript.id.slice(0, 8)
   const duration = toSeconds(transcript.duration)
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        rowGap: 2,
-        fontSize: 11.5,
-        color: 'var(--fg-muted)',
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>#{shortId}</span>
+    <div className="flex items-center flex-wrap gap-y-0.5 text-[11.5px] text-fg-muted font-sans">
+      <span className="font-mono text-[11px]">#{shortId}</span>
       <Dot />
       <span>{sourceLabel(transcript)}</span>
       <Dot />
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-        {fmtDate(transcript.created_at)}
-      </span>
+      <span className="font-mono text-[11px]">{fmtDate(transcript.created_at)}</span>
       <Dot />
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-        {fmtDur(duration)}
-      </span>
+      <span className="font-mono text-[11px]">{fmtDur(duration)}</span>
       {speakerCount > 0 && (
         <>
           <Dot />
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span className="inline-flex items-center gap-1">
             {I.Users(11)} {speakerCount} {speakerCount === 1 ? 'speaker' : 'speakers'}
           </span>
         </>
@@ -65,21 +52,13 @@ export function MetadataStrip({ transcript, speakerCount }: Props) {
         <>
           <Dot />
           <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              color: tgt && tgt !== src ? 'var(--primary)' : 'var(--fg-muted)',
-            }}
+            className={cn(
+              'inline-flex items-center gap-1',
+              tgt && tgt !== src ? 'text-primary' : 'text-fg-muted',
+            )}
           >
             {I.Globe(11)}
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10.5,
-                textTransform: 'uppercase',
-              }}
-            >
+            <span className="font-mono text-[10.5px] uppercase">
               {src}
               {tgt && tgt !== src && <> → {tgt}</>}
             </span>
@@ -89,7 +68,7 @@ export function MetadataStrip({ transcript, speakerCount }: Props) {
       {transcript.room_name && (
         <>
           <Dot />
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span className="inline-flex items-center gap-1">
             {I.Door(11)} {transcript.room_name}
           </span>
         </>

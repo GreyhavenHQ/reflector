@@ -158,11 +158,7 @@ export function DailyRoom({ roomName, meeting, room: _room }: Props) {
   return (
     <div
       ref={setContainer}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--gh-off-black)',
-      }}
+      className="fixed inset-0 bg-[var(--gh-off-black)]"
     />
   )
 }

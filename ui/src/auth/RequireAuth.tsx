@@ -8,15 +8,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div
-        style={{
-          height: '100vh',
-          display: 'grid',
-          placeItems: 'center',
-          color: 'var(--fg-muted)',
-          fontFamily: 'var(--font-sans)',
-        }}
-      >
+      <div className="h-screen grid place-items-center text-fg-muted font-sans">
         Loading…
       </div>
     )

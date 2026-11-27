@@ -2,19 +2,7 @@ import { Button } from '@/components/ui/primitives'
 
 export function RoomLoading({ label }: { label: string }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--bg)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--fg-muted)',
-        fontFamily: 'var(--font-sans)',
-        fontSize: 14,
-      }}
-    >
+    <div className="fixed inset-0 bg-bg flex items-center justify-center text-fg-muted font-sans text-sm">
       {label}
     </div>
   )
@@ -28,28 +16,8 @@ export function RoomError({
   onLeave: () => void
 }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--bg)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: 14,
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
-      <p
-        style={{
-          margin: 0,
-          color: 'var(--destructive)',
-          fontSize: 15,
-          maxWidth: 380,
-          textAlign: 'center',
-        }}
-      >
+    <div className="fixed inset-0 bg-bg flex items-center justify-center flex-col gap-3.5 font-sans">
+      <p className="m-0 text-destructive text-[15px] max-w-[380px] text-center">
         {message}
       </p>
       <Button variant="outline" size="sm" onClick={onLeave}>

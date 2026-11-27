@@ -1,5 +1,6 @@
 import { I } from '@/components/icons'
 import { Button } from '@/components/ui/primitives'
+import { cn } from '@/lib/utils'
 
 type Props = {
   page: number
@@ -15,22 +16,11 @@ export function Pagination({ page, total, pageSize, onPage }: Props) {
   const end = Math.min(total, page * pageSize)
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1)
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '14px 20px',
-        borderTop: '1px solid var(--border)',
-        background: 'var(--card)',
-        fontFamily: 'var(--font-sans)',
-        fontSize: 12,
-      }}
-    >
-      <span style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)' }}>
+    <div className="flex items-center justify-between px-5 py-3.5 border-t border-border bg-card font-sans text-xs">
+      <span className="text-fg-muted font-mono">
         {start}–{end} of {total}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div className="flex items-center gap-1">
         <Button
           variant="outline"
           size="sm"
@@ -43,19 +33,12 @@ export function Pagination({ page, total, pageSize, onPage }: Props) {
           <button
             key={n}
             onClick={() => onPage(n)}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 'var(--radius-md)',
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: n === page ? 'var(--primary)' : 'var(--border)',
-              background: n === page ? 'var(--primary)' : 'var(--card)',
-              color: n === page ? 'var(--primary-fg)' : 'var(--fg)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 12,
-              fontWeight: 500,
-            }}
+            className={cn(
+              'w-[30px] h-[30px] rounded-md cursor-pointer border font-sans text-xs font-medium',
+              n === page
+                ? 'border-primary bg-primary text-primary-fg'
+                : 'border-border bg-card text-fg',
+            )}
           >
             {n}
           </button>

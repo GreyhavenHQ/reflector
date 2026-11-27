@@ -8,73 +8,30 @@ type TopBarProps = {
 
 export function TopBar({ title, crumb }: TopBarProps) {
   return (
-    <header
-      style={{
-        height: 65,
-        background: 'var(--card)',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 24px',
-        gap: 16,
-        fontFamily: 'var(--font-sans)',
-        flexShrink: 0,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          alignSelf: 'flex-end',
-          paddingBottom: 10,
-          flexShrink: 0,
-        }}
-      >
+    <header className="h-[65px] bg-card border-b border-border flex items-center px-6 gap-4 font-sans shrink-0">
+      <div className="flex flex-col gap-px self-end pb-2.5 shrink-0">
         {crumb && crumb.length > 0 && (
-          <div
-            style={{
-              fontSize: 11,
-              color: 'var(--fg-muted)',
-              display: 'flex',
-              gap: 6,
-              alignItems: 'center',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
+          <div className="text-[11px] text-fg-muted flex gap-1.5 items-center font-mono">
             {crumb.map((c, i) => (
               <Fragment key={i}>
-                <span
-                  style={{
-                    color: i === crumb.length - 1 ? 'var(--fg)' : 'var(--fg-muted)',
-                  }}
-                >
+                <span className={i === crumb.length - 1 ? 'text-fg' : 'text-fg-muted'}>
                   {c}
                 </span>
                 {i < crumb.length - 1 && (
-                  <span style={{ color: 'var(--gh-grey-4)' }}>/</span>
+                  <span className="text-[var(--gh-grey-4)]">/</span>
                 )}
               </Fragment>
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-serif)',
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: 'var(--fg)',
-            }}
-          >
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="m-0 font-serif text-[22px] font-semibold tracking-[-0.02em] text-fg">
             {title}
           </h1>
         </div>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="flex-1" />
 
       <ThemeToggle />
     </header>

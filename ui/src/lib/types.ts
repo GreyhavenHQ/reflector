@@ -64,11 +64,12 @@ export const LANG_LABELS: Record<string, string> = {
   es: 'ES',
 }
 
-// Backend's CreateTranscript requires a concrete language string (defaults to
-// "en"). It does NOT support a null/auto-detect mode — Whisper performs the
-// actual detection internally regardless, but the API still needs a seed
-// value. Keep the list to real languages only.
+// Backend's CreateTranscript.source_language is `str | None`. Sending
+// `null` means "auto-detect" — the file pipeline omits the language
+// param so Whisper/Parakeet detects from audio. The UI exposes this as
+// the "Auto" entry; on submit, code 'auto' is mapped to null.
 export const REFLECTOR_LANGS = [
+  { code: 'auto', name: 'Auto-detect', flag: '🌐' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'es', name: 'Spanish', flag: '🇪🇸' },
   { code: 'fr', name: 'French', flag: '🇫🇷' },

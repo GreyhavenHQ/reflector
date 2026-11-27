@@ -227,7 +227,7 @@ class Transcript(BaseModel):
     topics: list[TranscriptTopic] = []
     events: list[TranscriptEvent] = []
     participants: list[TranscriptParticipant] | None = []
-    source_language: str = "en"
+    source_language: str | None = None
     target_language: str = "en"
     share_mode: Literal["private", "semi-private", "public"] = "private"
     audio_location: str = "local"
@@ -584,7 +584,7 @@ class TranscriptController:
         self,
         name: str,
         source_kind: SourceKind,
-        source_language: str = "en",
+        source_language: str | None = None,
         target_language: str = "en",
         user_id: str | None = None,
         recording_id: str | None = None,

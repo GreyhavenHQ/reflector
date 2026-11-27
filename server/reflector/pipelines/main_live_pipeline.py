@@ -386,7 +386,13 @@ class PipelineMainLive(PipelineMainBase):
         ]
         pipeline = Pipeline(*processors)
         pipeline.options = self
-        pipeline.set_pref("audio:source_language", transcript.source_language)
+        # Live-pipeline processors expect a concrete language label; None means
+        # "auto-detect" at create time but the live ASR backends still seed a
+        # value (Whisper auto-detects regardless). Fall back to "en" for the
+        # pref so downstream consumers that lack a None branch keep working.
+        pipeline.set_pref(
+            "audio:source_language", transcript.source_language or "en"
+        )
         pipeline.set_pref("audio:target_language", transcript.target_language)
         pipeline.logger.bind(transcript_id=transcript.id)
         pipeline.logger.info("Pipeline main live created")
